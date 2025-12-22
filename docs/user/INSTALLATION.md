@@ -18,6 +18,7 @@ Once available, the Cerebrus installer will:
 
 - Bundle a compatible Python runtime.
 - Install Python dependencies in an isolated environment.
+- Install required .NET Runtimes (.NET 6 and .NET 8).
 - Prompt for:
   - Unreal Engine root or CsvTools/PerfReportTool locations.
   - Default cache and reports directories.

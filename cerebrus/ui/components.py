@@ -189,20 +189,26 @@ def _show_about_dialog(state: UIState) -> None:
 
         # Repository
         dpg.add_text("Repository:")
-        dpg.add_text(
-            "https://github.com/rahul-gupta-lightfury/Cerebrus", color=(100, 150, 255)
+        _add_hyperlink(
+            "https://github.com/LightFuryGames/Cerebrus",
+            "https://github.com/LightFuryGames/Cerebrus",
         )
 
         # Description
-        dpg.add_text(
-            "Python-based Windows-only toolkit with a Dear Py Gui UI for managing"
-        )
+        with dpg.group(horizontal=True):
+            dpg.add_text("Python-based Windows-only toolkit with ")
+            _add_hyperlink("DearPyGUI", "https://github.com/hoffstadt/DearPyGui")
+            dpg.add_text("UI for managing")
+
         dpg.add_text("Unreal Engine Android profiling workflows.")
 
         # License
         with dpg.group(horizontal=True):
             dpg.add_text("Licensed under the")
-            dpg.add_text("BSD 3-Clause License", color=(100, 150, 255))
+            _add_hyperlink(
+                "BSD 3-Clause License",
+                "https://github.com/LightFuryGames/Cerebrus?tab=BSD-3-Clause-1-ov-file",
+            )
             dpg.add_text(".")
 
         dpg.add_spacer(height=20)
@@ -346,16 +352,6 @@ def build_file_actions(state: UIState) -> None:
 
                     with dpg.table_row():
                         dpg.add_checkbox(
-                            tag="cb_move_logs",
-                            label="Move logs",
-                            default_value=state.move_logs_enabled,
-                            callback=_handle_bulk_action_toggle,
-                            user_data=(state, "move_logs_enabled"),
-                        )
-                        _add_help_button("move_logs")
-
-                    with dpg.table_row():
-                        dpg.add_checkbox(
                             tag="cb_move_csv",
                             label="Move Profiling Data",
                             default_value=state.move_csv_enabled,
@@ -363,6 +359,16 @@ def build_file_actions(state: UIState) -> None:
                             user_data=(state, "move_csv_enabled"),
                         )
                         _add_help_button("move_csv")
+
+                    with dpg.table_row():
+                        dpg.add_checkbox(
+                            tag="cb_move_logs",
+                            label="Move logs",
+                            default_value=state.move_logs_enabled,
+                            callback=_handle_bulk_action_toggle,
+                            user_data=(state, "move_logs_enabled"),
+                        )
+                        _add_help_button("move_logs")
 
             with dpg.child_window(border=True, autosize_y=True, width=460):
                 dpg.add_text("Bulk Actions From PC to PC", color=(200, 200, 200))
@@ -1860,3 +1866,18 @@ def _add_help_button(tooltip_key: str, state: UIState = None) -> None:
     with dpg.tooltip(button):
         # Wrap text to max width for readability
         dpg.add_text(tooltip_text, wrap=500)
+
+
+def _add_hyperlink(text: str, url: str, color: tuple[int, int, int] = (100, 150, 255)) -> None:
+    """Add a clickable text hyperlink."""
+    link = dpg.add_text(text, color=color)
+
+    # Create a unique handler registry for this link
+    with dpg.item_handler_registry() as registry:
+        dpg.add_item_clicked_handler(callback=lambda: webbrowser.open(url))
+
+    dpg.bind_item_handler_registry(link, registry)
+
+    # Add a tooltip to show the URL
+    with dpg.tooltip(link):
+        dpg.add_text(url)

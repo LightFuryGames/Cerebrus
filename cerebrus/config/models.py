@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Mapping
+from typing import Any, Dict, List, Mapping, cast
 
 
 @dataclass
@@ -19,8 +19,8 @@ class CacheConfig:
     def from_mapping(
         cls, data: Mapping[str, object], default_directory: Path
     ) -> "CacheConfig":
-        directory_value = Path(data.get("directory", default_directory))
-        max_entries_value = int(data.get("max_entries", cls.max_entries))
+        directory_value = Path(str(data.get("directory", default_directory)))
+        max_entries_value = int(str(data.get("max_entries", cls.max_entries)))
         return cls(directory=directory_value, max_entries=max_entries_value)
 
 
@@ -45,7 +45,7 @@ class ProfileConfig:
             name=name,
             report_type=report_type,
             nickname=str(nickname) if nickname is not None else None,
-            profile_path=Path(profile_path) if profile_path else None,
+            profile_path=Path(str(profile_path)) if profile_path else None,
             package_name=str(package_name) if package_name else None,
         )
 
@@ -63,8 +63,8 @@ class AppConfig:
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, object]) -> "AppConfig":
-        version_value = int(data.get("version", 1))
-        tool_paths_value = dict(data.get("tool_paths", {}))
+        version_value = int(str(data.get("version", 1)))
+        tool_paths_value = cast(Dict[str, str], data.get("tool_paths", {}))
 
         profile_entries = data.get("profiles", [])
         profiles_value = [

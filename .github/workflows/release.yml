@@ -129,6 +129,31 @@ jobs:
               }
           }
 
+          # 4. Verify .NET Runtimes
+          Write-Host "Checking .NET Runtimes..."
+          if (Get-Command dotnet -ErrorAction SilentlyContinue) {
+              $runtimes = dotnet --list-runtimes
+              Write-Host "Installed Runtimes:"
+              Write-Host $runtimes
+              
+              if ($runtimes -match "Microsoft.WindowsDesktop.App 6\.") {
+                  Write-Host "Verified: .NET 6 Desktop Runtime is present."
+              } else {
+                  Write-Error "Validation Failed: .NET 6 Desktop Runtime not found."
+                  exit 1
+              }
+
+              if ($runtimes -match "Microsoft.WindowsDesktop.App 8\.") {
+                  Write-Host "Verified: .NET 8 Desktop Runtime is present."
+              } else {
+                  Write-Error "Validation Failed: .NET 8 Desktop Runtime not found."
+                  exit 1
+              }
+          } else {
+              Write-Error "Validation Failed: 'dotnet' command not found."
+              exit 1
+          }
+
 
       - name: Upload installer artifacts
         uses: actions/upload-artifact@v4

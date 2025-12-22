@@ -117,7 +117,7 @@ class ProfileManager:
             import sys
 
             if getattr(sys, "frozen", False):
-                base_path = Path(sys._MEIPASS)
+                base_path = Path(getattr(sys, "_MEIPASS"))
                 default_path = base_path / "cerebrus" / "resources" / "Titan.json"
                 if not default_path.exists():
                     default_path = base_path / "resources" / "Titan.json"

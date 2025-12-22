@@ -92,6 +92,90 @@ try {
     Write-Log "Starting dependency installation..."
     Install-Python
     Install-Adb
+
+    function Install-DotNet6 {
+        Write-Log "Checking .NET 6 Desktop Runtime..."
+        $dotnetInstalled = Get-Command dotnet -ErrorAction SilentlyContinue
+        $needInstall = $true
+
+        if ($dotnetInstalled) {
+            $runtimes = dotnet --list-runtimes 2>$null
+            if ($runtimes -match "Microsoft.WindowsDesktop.App 6\.") {
+                Write-Log ".NET 6 Desktop Runtime found. Skipping install."
+                $needInstall = $false
+            }
+        }
+
+        if ($needInstall) {
+            Write-Log "Downloading .NET 6 Desktop Runtime..."
+            # Using aka.ms link for latest 6.0 patch
+            $url = "https://aka.ms/dotnet/6.0/windowsdesktop-runtime-win-x64.exe"
+            $installerPath = "$env:TEMP\windowsdesktop-runtime-6.0-win-x64.exe"
+        
+            try {
+                Invoke-WebRequest -Uri $url -OutFile $installerPath
+            
+                Write-Log "Installing .NET 6 Desktop Runtime..."
+                $process = Start-Process -FilePath $installerPath -ArgumentList "/install", "/quiet", "/norestart" -Wait -PassThru
+            
+                if ($process.ExitCode -eq 0 -or $process.ExitCode -eq 3010) {
+                    # 3010 is restart required
+                    Write-Log ".NET 6 installation successful."
+                }
+                else {
+                    Write-Log ".NET 6 installation failed with exit code $($process.ExitCode)."
+                    throw ".NET 6 installation failed."
+                }
+            }
+            catch {
+                Write-Log "Failed to download or install .NET 6: $_"
+                throw
+            }
+        }
+    }
+
+    function Install-DotNet8 {
+        Write-Log "Checking .NET 8 Desktop Runtime..."
+        $dotnetInstalled = Get-Command dotnet -ErrorAction SilentlyContinue
+        $needInstall = $true
+
+        if ($dotnetInstalled) {
+            $runtimes = dotnet --list-runtimes 2>$null
+            if ($runtimes -match "Microsoft.WindowsDesktop.App 8\.") {
+                Write-Log ".NET 8 Desktop Runtime found. Skipping install."
+                $needInstall = $false
+            }
+        }
+
+        if ($needInstall) {
+            Write-Log "Downloading .NET 8 Desktop Runtime..."
+            # Using aka.ms link for latest 8.0 patch
+            $url = "https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe"
+            $installerPath = "$env:TEMP\windowsdesktop-runtime-8.0-win-x64.exe"
+        
+            try {
+                Invoke-WebRequest -Uri $url -OutFile $installerPath
+            
+                Write-Log "Installing .NET 8 Desktop Runtime..."
+                $process = Start-Process -FilePath $installerPath -ArgumentList "/install", "/quiet", "/norestart" -Wait -PassThru
+            
+                if ($process.ExitCode -eq 0 -or $process.ExitCode -eq 3010) {
+                    Write-Log ".NET 8 installation successful."
+                }
+                else {
+                    Write-Log ".NET 8 installation failed with exit code $($process.ExitCode)."
+                    throw ".NET 8 installation failed."
+                }
+            }
+            catch {
+                Write-Log "Failed to download or install .NET 8: $_"
+                throw
+            }
+        }
+    }
+
+    Install-DotNet6
+    Install-DotNet8
     Write-Log "All dependencies installed successfully."
     exit 0
 }

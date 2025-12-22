@@ -1,147 +1,94 @@
 # Project Cerebrus
 
-Python-based Windows-only toolkit with a Dear ImGui UI for managing Unreal Engine Android profiling workflows.
+**Cerebrus** is a comprehensive Python-based GUI toolkit designed to streamline Unreal Engine Android profiling workflows. It orchestrates device management, file retrieval, and report generation, providing a deterministic and efficient way to analyze performance data.
 
-Cerebrus orchestrates:
-- Device discovery and Android workload management.
-- Automatic ADB environment setup and verification.
-- Retrieval of logcat logs, CSV profiling data, and Insights captures.
-- Simplified "Output Path" workspace management with automatic device-specific folder organization.
-- Per-project configuration and caching.
-- CSV- and PerfReport-based reporting flows using Unreal Engine's CsvTools and PerfReportTool.
-- Theme configuration (Standard, High Contrast, Color Blind modes) and a stable one-click installer.
+## Key Features
 
-> Note: This repository assumes you already have Unreal Engine binaries available for:
-> - UAFT (Unreal Android File Tool)
-> - CsvTools (CSVCollate, CsvConvert, CSVFilter, CSVSplit, CsvToSVG, csvinfo)
-> - PerfReportTool
+### 📱 Device Management
+- **Automatic Discovery**: Instantly list connected Android devices via ADB.
+- **Profiling Control**: Start and stop CSV profiling directly from the UI.
+- **Troubleshooting**: Built-in guidance for common connectivity issues.
 
-## Goals
+### 📂 File Management
+- **Smart Retrieval**: Automatically move logs and profiling data (CSV) from your device to your PC.
+- **Organized Output**: Automatically organizes files into device-specific folders (e.g., `OutputPath/DeviceModel/`).
+- **Flexible Naming**: Configure output filenames with optional prefixing and auto-incrementing counters.
 
-- Deterministic, repeatable profiling workflows for Android targets.
-- Clear separation of architecture, tooling wrappers, and UI.
-- Codex-friendly structure and documentation.
-- No hidden behavior: all automation is scripted and documented.
+### 📊 Report Generation
+- **Performance Reports**: One-click generation of visual performance reports from CSV data using `PerfReportTool`.
+- **Colored Logs**: Convert raw text logs into searchable, color-coded HTML files for easier debugging.
+- **Batch Processing**: Process multiple files in bulk with a single click.
 
-## Repository Layout (expected)
+### ⚙️ Configuration & Customization
+- **Profiles**: Save and load project-specific configurations (Package Name, Paths, etc.).
+- **Themes**: Includes High Contrast and Color Blind modes (Deuteranopia, Tritanopia).
+- **Auto-Save**: Your settings are automatically saved to the active profile.
 
-This scaffold assumes a layout similar to:
+## Installation
 
-```text
-/cerebrus/                # Core Python packages
-  core/                   # Core orchestration logic and abstractions
-  ui/                     # Dear ImGui UI and layout logic
-  tools/                  # Wrappers around UAFT, CsvTools, PerfReportTool
-  config/                 # Configuration and profile definitions
-  cache/                  # Per-project cache management
-  installers/             # One-click installer logic and metadata
-/docs/                    # User + developer documentation
-/tests/                   # Automated tests (unit + integration)
-```
+### Using the Installer (Recommended)
+1. Download the latest `Cerebrus_Setup.exe` from the Releases page.
+2. Run the installer. It will automatically:
+   - Install the Cerebrus application.
+   - Set up necessary dependencies (Python, ADB, .NET 6/8).
+   - Create desktop shortcuts.
 
-Adjust this layout as the project evolves, but keep documentation in sync.
-
-## Getting Started (Developers)
-
-1. **Clone the repository**
-
+### Running from Source (Developers)
+1. **Clone the repository**:
    ```bash
    git clone <REPO_URL> cerebrus
    cd cerebrus
    ```
-
-2. **Create and activate a virtual environment (Windows)**
-
+2. **Create a virtual environment**:
    ```bash
    py -3 -m venv .venv
    .venv\Scripts\activate
    ```
-
-3. **Install Python dependencies**
-
+3. **Install dependencies**:
    ```bash
    pip install -r requirements.txt
    ```
-
-   Keep `requirements.txt` minimal and reproducible. Prefer exact versions for tooling that affects profiling reports.
-
-4. **Run the DearPyGui UI**
-
-   The repository now includes a runnable DearPyGui interface that mirrors the
-   sketch attached to the task. Launch it with:
-
+4. **Run the application**:
    ```bash
    python -m cerebrus
    ```
 
-   The window opens with a menu bar, profile summary fields, device listing
-   controls, and placeholders for log copying, CSV exports, and report
-   generation. Use the **List Devices** button to populate sample rows.
+## Usage
 
-5. **(Optional) Configure tool paths**
+1. **Launch Cerebrus**.
+2. **Select a Profile** or create a new one.
+3. **Connect your Android device** and click **List Devices**.
+4. **Select your device** from the table.
+5. **Configure your Output Path** and **Package Name**.
+6. Use the **Bulk Actions** panel to:
+   - **Move Logs/CSV**: Pull data from the device.
+   - **Generate Reports**: Create HTML reports from the pulled data.
 
-   The application ships with built-in defaults so you can launch the UI
-   without creating a configuration file. If you want to point Cerebrus at
-   specific Unreal Engine tooling later, create `config/cerebrus.yaml` and
-   populate the `tool_paths` block; otherwise you can skip this entirely. The
-   stubs will continue to use mocked device data until real paths are supplied.
+For detailed instructions, access the **User Guide** from the **Help** menu within the application.
 
-6. **Run preflight checks**
+## Repository Layout
 
-   Use the preflight helper to verify configuration wiring and cache creation
-   without launching the UI:
-
-   ```bash
-   python -m cerebrus.core.preflight --config config/cerebrus.yaml
-   ```
-
-   If `config/cerebrus.yaml` is missing, the defaults will be used and a local
-   `.cerebrus-cache` folder will be created or refreshed.
+```text
+/cerebrus/                # Core Python packages
+  core/                   # Core orchestration logic and abstractions
+  ui/                     # Dear PyGui UI and layout logic
+  tools/                  # Wrappers around UAFT, CsvTools, PerfReportTool
+  config/                 # Configuration and profile definitions
+  resources/              # Static resources (icons, user guide)
+  installers/             # Installer scripts (Inno Setup)
+/docs/                    # User + developer documentation
+/tests/                   # Automated tests
+```
 
 ## Continuous Integration
 
-GitHub Actions enforces three separate steps on pushes and pull requests:
+GitHub Actions enforces:
+1. **Linting**: `black`, `isort`, and `mypy`.
+2. **Preflight Checks**: Verifies configuration and caching.
+3. **Unit Tests**: Runs `pytest`.
 
-1. **Lint** — `black --check`, `isort --check-only`, and `mypy` over the
-   `cerebrus` package.
-2. **Preflight** — `python -m cerebrus.core.preflight --config config/cerebrus.yaml`
-   to ensure configuration files parse and cache directories can be created.
-3. **Unit tests** — `pytest`.
+## Documentation
 
-Keep local changes aligned with these commands to avoid CI regressions.
-
-## Working With Codex
-
-Codex is the code-generation and refactoring engine for this repository. To keep changes deterministic:
-
-- Treat Codex as a co-developer that must follow the rules in:
-  - `CONTRIBUTING.md`
-  - `CODEX_GUIDE.md`
-  - `docs/ARCHITECTURE_OVERVIEW.md`
-- Always ask Codex to:
-  - Respect module boundaries.
-  - Keep functions and classes small and focused.
-  - Update or create documentation when modifying behavior.
-  - Provide unified diffs (`@@ ... @@` blocks) when changing files.
-- Prefer incremental, well-scoped tasks (e.g. refactor a single module, add one feature, etc.).
-
-## Git Hygiene
-
-- Default branch: `main`
-- Development branch: `develop`
-- Feature branches: `feature/<area>-<short-description>`
-- Hotfix branches: `hotfix/<issue-id>-<short-description>`
-
-See `CONTRIBUTING.md` for full details.
-
-## Documentation Map
-
-- `README.md` — high-level overview and onboarding.
-- `CONTRIBUTING.md` — branching, reviews, and Codex workflow.
-- `CODE_OF_CONDUCT.md` — community expectations.
-- `CODEX_GUIDE.md` — how to work with Codex on this project.
-- `docs/ARCHITECTURE_OVERVIEW.md` — modules and boundaries.
-- `docs/CSVTOOLS_REFERENCE.md` — CsvTools usage patterns.
-- `docs/PERFREPORTTOOL_REFERENCE.md` — PerfReportTool usage patterns.
-
-Keep these up to date whenever behavior changes.
+- `docs/user_guide.md` — Comprehensive usage instructions.
+- `CONTRIBUTING.md` — Contribution guidelines.
+- `CODEX_GUIDE.md` — Guide for working with the AI coding assistant.
