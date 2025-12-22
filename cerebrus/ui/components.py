@@ -346,16 +346,6 @@ def build_file_actions(state: UIState) -> None:
 
                     with dpg.table_row():
                         dpg.add_checkbox(
-                            tag="cb_move_logs",
-                            label="Move logs",
-                            default_value=state.move_logs_enabled,
-                            callback=_handle_bulk_action_toggle,
-                            user_data=(state, "move_logs_enabled"),
-                        )
-                        _add_help_button("move_logs")
-
-                    with dpg.table_row():
-                        dpg.add_checkbox(
                             tag="cb_move_csv",
                             label="Move Profiling Data",
                             default_value=state.move_csv_enabled,
@@ -363,6 +353,16 @@ def build_file_actions(state: UIState) -> None:
                             user_data=(state, "move_csv_enabled"),
                         )
                         _add_help_button("move_csv")
+
+                    with dpg.table_row():
+                        dpg.add_checkbox(
+                            tag="cb_move_logs",
+                            label="Move logs",
+                            default_value=state.move_logs_enabled,
+                            callback=_handle_bulk_action_toggle,
+                            user_data=(state, "move_logs_enabled"),
+                        )
+                        _add_help_button("move_logs")
 
             with dpg.child_window(border=True, autosize_y=True, width=460):
                 dpg.add_text("Bulk Actions From PC to PC", color=(200, 200, 200))
