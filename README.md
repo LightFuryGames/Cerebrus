@@ -32,6 +32,7 @@
    - Install the Cerebrus application.
    - Set up necessary dependencies (Python, ADB, .NET 6/8).
    - Create desktop shortcuts.
+   - Sample Testing point
 
 ### Running from Source (Developers)
 1. **Clone the repository**:
