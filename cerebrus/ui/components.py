@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -20,6 +21,9 @@ from cerebrus.ui.themes import get_theme_manager
 
 # Log colors are now handled by ThemeManager
 SELECTED_ROW_COLOR = (0, 119, 200, 153)  # Blue highlight with transparency
+
+# Hardcoded S3 Bucket URL for Config Downloads
+S3_CONFIG_BASE_URL = "https://titan-cerebrus-configurations.s3.ap-south-1.amazonaws.com"
 
 
 # Tooltip definitions
@@ -40,6 +44,7 @@ TOOLTIPS = {
     "start_profiling": "Starts profiling data on selected device if Package is running actively in foreground.",
     "stop_profiling": "Stops profiling data on selected device if Package is running actively in foreground.",
     "generate_actions": "Executes all selected bulk actions (Move Logs, Move Profiling Data, Generate Reports) in sequence.",
+    "sync_remote_config": "Downloads the BackendConfig.ini from the configured URL for this environment and pushes it to the selected device, replacing any existing config.",
 }
 
 
@@ -63,6 +68,10 @@ def build_menu_bar(state: UIState) -> None:
                 callback=lambda: log_message(
                     state, "INFO", "Echo Test Command Executed"
                 ),
+            )
+            dpg.add_menu_item(
+                label="AWS Configuration",
+                callback=lambda: _show_aws_config_dialog(state),
             )
 
         with dpg.menu(label="Profile"):
@@ -264,33 +273,64 @@ def build_device_controls(state: UIState) -> None:
             label="List Devices", width=120, callback=lambda: _populate_devices(state)
         )
         _add_help_button("list_devices")
-
     with dpg.child_window(
         border=False, autosize_x=True, height=220, tag="device_table_container"
     ):
         _render_device_table(state)
 
-    dpg.add_separator()
-    with dpg.group(horizontal=True, horizontal_spacing=8):
-        dpg.add_text("Remote Profiling", color=(120, 180, 255))
-        dpg.add_button(
-            label="Start Profiling",
-            width=120,
-            callback=lambda: _handle_start_profiling(state),
-        )
-        _add_help_button("start_profiling", state)
-        dpg.add_button(
-            label="Stop Profiling",
-            width=120,
-            callback=lambda: _handle_stop_profiling(state),
-        )
-        _add_help_button("stop_profiling", state)
-
 
 def build_file_actions(state: UIState) -> None:
-    """Render file copy actions and reporting panels."""
+    """Render file copy actions and reporting panels in tabs."""
     dpg.add_separator()
-    with dpg.child_window(border=True, autosize_x=True, autosize_y=False, height=320):
+    with dpg.tab_bar():
+        with dpg.tab(label="Profiling"):
+            _build_profiling_tab(state)
+        with dpg.tab(label="Configuration Sync"):
+            _build_config_sync_tab(state)
+
+    dpg.add_separator()
+    with dpg.child_window(border=True, autosize_x=True, autosize_y=False, height=200):
+        dpg.add_text("Cerebrus App Live log", color=(120, 180, 255))
+        with dpg.group(horizontal=True):
+            dpg.add_input_text(
+                tag="log_filter_input",
+                label="Filter",
+                width=280,
+                callback=_handle_log_filter,
+                user_data=state,
+            )
+            dpg.add_button(label="Clear", callback=lambda: _clear_logs(state))
+            dpg.add_button(label="Export", callback=lambda: _handle_export_logs(state))
+        with dpg.child_window(
+            border=True, autosize_x=True, height=130, tag="log_container"
+        ):
+            _render_log_entries(state)
+
+    _register_file_dialogs(state)
+
+
+def _build_profiling_tab(state: UIState) -> None:
+    """Profiling tab content including remote profiling and file actions."""
+    with dpg.child_window(border=True, autosize_x=True, autosize_y=False, height=350):
+        with dpg.group(horizontal=True, horizontal_spacing=8):
+            dpg.add_text("Remote Profiling", color=(120, 180, 255))
+            dpg.add_button(
+                label="Start Profiling",
+                width=120,
+                callback=lambda: _handle_start_profiling(state),
+            )
+            _add_help_button("start_profiling", state)
+            dpg.add_button(
+                label="Stop Profiling",
+                width=120,
+                callback=lambda: _handle_stop_profiling(state),
+            )
+            _add_help_button("stop_profiling", state)
+        
+        dpg.add_spacer(height=5)
+        dpg.add_separator()
+        dpg.add_spacer(height=5)
+
         dpg.add_text("Data and Perf Report", color=(120, 180, 255))
         with dpg.table(header_row=False, policy=dpg.mvTable_SizingStretchProp):
             dpg.add_table_column(width_fixed=True, init_width_or_weight=360)
@@ -412,25 +452,11 @@ def build_file_actions(state: UIState) -> None:
                         )
                         _add_help_button("view_html_logs")
 
-    dpg.add_separator()
-    with dpg.child_window(border=True, autosize_x=True, autosize_y=False, height=200):
-        dpg.add_text("Cerebrus App Live log", color=(120, 180, 255))
-        with dpg.group(horizontal=True):
-            dpg.add_input_text(
-                tag="log_filter_input",
-                label="Filter",
-                width=280,
-                callback=_handle_log_filter,
-                user_data=state,
-            )
-            dpg.add_button(label="Clear", callback=lambda: _clear_logs(state))
-            dpg.add_button(label="Export", callback=lambda: _handle_export_logs(state))
-        with dpg.child_window(
-            border=True, autosize_x=True, height=130, tag="log_container"
-        ):
-            _render_log_entries(state)
 
-    _register_file_dialogs(state)
+def _build_config_sync_tab(state: UIState) -> None:
+    """Configuration Sync panel tab content."""
+    with dpg.child_window(border=True, autosize_x=True, autosize_y=False, height=280):
+        build_remote_config_sync(state)
 
 
 def _populate_devices(state: UIState) -> None:
@@ -1223,6 +1249,14 @@ def _handle_device_select(
         if dpg.does_item_exist("output_path_label"):
             dpg.set_value("output_path_label", str(state.output_path))
 
+        # Update config output path
+        if state.base_config_output_path is None:
+            state.base_config_output_path = state.config_output_path
+        
+        state.config_output_path = state.base_config_output_path / device_folder
+        if dpg.does_item_exist("config_output_path_label"):
+            dpg.set_value("config_output_path_label", str(state.config_output_path))
+
         # Update output file name to match device make and model
         new_file_name = f"{selected_device.make}_{selected_device.model}"
         state.output_file_name = new_file_name
@@ -1294,7 +1328,7 @@ def _browse_folder_native(state: UIState, path_type: str) -> None:
                     dpg.set_value("input_path_label", str(selected_path))
                 log_message(state, "SUCCESS", f"Input path set to: {selected_path}")
                 _auto_save_profile(state)
-            else:  # output
+            elif path_type == "output":
                 state.base_output_path = selected_path
                 state.output_path = selected_path
 
@@ -1303,6 +1337,17 @@ def _browse_folder_native(state: UIState, path_type: str) -> None:
                 log_message(
                     state, "SUCCESS", f"Output path set to: {state.output_path}"
                 )
+                _auto_save_profile(state)
+            elif path_type == "config_output":
+                state.base_config_output_path = selected_path
+                state.config_output_path = selected_path
+
+                if dpg.does_item_exist("config_output_path_label"):
+                    dpg.set_value("config_output_path_label", str(state.config_output_path))
+                log_message(
+                    state, "SUCCESS", f"Config output path set to: {state.config_output_path}"
+                )
+                _render_downloaded_configs_list(state)
                 _auto_save_profile(state)
 
     except Exception as e:
@@ -1453,7 +1498,7 @@ def _show_profile_dialog(state: UIState, is_edit: bool = False) -> None:
         package_name = ""
 
     with dpg.window(
-        tag="profile_dialog", label=title, modal=True, width=500, height=250
+        tag="profile_dialog", label=title, modal=True, width=600, height=550
     ):
         with dpg.table(header_row=False, policy=dpg.mvTable_SizingStretchProp):
             dpg.add_table_column(width_fixed=True, init_width_or_weight=100)
@@ -1468,6 +1513,62 @@ def _show_profile_dialog(state: UIState, is_edit: bool = False) -> None:
             with dpg.table_row():
                 dpg.add_text("Package Name:")
                 dpg.add_input_text(tag="pd_package_name", default_value=package_name)
+                dpg.add_spacer()
+
+            dpg.add_table_row() # Empty row for spacer
+            
+            with dpg.table_row():
+                dpg.add_text("Remote Config URLs:", color=(120, 180, 255))
+                dpg.add_spacer()
+                dpg.add_spacer()
+
+            remote_configs = state.profile_manager.current_profile.remote_configs if state.profile_manager.current_profile else {
+                "Development": "", "Shipping": "", "Debug": ""
+            }
+            
+            with dpg.table_row():
+                dpg.add_text("Remote Config Setup:", color=(120, 180, 255))
+                dpg.add_spacer()
+                dpg.add_spacer()
+
+            with dpg.table_row():
+                dpg.add_text("Base URL:")
+                dpg.add_input_text(
+                    tag="pd_base_url", 
+                    default_value=state.profile_manager.current_profile.remote_config_base_url if state.profile_manager.current_profile else "",
+                    hint="Leave empty to use default S3 Bucket"
+                )
+                dpg.add_spacer()
+
+            for env in ["Development", "Shipping", "Debug"]:
+                with dpg.table_row():
+                    dpg.add_text(f"{env} Override:")
+                    dpg.add_input_text(tag=f"pd_url_{env}", default_value=remote_configs.get(env, ""))
+                    dpg.add_spacer()
+
+            with dpg.table_row():
+                dpg.add_text("AWS S3 Auth:", color=(120, 180, 255))
+                dpg.add_spacer()
+                dpg.add_spacer()
+
+            with dpg.table_row():
+                dpg.add_text("AWS Access Key:")
+                dpg.add_input_text(tag="pd_aws_access_key", default_value=profile.aws_access_key if is_edit else "", password=True)
+                dpg.add_spacer()
+
+            with dpg.table_row():
+                dpg.add_text("AWS Secret Key:")
+                dpg.add_input_text(tag="pd_aws_secret_key", default_value=profile.aws_secret_key if is_edit else "", password=True)
+                dpg.add_spacer()
+
+            with dpg.table_row():
+                dpg.add_text("AWS Region:")
+                dpg.add_input_text(tag="pd_aws_region", default_value=profile.aws_region if is_edit else "ap-south-1")
+                dpg.add_spacer()
+
+            with dpg.table_row():
+                dpg.add_text("AWS Profile:")
+                dpg.add_input_text(tag="pd_aws_profile", default_value=profile.aws_profile if is_edit else "", hint="e.g. default, work")
                 dpg.add_spacer()
 
         dpg.add_separator()
@@ -1541,6 +1642,12 @@ def _handle_profile_save(state: UIState, is_edit: bool) -> None:
         state.temp_profile_data = {
             "nickname": nickname,
             "package_name": package_name,
+            "remote_config_base_url": dpg.get_value("pd_base_url"),
+            "remote_configs": {env: dpg.get_value(f"pd_url_{env}") for env in ["Development", "Shipping", "Debug"]},
+            "aws_access_key": dpg.get_value("pd_aws_access_key"),
+            "aws_secret_key": dpg.get_value("pd_aws_secret_key"),
+            "aws_region": dpg.get_value("pd_aws_region"),
+            "aws_profile": dpg.get_value("pd_aws_profile"),
         }
         _save_profile_native(state, nickname)
     else:
@@ -1549,6 +1656,18 @@ def _handle_profile_save(state: UIState, is_edit: bool) -> None:
         if profile:
             profile.nickname = nickname
             profile.package_name = package_name
+            
+            # Update remote configs
+            profile.remote_config_base_url = dpg.get_value("pd_base_url")
+            for env in ["Development", "Shipping", "Debug"]:
+                profile.remote_configs[env] = dpg.get_value(f"pd_url_{env}")
+
+            # Update AWS credentials
+            profile.aws_access_key = dpg.get_value("pd_aws_access_key")
+            profile.aws_secret_key = dpg.get_value("pd_aws_secret_key")
+            profile.aws_region = dpg.get_value("pd_aws_region")
+            profile.aws_profile = dpg.get_value("pd_aws_profile")
+                
             state.profile_manager.save_current_profile()
             state.profile_nickname = nickname or "None"
 
@@ -1585,6 +1704,12 @@ def _save_current_profile(state: UIState) -> None:
             profile.output_path = str(state.base_output_path)
         else:
             profile.output_path = str(state.output_path)
+
+        if state.base_config_output_path:
+            profile.config_output_path = str(state.base_config_output_path)
+        else:
+            profile.config_output_path = str(state.config_output_path)
+
         profile.use_prefix_only = state.use_prefix_only
 
         state.profile_manager.save_current_profile()
@@ -1617,6 +1742,11 @@ def _auto_save_profile(state: UIState) -> None:
         profile.move_csv_enabled = state.move_csv_enabled
         profile.generate_perf_report_enabled = state.generate_perf_report_enabled
         profile.generate_colored_logs_enabled = state.generate_colored_logs_enabled
+        
+        # Save manifest URL
+        if dpg.does_item_exist("remote_manifest_url_input"):
+            state.remote_manifest_url = dpg.get_value("remote_manifest_url_input")
+            profile.remote_manifest_url = state.remote_manifest_url
 
         if state.profile_manager.current_profile_path:
             state.profile_manager.save_current_profile()
@@ -1632,6 +1762,14 @@ def _auto_save_profile(state: UIState) -> None:
                 # We do NOT update current_profile_path to keep it as "Default" in UI
             except Exception as e:
                 print(f"Failed to shadow save default profile: {e}")
+
+
+def _update_manifest_url_state(state: UIState, value: str) -> None:
+    """Update manifest URL in state and profile."""
+    state.remote_manifest_url = value
+    if state.profile_manager.current_profile:
+        state.profile_manager.current_profile.remote_manifest_url = value
+        _auto_save_profile(state)
 
 
 def _save_profile_native(state: UIState, default_name: str) -> None:
@@ -1695,16 +1833,41 @@ def _finalize_profile_save(state: UIState, path: Path) -> None:
     profile = state.profile_manager.create_new_profile(
         nickname=nickname, package_name=package_name, path=path
     )
+    
+    # Apply additional fields if they were in temp_data
+    if "remote_config_base_url" in temp_data:
+        profile.remote_config_base_url = temp_data["remote_config_base_url"]
+    if "remote_configs" in temp_data:
+        profile.remote_configs = temp_data["remote_configs"]
+    if "aws_access_key" in temp_data:
+        profile.aws_access_key = temp_data["aws_access_key"]
+    if "aws_secret_key" in temp_data:
+        profile.aws_secret_key = temp_data["aws_secret_key"]
+    if "aws_region" in temp_data:
+        profile.aws_region = temp_data["aws_region"]
+    if "aws_profile" in temp_data:
+        profile.aws_profile = temp_data["aws_profile"]
+
     # Populate fields
     profile.output_file_name = state.output_file_name
     profile.input_path = str(state.input_path)
     profile.output_path = str(state.output_path)
+    profile.config_output_path = str(state.config_output_path)
     profile.use_prefix_only = state.use_prefix_only
 
     profile.move_logs_enabled = state.move_logs_enabled
     profile.move_csv_enabled = state.move_csv_enabled
     profile.generate_perf_report_enabled = state.generate_perf_report_enabled
     profile.generate_colored_logs_enabled = state.generate_colored_logs_enabled
+
+    # Update remote configs from dialog if tags exist
+    if dpg.does_item_exist("pd_base_url"):
+        profile.remote_config_base_url = dpg.get_value("pd_base_url")
+
+    for env in ["Development", "Shipping", "Debug"]:
+        tag = f"pd_url_{env}"
+        if dpg.does_item_exist(tag):
+            profile.remote_configs[env] = dpg.get_value(tag)
 
     profile.save(path)
 
@@ -1753,6 +1916,12 @@ def _load_profile_from_path(state: UIState, path: Path) -> None:
             Path(profile.output_path) if profile.output_path else Path("")
         )
         state.base_output_path = state.output_path  # Set base path to loaded path
+        
+        state.config_output_path = (
+            Path(profile.config_output_path) if profile.config_output_path else Path("")
+        )
+        state.base_config_output_path = state.config_output_path
+
         state.use_prefix_only = profile.use_prefix_only
 
         # Load bulk action states (with defaults if missing in old profiles)
@@ -1784,6 +1953,14 @@ def _load_profile_from_path(state: UIState, path: Path) -> None:
         if dpg.does_item_exist("output_path_label"):
             dpg.set_value("output_path_label", str(state.output_path))
 
+        if dpg.does_item_exist("config_output_path_label"):
+            dpg.set_value("config_output_path_label", str(state.config_output_path))
+        
+        if dpg.does_item_exist("remote_manifest_url_input"):
+            dpg.set_value("remote_manifest_url_input", profile.remote_manifest_url or state.remote_manifest_url)
+        
+        _render_downloaded_configs_list(state)
+
         if dpg.does_item_exist("use_prefix_only"):
             dpg.set_value("use_prefix_only", state.use_prefix_only)
 
@@ -1791,6 +1968,16 @@ def _load_profile_from_path(state: UIState, path: Path) -> None:
             dpg.set_value("cb_move_logs", state.move_logs_enabled)
         if dpg.does_item_exist("cb_move_csv"):
             dpg.set_value("cb_move_csv", state.move_csv_enabled)
+
+        # Refresh AWS S3 fields in dialog if open
+        if dpg.does_item_exist("dlg_aws_access_key"):
+            dpg.set_value("dlg_aws_access_key", profile.aws_access_key)
+        if dpg.does_item_exist("dlg_aws_secret_key"):
+            dpg.set_value("dlg_aws_secret_key", profile.aws_secret_key)
+        if dpg.does_item_exist("dlg_aws_region"):
+            dpg.set_value("dlg_aws_region", profile.aws_region)
+        if dpg.does_item_exist("dlg_aws_profile"):
+            dpg.set_value("dlg_aws_profile", profile.aws_profile)
         if dpg.does_item_exist("cb_gen_perf"):
             dpg.set_value("cb_gen_perf", state.generate_perf_report_enabled)
         if dpg.does_item_exist("cb_gen_logs"):
@@ -1881,3 +2068,421 @@ def _add_hyperlink(text: str, url: str, color: tuple[int, int, int] = (100, 150,
     # Add a tooltip to show the URL
     with dpg.tooltip(link):
         dpg.add_text(url)
+
+
+def build_remote_config_sync(state: UIState) -> None:
+    """Render the Remote Configuration Sync panel."""
+    with dpg.group():
+        with dpg.group(horizontal=True, horizontal_spacing=8):
+            dpg.add_text("Remote Configuration Sync", color=(120, 180, 255))
+            _add_help_button("sync_remote_config")
+
+        # Show current source
+        profile = state.profile_manager.current_profile
+        if profile and profile.remote_config_base_url:
+            source_msg = f"Source: Custom Base URL ({profile.remote_config_base_url})"
+        else:
+            source_msg = "Source: Default S3 Bucket"
+        dpg.add_text(source_msg, color=(150, 255, 150, 255) if "S3" in source_msg else (255, 200, 100, 255), bullet=True)
+
+        dpg.add_spacer(height=5)
+
+        # Added dedicated output path for config sync
+        with dpg.group(horizontal=True, horizontal_spacing=8):
+            dpg.add_text("Config Output Path:")
+            dpg.add_input_text(
+                tag="config_output_path_label",
+                default_value=str(state.config_output_path),
+                width=400,
+                readonly=True,
+            )
+            dpg.add_button(
+                label="Browse",
+                width=80,
+                callback=lambda: _browse_folder_native(state, "config_output"),
+            )
+            dpg.add_button(
+                label="Open",
+                width=80,
+                callback=lambda: _open_folder_in_explorer(state.config_output_path),
+            )
+
+        dpg.add_spacer(height=5)
+
+        with dpg.group(horizontal=True, horizontal_spacing=8):
+            dpg.add_text("Manifest URL:")
+            dpg.add_input_text(
+                tag="remote_manifest_url_input",
+                default_value=profile.remote_manifest_url if profile and profile.remote_manifest_url else state.remote_manifest_url,
+                width=-1,
+                callback=lambda s, a: _update_manifest_url_state(state, a),
+            )
+
+        with dpg.group(horizontal=True, horizontal_spacing=8):
+            dpg.add_button(
+                label="Update Json",
+                width=120,
+                callback=lambda: _update_manifest(state),
+            )
+            dpg.add_button(
+                label="Download All Configs",
+                width=180,
+                callback=lambda: _download_configs_from_manifest(state),
+            )
+
+        dpg.add_spacer(height=5)
+        with dpg.group(horizontal=True, horizontal_spacing=8):
+            dpg.add_text("Downloaded Config Files:", color=(120, 180, 255))
+            dpg.add_button(
+                label="Refresh",
+                width=80,
+                callback=lambda: _render_downloaded_configs_list(state),
+            )
+        with dpg.child_window(tag="config_files_list_container", border=True, height=180, autosize_x=True):
+            pass
+        
+        # Initial render of the list
+        # Since tags are only available after the window is added to the registry, 
+        # we might need to call this after the setup. However, dpg handles delayed rendering well.
+        # But to be safe, we'll ensure it's called after the item is created.
+        _render_downloaded_configs_list(state)
+
+
+def _update_manifest(state: UIState) -> None:
+    """Download the remote manifest JSON file."""
+    # Always pull current value from UI to be safe
+    url = dpg.get_value("remote_manifest_url_input") if dpg.does_item_exist("remote_manifest_url_input") else state.remote_manifest_url
+    
+    if not url:
+        log_message(state, "ERROR", "Manifest URL is empty.")
+        return
+
+    # Save to Configs subfolder to avoid root permission issues (like C:\)
+    configs_dir = state.config_output_path / "Configs"
+    if not configs_dir.exists():
+        try:
+            configs_dir.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            log_message(state, "ERROR", f"Failed to create Configs directory: {e}")
+            return
+            
+    manifest_path = configs_dir / "config_manifest.json"
+    
+    log_message(state, "INFO", f"Updating manifest from {url}...")
+
+    if _smart_download(state, url, manifest_path):
+        # Validate JSON
+        try:
+            with open(manifest_path, "r", encoding="utf-8") as f:
+                json.load(f)
+            log_message(state, "SUCCESS", f"Manifest updated and saved to: {manifest_path}")
+        except json.JSONDecodeError:
+            log_message(state, "ERROR", "Downloaded manifest is not valid JSON.")
+    else:
+        log_message(state, "ERROR", "Failed to update manifest.")
+
+
+def _download_configs_from_manifest(state: UIState) -> None:
+    """Download configs based on the local manifest JSON."""
+    configs_dir = state.config_output_path / "Configs"
+    manifest_path = configs_dir / "config_manifest.json"
+    
+    if not manifest_path.exists():
+        log_message(state, "ERROR", f"Manifest file not found at {manifest_path}. Please click 'Update Json' first.")
+        return
+
+    try:
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            manifest = json.load(f)
+    except Exception as e:
+        log_message(state, "ERROR", f"Failed to read manifest: {e}")
+        return
+
+    if not isinstance(manifest, dict):
+        log_message(state, "ERROR", "Invalid manifest format. Expected a dictionary of {EnvName: URL/URLs}.")
+        return
+
+    log_message(state, "INFO", f"Found {len(manifest)} entries in manifest. Starting download...")
+
+    configs_dir = state.config_output_path / "Configs"
+    if not configs_dir.exists():
+        configs_dir.mkdir(parents=True, exist_ok=True)
+
+    from urllib.parse import urlparse
+
+    for env_name, value in manifest.items():
+        urls = [value] if isinstance(value, str) else value
+        if not isinstance(urls, list):
+            log_message(state, "WARNING", f"Invalid value for {env_name} in manifest. Expected string or list.")
+            continue
+
+        for url in urls:
+            if not url:
+                continue
+
+            try:
+                # Derive filename from URL
+                parsed_url = urlparse(url)
+                remote_filename = os.path.basename(parsed_url.path)
+                if not remote_filename:
+                    remote_filename = f"BackendConfig_{env_name}.ini"
+
+                local_file = configs_dir / remote_filename
+                log_message(state, "INFO", f"Downloading {remote_filename} for {env_name}...")
+                
+                if _smart_download(state, url, local_file):
+                    log_message(state, "SUCCESS", f"Saved: {local_file.name}")
+                else:
+                    log_message(state, "ERROR", f"Failed to download {remote_filename}")
+
+            except Exception as e:
+                log_message(state, "ERROR", f"Error processing {url}: {e}")
+
+    log_message(state, "INFO", "Batch download completed.")
+    _render_downloaded_configs_list(state)
+
+
+def _smart_download(state: UIState, url: str, dest_path: Path) -> bool:
+    """Download a file from an S3 URL or standard HTTP URL, using boto3 if S3."""
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    
+    bucket = ""
+    key = ""
+    
+    # 1. Detect S3 URLs (s3://bucket/key or https://bucket.s3.region.amazonaws.com/key)
+    if parsed.scheme == "s3":
+        bucket = parsed.netloc
+        key = parsed.path.lstrip("/")
+    elif "s3" in parsed.netloc and ".amazonaws.com" in parsed.netloc:
+        # Standard S3 virtual-host style: bucket.s3.region.amazonaws.com
+        parts = parsed.netloc.split(".")
+        if len(parts) >= 3:
+            bucket = parts[0]
+            key = parsed.path.lstrip("/")
+    
+    if bucket and key:
+        log_message(state, "INFO", f"S3 detected. Bucket: '{bucket}', Key: '{key}'")
+        try:
+            import boto3
+            from botocore.exceptions import NoCredentialsError
+            
+            profile = state.profile_manager.current_profile
+            session_kwargs = {}
+            region = "ap-south-1"
+            
+            if profile:
+                if profile.aws_access_key and profile.aws_secret_key:
+                    log_message(state, "INFO", "Using AWS Access Keys for authentication...")
+                    session_kwargs["aws_access_key_id"] = profile.aws_access_key
+                    session_kwargs["aws_secret_access_key"] = profile.aws_secret_key
+                    region = profile.aws_region or region
+                elif profile.aws_profile:
+                    log_message(state, "INFO", f"Using AWS Profile '{profile.aws_profile}' for authentication...")
+                    session_kwargs["profile_name"] = profile.aws_profile
+                    region = profile.aws_region or region
+                else:
+                    log_message(state, "WARNING", "No Keys or Profile provided in UI. Attempting default machine auth...")
+
+            session_kwargs["region_name"] = region
+            session = boto3.Session(**session_kwargs)
+            s3 = session.client('s3')
+            
+            # Ensure folder exists before writing
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Using get_object is often more robust than download_file for restricted buckets
+            response = s3.get_object(Bucket=bucket, Key=key)
+            with open(dest_path, "wb") as f:
+                f.write(response["Body"].read())
+                
+            return True
+        except NoCredentialsError:
+            log_message(state, "WARNING", "No AWS credentials found (setup in Profile settings). Falling back to public URL request.")
+        except Exception as e:
+            log_message(state, "WARNING", f"S3 authenticated download failed: {e}")
+            log_message(state, "INFO", "Falling back to public URL request...")
+
+    # 2. Fallback to standard requests (signed requests or public)
+    try:
+        import requests
+        response = requests.get(url, timeout=15)
+        response.raise_for_status()
+        with open(dest_path, "wb") as f:
+            f.write(response.content)
+        return True
+    except Exception as e:
+        log_message(state, "ERROR", f"Download failed: {e}")
+        return False
+
+
+    _auto_save_profile(state)
+
+
+def _update_aws_credential(state: UIState, key: str, value: str) -> None:
+    """Update AWS credential in current profile and auto-save."""
+    profile = state.profile_manager.current_profile
+    if not profile:
+        return
+        
+    if key == "access_key":
+        profile.aws_access_key = value
+    elif key == "secret_key":
+        profile.aws_secret_key = value
+    elif key == "region":
+        profile.aws_region = value
+    elif key == "profile":
+        profile.aws_profile = value
+        
+    _auto_save_profile(state)
+
+
+def _show_aws_config_dialog(state: UIState) -> None:
+    """Show the AWS Configuration dialog."""
+    if dpg.does_item_exist("aws_config_dialog"):
+        dpg.delete_item("aws_config_dialog")
+        
+    profile = state.profile_manager.current_profile
+    if not profile:
+        log_message(state, "ERROR", "No active profile. Please load a profile first.")
+        return
+
+    with dpg.window(
+        tag="aws_config_dialog", 
+        label="AWS S3 Configuration", 
+        modal=True, 
+        width=500, 
+        height=250,
+        no_resize=True
+    ):
+        dpg.add_text("Configure AWS credentials for restricted S3 buckets.", color=(120, 180, 255))
+        dpg.add_spacer(height=10)
+        
+        with dpg.table(header_row=False, policy=dpg.mvTable_SizingStretchProp):
+            dpg.add_table_column(width_fixed=True, init_width_or_weight=120)
+            dpg.add_table_column(init_width_or_weight=1)
+            
+            with dpg.table_row():
+                dpg.add_text("Access Key:")
+                dpg.add_input_text(
+                    tag="dlg_aws_access_key", 
+                    default_value=profile.aws_access_key,
+                    password=True,
+                    callback=lambda s, a: _update_aws_credential(state, "access_key", a)
+                )
+            
+            with dpg.table_row():
+                dpg.add_text("Secret Key:")
+                dpg.add_input_text(
+                    tag="dlg_aws_secret_key", 
+                    default_value=profile.aws_secret_key,
+                    password=True,
+                    callback=lambda s, a: _update_aws_credential(state, "secret_key", a)
+                )
+            
+            with dpg.table_row():
+                dpg.add_text("Region:")
+                dpg.add_input_text(
+                    tag="dlg_aws_region", 
+                    default_value=profile.aws_region or "ap-south-1",
+                    callback=lambda s, a: _update_aws_credential(state, "region", a)
+                )
+            
+            with dpg.table_row():
+                dpg.add_text("AWS Profile:")
+                dpg.add_input_text(
+                    tag="dlg_aws_profile", 
+                    default_value=profile.aws_profile,
+                    hint="e.g. default",
+                    callback=lambda s, a: _update_aws_credential(state, "profile", a)
+                )
+
+        dpg.add_spacer(height=10)
+        with dpg.group(horizontal=True):
+            dpg.add_button(label="Done", width=100, callback=lambda: dpg.delete_item("aws_config_dialog"))
+            dpg.add_text("(Saved automatically to profile)", color=(150, 150, 150))
+
+
+def _render_downloaded_configs_list(state: UIState) -> None:
+    """Render the list of downloaded .ini files with individual push buttons."""
+    if not dpg.does_item_exist("config_files_list_container"):
+        return
+        
+    dpg.delete_item("config_files_list_container", children_only=True)
+    
+    configs_dir = state.config_output_path / "Configs"
+    if not configs_dir.exists():
+        dpg.add_text("No configs downloaded yet.", parent="config_files_list_container")
+        return
+        
+    files = sorted(list(configs_dir.glob("*.ini")), key=lambda x: x.name.lower())
+    if not files:
+        dpg.add_text("No .ini files found in Configs folder.", parent="config_files_list_container")
+        return
+        
+    for file_path in files:
+        with dpg.group(horizontal=True, parent="config_files_list_container"):
+            dpg.add_text(file_path.name)
+            dpg.add_spacer(width=20)
+            dpg.add_button(
+                label="Push to Device", 
+                width=120, 
+                callback=lambda s, a, u: _push_single_file_to_device(state, u),
+                user_data=file_path.name
+            )
+
+
+def _push_single_file_to_device(state: UIState, filename: str) -> None:
+    """Push a single local configuration file to the device."""
+    if not state.selected_device_serial:
+        log_message(state, "ERROR", "No device selected.")
+        return
+
+    if not state.package_name:
+        log_message(state, "ERROR", "Package Name not set.")
+        return
+
+    # Derive project name from package name (com.company.project)
+    parts = state.package_name.split(".")
+    if len(parts) < 3:
+        log_message(
+            state,
+            "ERROR",
+            "Invalid Package Name format. Cannot derive Project Name.",
+        )
+        return
+    project_name = parts[-1]
+
+    # Local source file
+    local_file = state.config_output_path / "Configs" / filename
+    
+    if not local_file.exists():
+        log_message(state, "ERROR", f"File not found: {local_file}")
+        return
+
+    client = AdbClient()
+    serial = state.selected_device_serial
+    device_dir = f"/sdcard/Android/data/{state.package_name}/files/UnrealGame/{project_name}/{project_name}/Saved/Persistent/"
+    device_file = device_dir + filename
+
+    try:
+        log_message(state, "INFO", f"Pushing {filename} to {device_file}...")
+        
+        # 1. Push original file
+        client.push(serial, str(local_file), device_file)
+        log_message(state, "SUCCESS", f"Pushed: {filename}")
+
+        # 2. If it's a main config file (contains 'BackendConfig'), also push as BackendConfig.ini
+        if "backendconfig" in filename.lower():
+            log_message(state, "INFO", f"Detected main config. Updating BackendConfig.ini...")
+            target_device_file = device_dir + "BackendConfig.ini"
+            try:
+                client.remove_file(serial, target_device_file)
+            except:
+                pass
+            client.push(serial, str(local_file), target_device_file)
+            log_message(state, "SUCCESS", "Updated BackendConfig.ini on device.")
+
+    except Exception as e:
+        log_message(state, "ERROR", f"Failed to push {filename}: {e}")
+

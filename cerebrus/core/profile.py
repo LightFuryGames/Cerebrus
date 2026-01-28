@@ -16,12 +16,24 @@ class Profile:
     output_file_name: str = "perf_report"
     input_path: str = "C:/"
     output_path: str = "C:/"
+    config_output_path: str = "C:/"
     use_prefix_only: bool = False
 
     move_logs_enabled: bool = True
     move_csv_enabled: bool = True
     generate_perf_report_enabled: bool = True
     generate_colored_logs_enabled: bool = True
+    remote_configs: dict[str, str] = field(default_factory=lambda: {
+        "Development": "",
+        "Shipping": "",
+        "Debug": ""
+    })
+    remote_config_base_url: str = ""
+    aws_access_key: str = ""
+    aws_secret_key: str = ""
+    aws_region: str = "ap-south-1"
+    aws_profile: str = ""
+    remote_manifest_url: str = ""
 
     def validate(self) -> list[str]:
         errors = []
@@ -48,11 +60,19 @@ class Profile:
             "output_file_name",
             "input_path",
             "output_path",
+            "config_output_path",
             "use_prefix_only",
             "move_logs_enabled",
             "move_csv_enabled",
             "generate_perf_report_enabled",
             "generate_colored_logs_enabled",
+            "remote_configs",
+            "remote_config_base_url",
+            "aws_access_key",
+            "aws_secret_key",
+            "aws_region",
+            "aws_profile",
+            "remote_manifest_url",
         }
         filtered_data = {k: v for k, v in data.items() if k in valid_fields}
         return cls(**filtered_data)

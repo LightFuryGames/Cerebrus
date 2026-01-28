@@ -6,7 +6,11 @@ from pathlib import Path
 
 import dearpygui.dearpygui as dpg
 
-from cerebrus.ui import components
+<<<<<<< Updated upstream
+from . import components
+=======
+import cerebrus.ui.components as components
+>>>>>>> Stashed changes
 from cerebrus.ui.state import UIState
 
 
@@ -28,6 +32,9 @@ class CerebrusApp:
             )
             self.state.output_path = (
                 Path(profile.output_path) if profile.output_path else Path("C:/")
+            )
+            self.state.config_output_path = (
+                Path(profile.config_output_path) if profile.config_output_path else Path("C:/")
             )
             self.state.use_prefix_only = profile.use_prefix_only
             self.state.append_device_to_path = True  # Always enabled now
