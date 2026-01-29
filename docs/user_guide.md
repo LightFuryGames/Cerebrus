@@ -30,6 +30,10 @@ The device list shows all connected Android devices.
 - **Refresh**: Click "List Devices" to scan for connected devices.
 - **Selection**: Click on a device row to select it for operations.
 - **Status**: The table shows the device model, serial number, Android version, and if the target package is installed.
+- **Remote Controls**:
+    - **Launch Package**: Launch or resume the target application.
+    - **Profiling**: Start/Stop CSV profiling.
+    - **Memory**: Send `memreport` or custom console commands.
 
 ## File Actions
 Manage files between your PC and the connected Android device.
@@ -43,6 +47,16 @@ Manage files between your PC and the connected Android device.
 ### Bulk Actions (Phone to PC)
 - **Move Logs**: Copies logs from `Saved/Logs` on the device to your PC.
 - **Move CSV Data**: Copies profiling data from `Saved/Profiling/CSV` on the device to your PC.
+
+## Configuration Panel & S3 Settings
+The **Configuration Sync** tab allows you to manage remote configuration files stored in AWS S3.
+- **Sync Remote Config**: Downloads the latest `BackendConfig.ini` from your configured S3 bucket and pushes it to the connected device.
+
+### AWS Configuration
+To enable S3 features, go to **Tools -> AWS Configuration** and set:
+1. **S3 Bucket URL**: Base URL of your config bucket.
+2. **Access Key/Secret Key**: Your AWS credentials.
+3. **Region**: Target AWS region (e.g., `ap-south-1`).
 
 ## Report Generation
 Process collected data into readable formats.

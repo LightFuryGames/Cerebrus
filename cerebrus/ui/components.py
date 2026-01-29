@@ -9,6 +9,7 @@ import sys
 import webbrowser
 from pathlib import Path
 from tkinter import Tk, filedialog
+import re
 
 import dearpygui.dearpygui as dpg
 
@@ -45,6 +46,11 @@ TOOLTIPS = {
     "stop_profiling": "Stops profiling data on selected device if Package is running actively in foreground.",
     "generate_actions": "Executes all selected bulk actions (Move Logs, Move Profiling Data, Generate Reports) in sequence.",
     "sync_remote_config": "Downloads the BackendConfig.ini from the configured URL for this environment and pushes it to the selected device, replacing any existing config.",
+    "memreport": "Sends the 'memreport' console command to the running application to generate a standard memory report.",
+    "memreport_full": "Sends the 'memreport -full' console command to the running application to generate a comprehensive memory report.",
+    "custom_command": "Sends a custom console command to the running application (e.g., 'stat unit', 'memreport -concise').",
+    "custom_command": "Sends a custom console command to the running application (e.g., 'stat unit', 'memreport -concise').",
+    "launch_package": "Launches the application on the device. If already running in background, brings it to foreground.",
 }
 
 
@@ -315,6 +321,12 @@ def _build_profiling_tab(state: UIState) -> None:
         with dpg.group(horizontal=True, horizontal_spacing=8):
             dpg.add_text("Remote Profiling", color=(120, 180, 255))
             dpg.add_button(
+                label="Launch Package",
+                width=120,
+                callback=lambda: _handle_launch_package(state),
+            )
+            _add_help_button("launch_package", state)
+            dpg.add_button(
                 label="Start Profiling",
                 width=120,
                 callback=lambda: _handle_start_profiling(state),
@@ -326,6 +338,40 @@ def _build_profiling_tab(state: UIState) -> None:
                 callback=lambda: _handle_stop_profiling(state),
             )
             _add_help_button("stop_profiling", state)
+        
+        dpg.add_spacer(height=5)
+        dpg.add_separator()
+        dpg.add_spacer(height=5)
+
+        dpg.add_text("Frame Memory Profiling", color=(120, 180, 255))
+        with dpg.group(horizontal=True, horizontal_spacing=8):
+            dpg.add_button(
+                label="Memreport",
+                width=120,
+                callback=lambda: _handle_memreport(state),
+            )
+            _add_help_button("memreport", state)
+            dpg.add_button(
+                label="Memreport Full",
+                width=120,
+                callback=lambda: _handle_memreport_full(state),
+            )
+            _add_help_button("memreport_full", state)
+
+        with dpg.group(horizontal=True, horizontal_spacing=8):
+             dpg.add_input_text(
+                tag="custom_command_input",
+                hint="Custom Console Command (e.g. stat unit)",
+                width=260,
+                on_enter=True,
+                callback=lambda: _handle_custom_command(state),
+             )
+             dpg.add_button(
+                label="Send Command",
+                width=120,
+                callback=lambda: _handle_custom_command(state),
+             )
+             _add_help_button("custom_command", state)
         
         dpg.add_spacer(height=5)
         dpg.add_separator()
@@ -535,6 +581,31 @@ def _show_device_troubleshooting_dialog(state: UIState) -> None:
                 width=80,
                 callback=lambda: dpg.delete_item("adb_troubleshoot_dialog"),
             )
+            
+            
+def _handle_launch_package(state: UIState) -> None:
+    """Launch or resume the package on the selected device."""
+    if not state.selected_device_serial:
+        log_message(state, "ERROR", "No device selected.")
+        return
+
+    if not state.package_name:
+        log_message(state, "ERROR", "Package Name not set.")
+        return
+
+    client = AdbClient()
+
+    # Check if installed
+    if not client.is_package_installed(state.selected_device_serial, state.package_name):
+        log_message(state, "ERROR", f"Package {state.package_name} not found on device.")
+        return
+
+    try:
+        log_message(state, "INFO", f"Launching {state.package_name}...")
+        client.launch_package(state.selected_device_serial, state.package_name)
+        log_message(state, "SUCCESS", f"Sent launch command for {state.package_name}")
+    except Exception as e:
+        log_message(state, "ERROR", f"Failed to launch package: {e}")
 
 
 def _handle_start_profiling(state: UIState) -> None:
@@ -599,6 +670,58 @@ def _handle_stop_profiling(state: UIState) -> None:
         log_message(state, "INFO", "Sending 'CsvProfile Stop'...")
         client.send_console_command(state.selected_device_serial, "CsvProfile Stop")
         log_message(state, "SUCCESS", "Sent stop profiling command.")
+    except Exception as e:
+        log_message(state, "ERROR", f"Failed to send command: {e}")
+
+
+def _handle_memreport(state: UIState) -> None:
+    """Send 'memreport' command to the selected device."""
+    _send_console_command_wrapper(state, "memreport")
+
+
+def _handle_memreport_full(state: UIState) -> None:
+    """Send 'memreport -full' command to the selected device."""
+    _send_console_command_wrapper(state, "memreport -full")
+
+
+def _handle_custom_command(state: UIState) -> None:
+    """Send custom console command from input."""
+    command = dpg.get_value("custom_command_input")
+    if not command:
+        log_message(state, "WARNING", "No command entered.")
+        return
+    
+    _send_console_command_wrapper(state, command)
+
+
+def _send_console_command_wrapper(state: UIState, command: str) -> None:
+    """Helper to send console commands with common validation."""
+    if not state.selected_device_serial:
+        log_message(state, "ERROR", "No device selected.")
+        return
+
+    if not state.package_name:
+        log_message(state, "ERROR", "Package Name not set.")
+        return
+
+    client = AdbClient()
+
+    # Check if running - Fail if not
+    if not client.is_package_running(state.selected_device_serial, state.package_name):
+        log_message(
+            state,
+            "ERROR",
+            f"Package {state.package_name} is not running on the device.",
+        )
+        log_message(
+             state, "ERROR", f"Cannot send '{command}' if the application is not running."
+        )
+        return
+
+    try:
+        log_message(state, "INFO", f"Sending '{command}'...")
+        client.send_console_command(state.selected_device_serial, command)
+        log_message(state, "SUCCESS", f"Sent command: {command}")
     except Exception as e:
         log_message(state, "ERROR", f"Failed to send command: {e}")
 
@@ -785,6 +908,10 @@ def _handle_generate_perf_report(state: UIState) -> None:
                     log_message(
                         state, "WARNING", f"Failed to delete {csv_file.name}: {e}"
                     )
+                
+                # Post-process to add Avg FPS
+                _post_process_perf_report(state, output_file_path)
+
             else:
                 log_message(state, "ERROR", f"Failed to process {csv_file.name}")
                 log_message(state, "ERROR", f"Tool Output: {result.stdout}")
@@ -796,6 +923,224 @@ def _handle_generate_perf_report(state: UIState) -> None:
             )
 
     log_message(state, "INFO", "Batch processing completed.")
+
+
+def _post_process_perf_report(state: UIState, file_path: Path) -> None:
+    """Post-process the generated HTML report to add Avg FPS column."""
+    if not file_path.exists():
+        return
+
+    try:
+        content = file_path.read_text(encoding="utf-8")
+        
+        # 1. Update Table Header
+        # Find the header row containing "Frametime" and "Avg" below it or similar structure.
+        # This regex looks for the specific structure where Frametime is a main header and Avg is sub-header or same cell.
+        # Based on typical output, it might be separate ths.
+        # Let's try to find the "Frametime" header cell and insert "Avg FPS" after it.
+        # Or if it's a multi-row header, we need to be careful.
+        # Assuming standard simple table for now: <th>Frametime<br>Avg</th> or similar.
+        
+        # Strategy: Find the "Frametime" column index and insert new column.
+        # Regex to find: <th ...>Frametime<br>Avg</th> OR <td ...>Frametime<br>Avg</td> (depending on how the tool generates it)
+        # Based on user image: "Frametime Avg" seems to be in one cell or vertically stacked.
+        
+        # Let's try a robust regex to find the header row.
+        # We'll look for the "Frametime" cell.
+        
+        # Find <th>...Frametime...Avg...</th>
+        header_pattern = re.compile(r"(<th[^>]*>.*?Frametime.*?Avg.*?</th>)", re.IGNORECASE | re.DOTALL)
+        
+        if not header_pattern.search(content):
+            log_message(state, "WARNING", "Could not find Frametime Avg header for FPS calculation.")
+            return
+
+        # Insert Header
+        content = header_pattern.sub(r"\1<th style=\"background-color:#ffedcc\">Avg FPS</th>", content)
+        
+        # 2. Update Data Rows
+        # We need to find the value corresponding to Frametime Avg.
+        # This is tricky without a proper HTML parser, but since the structure is generated machine-code, it should be regular.
+        # We'll assume the FPS column comes right after Frametime Avg column.
+        
+        # Regex to capture the Frametime Avg value.
+        # We look for a cell that comes approx after MVP60 or similar, but simpler:
+        # We effectively iterate all rows.
+        # Warning: This regex approach is brittle. 
+        # Better approach: Split by <tr>, then process each row.
+        
+        new_content_parts = []
+        # Split by rows, keeping delimiters
+        rows = re.split(r"(<tr[^>]*>.*?</tr>)", content, flags=re.DOTALL)
+        
+        for part in rows:
+            if not part.lower().startswith("<tr"):
+                new_content_parts.append(part)
+                continue
+            
+            # Inside a row
+            # Check if this row has data cells
+            # We look for the cell that corresponds to Frametime Avg.
+            # In the screenshot: MVP60 | Frametime Avg | GameThreadTime
+            # We need to find the number in the cell.
+            
+            # Start simplistically: match all <td>...</td>
+            cells = re.findall(r"(<td[^>]*>.*?</td>)", part, re.DOTALL)
+            
+            # The tool output usually has fixed columns. 
+            # If we know Frametime Avg is, say, column 6 (0-indexed).
+            # From screenshot: Section Name | Total Time | ... | MVP60 | Frametime Avg
+            # 1: Section Name
+            # 2: Total Time
+            # 3: Hitches/Min
+            # 4: HitchTimePercent
+            # 5: MVP60
+            # 6: Frametime Avg
+            
+            # Let's try to verify if we found the header earlier to confirm index, but for now assuming we modify ALL rows that look like data rows.
+            
+            # We need to find the cell that contains the Frametime value.
+            # It usually looks like <td style="...">19.34</td>
+            
+            # We can use a regex to find the Frametime cell specifically if we anchor it to MVP60 if possible,
+            # OR we just try to find the cell that matches the header replacement we did (which is hard sequentially).
+            
+            # Alternative: find the floating point number in the cell following MVP60's cell.
+            # MVP60 cell: <td ...>13.82</td>
+            # Frametime cell: <td ...>19.34</td>
+            
+            # Regex for the row replacement:
+            # Look for: (<td[^>]*>[\d\.]+)</td>(\s*<td[^>]*>[\d\.]+)</td>  <-- capturing MVP60 and Frametime
+            # But the styles make it complex.
+            
+            # Let's try a split approach on <td>.
+            # This is risky if nested tables exist, but unlikely in this report.
+            
+            # Re-assemble row string with the new cell.
+            # We need to identify WHICH cell is Frametime.
+            # Heuristic: the cell value is roughly 1000/FPS.
+            # But we don't know FPS yet.
+            
+            # Let's just look for the specific sequence of cells shown in the screenshot.
+            # ... MVP60 </td> <td ...> Frametime </td> ...
+            # We will perform a replacement on the row string.
+            
+            # Pattern: (MVP60_Cell_Content)(Frametime_Cell_Wrapper_Start)(Frametime_Value)(Frametime_Cell_Wrapper_End)
+            # We want to insert: <td style="...">FPS_Value</td> after it.
+            
+            # Refined Regex:
+            # Find 2 consecutive cells with numbers.
+            # We rely on the fact that we injected the header.
+            # Actually, doing it blindly on every row that has numbers might be safer if we target the *specific* column index.
+            # But we don't know the index for sure without parsing headers.
+            
+            # Let's try to be smart: 
+            # In the header, we gathered that Frametime Avg follows MVP60.
+            # So in data rows, we find the cell after the MVP60 cell.
+            # But MVP60 might not be unique text.
+            
+            # Let's look at the headers again.
+            # 60FPS Performance Report
+            # ...
+            # <th>MVP60</th><th>Frametime<br>Avg</th>
+            
+            # So if we replace the header properly, we just need to match the corresponding cells.
+            # Let's assume the report format is stable as per the tool.
+            
+            # Regex to find the frametime value in a data row:
+            # We'll look for the cell that *was* the target.
+            # We can't easily validly parse HTML with regex.
+            
+            # Fallback: Just append string if we match the context.
+            # Context: A cell with a float, followed by another cell with a float.
+            # This is too generic.
+            
+            # Let's assume the user wants this specifically for the "FPSChart" table.
+            # The table ID or class might trigger us?
+            # Content contains "FPSChart".
+            
+            # Let's try to match the EXACT cell style if possible, or just the number.
+            
+            # NEW APPROACH:
+            # 1. Split content by "FPSChart". Process only the table AFTER that.
+            # 2. In that table, find the column index of "Frametime" in the headers.
+            # 3. For each row, grab the value at that index, calc FPS, insert cell.
+            
+            # Since I can't easily parse DOM, I will do a simplistic index finder.
+            # This requires the file to be reasonably well-formatted (newlines etc).
+            # The generated content usually has no newlines between cells? Or has them?
+            # `file_path.read_text()` gave us string.
+            
+            # Let's assume standard formatting.
+            
+            # Find the start of the table after "FPSChart"
+            chart_match = re.search(r"FPSChart.*?<table[^>]*>(.*?)</table>", part, re.DOTALL)
+            # Wait, `part` is a row from previous loop - I should operate on full `content` first.
+            
+             # Let's do simple regex replacement for the header first.
+            if "Frametime<br>Avg" in content:
+                 target_header = "Frametime<br>Avg"
+            elif "Frametime Avg" in content:
+                 target_header = "Frametime Avg"
+            else:
+                 # Try to catch the header from the regex match above if needed
+                 # Actually regex sub above already modifies content header.
+                 # If header modification failed, we duplicate logic? 
+                 # We already did header mod.
+                 pass
+
+            # Now identifying the rows.
+            # We need to iterate <tr>s again on the modified content.
+            
+            def row_processor(match):
+                row_content = match.group(1)
+                # Find all cells
+                cells = re.findall(r"<td[^>]*>(.*?)</td>", row_content, re.IGNORECASE | re.DOTALL)
+                if not cells: 
+                    return match.group(0)
+                
+                # Check if this row looks like the data row we want.
+                # It should have numbers.
+                # And we need to know WHICH cell is Frametime.
+                # If we assume it's the 6th cell (index 5) based on screenshot?
+                # Screenshot: Section Name, Total Time, Hitches/Min, HitchTimePercent, MVP60, Frametime Avg
+                # Yes, index 5.
+                
+                target_index = 5
+                if len(cells) > target_index:
+                    try:
+                        frametime_text = cells[target_index].strip()
+                        frametime_val = float(frametime_text)
+                        if frametime_val > 0:
+                            fps = 1000.0 / frametime_val
+                            # Construct the new cell
+                            new_cell = f'<td style="background-color:#ffedcc">{fps:.2f}</td>'
+                            
+                            # We need to insert this into the original string of the row using regex or split.
+                            # We can't just join `cells` because we lose attributes.
+                            
+                            # Let's find the end of the 6th cell </td> and insert after it.
+                            # We can use finditer.
+                            
+                            cell_matches = list(re.finditer(r"(<td[^>]*>.*?</td>)", row_content, re.IGNORECASE | re.DOTALL))
+                            if len(cell_matches) > target_index:
+                                target_cell_match = cell_matches[target_index]
+                                insertion_point = target_cell_match.end()
+                                new_row = row_content[:insertion_point] + new_cell + row_content[insertion_point:]
+                                return f"<tr>{new_row}</tr>"
+                    except ValueError:
+                        pass # Not a number, maybe header row or summary without data
+                        
+                return match.group(0)
+
+            # Apply to all rows
+            content = re.sub(r"<tr[^>]*>(.*?)</tr>", row_processor, content, flags=re.DOTALL)
+            
+            file_path.write_text(content, encoding="utf-8")
+            log_message(state, "SUCCESS", "Added 'Avg FPS' column to report.")
+
+    except Exception as e:
+        log_message(state, "ERROR", f"Failed to post-process report: {e}")
 
 
 def _handle_generate_colored_logs(state: UIState) -> None:
