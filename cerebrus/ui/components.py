@@ -2074,6 +2074,74 @@ def _add_hyperlink(text: str, url: str, color: tuple[int, int, int] = (100, 150,
         dpg.add_text(url)
 
 
+def _is_aws_configured(state: UIState) -> bool:
+    """Check if AWS credentials or profile are configured."""
+    profile = state.profile_manager.current_profile
+    if not profile:
+        return False
+    return bool(
+        (profile.aws_access_key and profile.aws_secret_key) or profile.aws_profile
+    )
+
+
+def _ensure_aws_configured_with_prompt(state: UIState, on_success_callback) -> None:
+    """Check AWS config; if not set, prompt the user before proceeding."""
+    if _is_aws_configured(state):
+        on_success_callback()
+    else:
+        _show_aws_not_configured_modal(state, on_success_callback)
+
+
+def _show_aws_not_configured_modal(state: UIState, on_success_callback) -> None:
+    """Show a modal prompt when AWS is not configured."""
+    if dpg.does_item_exist("aws_not_configured_modal"):
+        dpg.delete_item("aws_not_configured_modal")
+
+    def _on_configure_click():
+        # Log to both UI and console for debugging
+        print("[Cerebrus] Configure Now clicked in modal.")
+        log_message(state, "INFO", "Switching to AWS Configuration...")
+        
+        # Cleanup current modal first
+        if dpg.does_item_exist("aws_not_configured_modal"):
+            dpg.delete_item("aws_not_configured_modal")
+            
+        # Launch target window
+        _show_aws_config_dialog(state)
+
+    # Center position
+    viewport_width = dpg.get_viewport_width() or 1280
+    viewport_height = dpg.get_viewport_height() or 720
+    width, height = 450, 160
+    pos = [(viewport_width - width) // 2, (viewport_height - height) // 2]
+
+    with dpg.window(
+        tag="aws_not_configured_modal",
+        label="AWS Configuration Required",
+        modal=True,
+        width=width,
+        height=height,
+        pos=pos,
+        no_resize=True,
+    ):
+        dpg.add_text(
+            "AWS setup is not done. Please configure it now to proceed.", wrap=430
+        )
+        dpg.add_spacer(height=15)
+
+        with dpg.group(horizontal=True):
+            dpg.add_button(
+                label="Configure Now", 
+                width=140, 
+                callback=_on_configure_click
+            )
+            dpg.add_button(
+                label="Cancel",
+                width=100,
+                callback=lambda: dpg.delete_item("aws_not_configured_modal"),
+            )
+
+
 def build_remote_config_sync(state: UIState) -> None:
     """Render the Remote Configuration Sync panel."""
     with dpg.group():
@@ -2124,14 +2192,18 @@ def build_remote_config_sync(state: UIState) -> None:
 
         with dpg.group(horizontal=True, horizontal_spacing=8):
             dpg.add_button(
-                label="Update Json",
-                width=120,
-                callback=lambda: _update_manifest(state),
+                label="Update Manifest",
+                width=140,
+                callback=lambda: _ensure_aws_configured_with_prompt(
+                    state, lambda: _update_manifest(state)
+                ),
             )
             dpg.add_button(
-                label="Download All Configs",
-                width=180,
-                callback=lambda: _download_configs_from_manifest(state),
+                label="Download Config",
+                width=140,
+                callback=lambda: _ensure_aws_configured_with_prompt(
+                    state, lambda: _download_configs_from_manifest(state)
+                ),
             )
 
         dpg.add_spacer(height=5)
@@ -2374,14 +2446,23 @@ def _show_aws_config_dialog(state: UIState) -> None:
         log_message(state, "ERROR", "No active profile. Please load a profile first.")
         return
 
+    # Calculate center position
+    viewport_width = dpg.get_viewport_width() or 1280
+    viewport_height = dpg.get_viewport_height() or 720
+    width, height = 500, 300
+    pos = [(viewport_width - width) // 2, (viewport_height - height) // 2]
+
     with dpg.window(
         tag="aws_config_dialog", 
         label="AWS S3 Configuration", 
-        modal=True, 
-        width=500, 
-        height=250,
+        modal=False,  # Set to false to ensure it's not blocked by other modals
+        width=width, 
+        height=height,
+        pos=pos,
         no_resize=True
     ):
+        # Force to front
+        dpg.focus_item("aws_config_dialog")
         dpg.add_text("Configure AWS credentials for restricted S3 buckets.", color=(120, 180, 255))
         dpg.add_spacer(height=10)
         
