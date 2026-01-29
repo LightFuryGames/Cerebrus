@@ -3,6 +3,7 @@
 
 from pathlib import Path
 import sys
+from PyInstaller.utils.hooks import collect_data_files
 
 # Get the root directory
 spec_path = Path(SPECPATH).resolve()
@@ -23,6 +24,10 @@ if resources_dir.exists():
     for resource_file in resources_dir.iterdir():
         if resource_file.is_file() and not resource_file.name.endswith('~'):
             datas.append((str(resource_file), 'cerebrus/resources'))
+            
+# Collect AWS data files (essential for boto3/botocore to work in frozen app)
+datas += collect_data_files('boto3')
+datas += collect_data_files('botocore')
 
 # Add Binaries folder if it exists
 binaries = []
@@ -43,6 +48,9 @@ hiddenimports = [
     'pywintypes',
     'yaml',
     'requests',
+    'boto3',
+    'botocore',
+    'botocore.exceptions',
 ]
 
 a = Analysis(
