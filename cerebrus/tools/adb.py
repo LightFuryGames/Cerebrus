@@ -70,8 +70,34 @@ class AdbClient:
                 return []
             files = [f.strip() for f in result.stdout.splitlines() if f.strip() and "No such file or directory" not in f]
             return files
+            return []
         except AdbError:
             return []
+
+    def launch_package(self, serial: str, package_name: str) -> None:
+        """
+        Launch the application or bring it to foreground if already running.
+        Uses monkey command which is robust for launching without knowing Activity name.
+        """
+        # -p <package>
+        # -c android.intent.category.LAUNCHER
+        # 1 (event count)
+        result = self._run(
+            [
+                "-s",
+                serial,
+                "shell",
+                "monkey",
+                "-p",
+                package_name,
+                "-c",
+                "android.intent.category.LAUNCHER",
+                "1",
+            ]
+        )
+        # Check output for errors commonly returned by monkey
+        if "No activities found" in result.stdout:
+            raise AdbError(f"No launchable activity found for {package_name}")
 
     def send_console_command(self, serial: str, command: str) -> None:
         """Send a console command to the running Unreal Engine application."""

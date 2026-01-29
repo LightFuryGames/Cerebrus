@@ -7,6 +7,8 @@
 ### 📱 Device Management
 - **Automatic Discovery**: Instantly list connected Android devices via ADB.
 - **Profiling Control**: Start and stop CSV profiling directly from the UI.
+- **Remote Control**: Launch or resume your application with a single click.
+- **Memory Profiling**: Execute `memreport` and custom console commands remotely.
 - **Troubleshooting**: Built-in guidance for common connectivity issues.
 
 ### 📂 File Management
@@ -16,11 +18,13 @@
 
 ### 📊 Report Generation
 - **Performance Reports**: One-click generation of visual performance reports from CSV data using `PerfReportTool`.
+    - Includes automatic "Avg FPS" calculation.
 - **Colored Logs**: Convert raw text logs into searchable, color-coded HTML files for easier debugging.
 - **Batch Processing**: Process multiple files in bulk with a single click.
 
 ### ⚙️ Configuration & Customization
 - **Profiles**: Save and load project-specific configurations (Package Name, Paths, etc.).
+- **Cloud Integration**: Configure AWS S3 settings for remote configuration syncing.
 - **Themes**: Includes High Contrast and Color Blind modes (Deuteranopia, Tritanopia).
 - **Auto-Save**: Your settings are automatically saved to the active profile.
 
@@ -32,7 +36,6 @@
    - Install the Cerebrus application.
    - Set up necessary dependencies (Python, ADB, .NET 6/8).
    - Create desktop shortcuts.
-   - Sample Testing point
 
 ### Running from Source (Developers)
 1. **Clone the repository**:
@@ -93,5 +96,3 @@ GitHub Actions enforces:
 - `docs/user_guide.md` — Comprehensive usage instructions.
 - `CONTRIBUTING.md` — Contribution guidelines.
 - `CODEX_GUIDE.md` — Guide for working with the AI coding assistant.
-
-## POST Transer and Ruleset Test
