@@ -61,8 +61,6 @@ class AdbClient:
         """Remove a file from the device."""
         self._run(["-s", serial, "shell", "rm", "-f", path])
 
-<<<<<<< Updated upstream
-=======
     def list_files(self, serial: str, path: str) -> List[str]:
         """List files in a directory on the device."""
         try:
@@ -75,8 +73,6 @@ class AdbClient:
         except AdbError:
             return []
 
-
->>>>>>> Stashed changes
     def send_console_command(self, serial: str, command: str) -> None:
         """Send a console command to the running Unreal Engine application."""
         # Broadcast intent with 'cmd' extra which UE listens for

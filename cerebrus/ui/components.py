@@ -455,11 +455,7 @@ def _build_profiling_tab(state: UIState) -> None:
 
 def _build_config_sync_tab(state: UIState) -> None:
     """Configuration Sync panel tab content."""
-<<<<<<< Updated upstream
-    with dpg.child_window(border=True, autosize_x=True, autosize_y=False, height=280):
-=======
     with dpg.child_window(border=True, autosize_x=True, autosize_y=False, height=450):
->>>>>>> Stashed changes
         build_remote_config_sync(state)
 
 
@@ -2139,23 +2135,6 @@ def build_remote_config_sync(state: UIState) -> None:
             )
 
         dpg.add_spacer(height=5)
-<<<<<<< Updated upstream
-        with dpg.group(horizontal=True, horizontal_spacing=8):
-            dpg.add_text("Downloaded Config Files:", color=(120, 180, 255))
-            dpg.add_button(
-                label="Refresh",
-                width=80,
-                callback=lambda: _render_downloaded_configs_list(state),
-            )
-        with dpg.child_window(tag="config_files_list_container", border=True, height=180, autosize_x=True):
-            pass
-        
-        # Initial render of the list
-        # Since tags are only available after the window is added to the registry, 
-        # we might need to call this after the setup. However, dpg handles delayed rendering well.
-        # But to be safe, we'll ensure it's called after the item is created.
-        _render_downloaded_configs_list(state)
-=======
         
         with dpg.table(header_row=False, policy=dpg.mvTable_SizingStretchProp):
             dpg.add_table_column(init_width_or_weight=1.0)
@@ -2194,7 +2173,6 @@ def build_remote_config_sync(state: UIState) -> None:
         # Initial render of the lists
         _render_downloaded_configs_list(state)
         _render_device_configs_list(state)
->>>>>>> Stashed changes
 
 
 def _update_manifest(state: UIState) -> None:
@@ -2474,20 +2452,14 @@ def _render_downloaded_configs_list(state: UIState) -> None:
             dpg.add_text(file_path.name)
             dpg.add_spacer(width=20)
             dpg.add_button(
-<<<<<<< Updated upstream
-                label="Push to Device", 
-                width=120, 
-=======
                 label="Push", 
                 width=80, 
->>>>>>> Stashed changes
+
                 callback=lambda s, a, u: _push_single_file_to_device(state, u),
                 user_data=file_path.name
             )
 
 
-<<<<<<< Updated upstream
-=======
 def _render_device_configs_list(state: UIState) -> None:
     """Render the list of .ini files present on the device's persistent storage."""
     if not dpg.does_item_exist("device_config_files_list_container"):
@@ -2588,7 +2560,6 @@ def _handle_delete_all_configs_on_device(state: UIState) -> None:
         log_message(state, "ERROR", f"Failed to delete all configs: {e}")
 
 
->>>>>>> Stashed changes
 def _push_single_file_to_device(state: UIState, filename: str) -> None:
     """Push a single local configuration file to the device."""
     if not state.selected_device_serial:
@@ -2639,12 +2610,9 @@ def _push_single_file_to_device(state: UIState, filename: str) -> None:
                 pass
             client.push(serial, str(local_file), target_device_file)
             log_message(state, "SUCCESS", "Updated BackendConfig.ini on device.")
-<<<<<<< Updated upstream
-=======
         
         # Refresh device list after push
         _render_device_configs_list(state)
->>>>>>> Stashed changes
 
     except Exception as e:
         log_message(state, "ERROR", f"Failed to push {filename}: {e}")
