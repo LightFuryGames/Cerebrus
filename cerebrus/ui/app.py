@@ -7,9 +7,13 @@ from pathlib import Path
 import dearpygui.dearpygui as dpg
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 from . import components
 =======
 import cerebrus.ui.components as components
+>>>>>>> Stashed changes
+=======
+from . import components
 >>>>>>> Stashed changes
 from cerebrus.ui.state import UIState
 

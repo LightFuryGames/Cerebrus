@@ -455,7 +455,11 @@ def _build_profiling_tab(state: UIState) -> None:
 
 def _build_config_sync_tab(state: UIState) -> None:
     """Configuration Sync panel tab content."""
+<<<<<<< Updated upstream
     with dpg.child_window(border=True, autosize_x=True, autosize_y=False, height=280):
+=======
+    with dpg.child_window(border=True, autosize_x=True, autosize_y=False, height=450):
+>>>>>>> Stashed changes
         build_remote_config_sync(state)
 
 
@@ -1263,6 +1267,10 @@ def _handle_device_select(
         if dpg.does_item_exist("output_file_name"):
             dpg.set_value("output_file_name", new_file_name)
         _auto_save_profile(state)
+        
+        # Refresh config lists
+        _render_device_configs_list(state)
+
 
 
 def _select_device_row(row_index: int, state: UIState) -> None:
@@ -2131,6 +2139,7 @@ def build_remote_config_sync(state: UIState) -> None:
             )
 
         dpg.add_spacer(height=5)
+<<<<<<< Updated upstream
         with dpg.group(horizontal=True, horizontal_spacing=8):
             dpg.add_text("Downloaded Config Files:", color=(120, 180, 255))
             dpg.add_button(
@@ -2146,6 +2155,46 @@ def build_remote_config_sync(state: UIState) -> None:
         # we might need to call this after the setup. However, dpg handles delayed rendering well.
         # But to be safe, we'll ensure it's called after the item is created.
         _render_downloaded_configs_list(state)
+=======
+        
+        with dpg.table(header_row=False, policy=dpg.mvTable_SizingStretchProp):
+            dpg.add_table_column(init_width_or_weight=1.0)
+            dpg.add_table_column(init_width_or_weight=1.0)
+            
+            with dpg.table_row():
+                # Left Column: Local Configs
+                with dpg.group():
+                    with dpg.group(horizontal=True, horizontal_spacing=8):
+                        dpg.add_text("Local Downloaded Configs:", color=(120, 180, 255))
+                        dpg.add_button(
+                            label="Refresh",
+                            width=100,
+                            callback=lambda: _render_downloaded_configs_list(state),
+                        )
+                    with dpg.child_window(tag="config_files_list_container", border=True, height=250, autosize_x=True):
+                        pass
+                
+                # Right Column: Device Configs
+                with dpg.group():
+                    with dpg.group(horizontal=True, horizontal_spacing=8):
+                        dpg.add_text("Configs on Device (Persistent):", color=(120, 180, 255))
+                        dpg.add_button(
+                            label="Refresh",
+                            width=100,
+                            callback=lambda: _render_device_configs_list(state),
+                        )
+                        dpg.add_button(
+                            label="Delete All",
+                            width=100,
+                            callback=lambda: _handle_delete_all_configs_on_device(state),
+                        )
+                    with dpg.child_window(tag="device_config_files_list_container", border=True, height=250, autosize_x=True):
+                        pass
+        
+        # Initial render of the lists
+        _render_downloaded_configs_list(state)
+        _render_device_configs_list(state)
+>>>>>>> Stashed changes
 
 
 def _update_manifest(state: UIState) -> None:
@@ -2425,13 +2474,121 @@ def _render_downloaded_configs_list(state: UIState) -> None:
             dpg.add_text(file_path.name)
             dpg.add_spacer(width=20)
             dpg.add_button(
+<<<<<<< Updated upstream
                 label="Push to Device", 
                 width=120, 
+=======
+                label="Push", 
+                width=80, 
+>>>>>>> Stashed changes
                 callback=lambda s, a, u: _push_single_file_to_device(state, u),
                 user_data=file_path.name
             )
 
 
+<<<<<<< Updated upstream
+=======
+def _render_device_configs_list(state: UIState) -> None:
+    """Render the list of .ini files present on the device's persistent storage."""
+    if not dpg.does_item_exist("device_config_files_list_container"):
+        return
+        
+    dpg.delete_item("device_config_files_list_container", children_only=True)
+    
+    if not state.selected_device_serial:
+        dpg.add_text("No device selected.", parent="device_config_files_list_container", color=(200, 100, 100))
+        return
+
+    if not state.package_name:
+        dpg.add_text("Package Name not set.", parent="device_config_files_list_container", color=(200, 100, 100))
+        return
+
+    # Derive project name from package name
+    parts = state.package_name.split(".")
+    if len(parts) < 3:
+        dpg.add_text("Invalid Package Name.", parent="device_config_files_list_container", color=(200, 100, 100))
+        return
+    project_name = parts[-1]
+
+    client = AdbClient()
+    serial = state.selected_device_serial
+    device_dir = f"/sdcard/Android/data/{state.package_name}/files/UnrealGame/{project_name}/{project_name}/Saved/Persistent/"
+    
+    # Show the path we are checking
+    dpg.add_text(f"Checking: {device_dir}", parent="device_config_files_list_container", color=(150, 150, 150), wrap=500)
+    dpg.add_separator(parent="device_config_files_list_container")
+
+    try:
+        remote_files = client.list_files(serial, device_dir)
+        ini_files = sorted([f for f in remote_files if f.lower().endswith(".ini")], key=lambda x: x.lower())
+        
+        if not ini_files:
+            dpg.add_text("No .ini files found on device.", parent="device_config_files_list_container")
+            return
+            
+        for filename in ini_files:
+            with dpg.group(horizontal=True, parent="device_config_files_list_container"):
+                dpg.add_text(filename)
+                dpg.add_spacer(width=20)
+                dpg.add_button(
+                    label="Delete", 
+                    width=80, 
+                    callback=lambda s, a, u: _handle_delete_config_on_device(state, u),
+                    user_data=filename
+                )
+    except Exception as e:
+        dpg.add_text(f"Error: {e}", parent="device_config_files_list_container", color=(255, 100, 100))
+
+
+def _handle_delete_config_on_device(state: UIState, filename: str) -> None:
+    """Delete a configuration file from the device's persistent storage."""
+    if not state.selected_device_serial or not state.package_name:
+        return
+
+    # Derive project name
+    parts = state.package_name.split(".")
+    project_name = parts[-1]
+    
+    client = AdbClient()
+    serial = state.selected_device_serial
+    device_file = f"/sdcard/Android/data/{state.package_name}/files/UnrealGame/{project_name}/{project_name}/Saved/Persistent/{filename}"
+    
+    try:
+        log_message(state, "INFO", f"Deleting {filename} from device...")
+        client.remove_file(serial, device_file)
+        log_message(state, "SUCCESS", f"Deleted {filename} from device.")
+        _render_device_configs_list(state)
+    except Exception as e:
+        log_message(state, "ERROR", f"Failed to delete {filename}: {e}")
+
+
+def _handle_delete_all_configs_on_device(state: UIState) -> None:
+    """Delete all .ini files from the device's persistent storage."""
+    if not state.selected_device_serial or not state.package_name:
+        log_message(state, "ERROR", "No device or package selected.")
+        return
+
+    # Derive project name
+    parts = state.package_name.split(".")
+    if len(parts) < 3:
+        return
+    project_name = parts[-1]
+    
+    client = AdbClient()
+    serial = state.selected_device_serial
+    device_dir = f"/sdcard/Android/data/{state.package_name}/files/UnrealGame/{project_name}/{project_name}/Saved/Persistent/"
+    
+    try:
+        log_message(state, "INFO", "Attempting to delete all config files on device...")
+        # Use shell rm -f *.ini
+        client.shell(serial, ["rm", "-f", f"{device_dir}*.ini"])
+        log_message(state, "SUCCESS", "All .ini files deleted from device persistent storage.")
+        _render_device_configs_list(state)
+    except Exception as e:
+        log_message(state, "ERROR", f"Failed to delete all configs: {e}")
+
+
+>>>>>>> Stashed changes
 def _push_single_file_to_device(state: UIState, filename: str) -> None:
     """Push a single local configuration file to the device."""
     if not state.selected_device_serial:
@@ -2482,6 +2639,12 @@ def _push_single_file_to_device(state: UIState, filename: str) -> None:
                 pass
             client.push(serial, str(local_file), target_device_file)
             log_message(state, "SUCCESS", "Updated BackendConfig.ini on device.")
+<<<<<<< Updated upstream
+=======
+        
+        # Refresh device list after push
+        _render_device_configs_list(state)
+>>>>>>> Stashed changes
 
     except Exception as e:
         log_message(state, "ERROR", f"Failed to push {filename}: {e}")

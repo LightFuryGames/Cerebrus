@@ -61,6 +61,22 @@ class AdbClient:
         """Remove a file from the device."""
         self._run(["-s", serial, "shell", "rm", "-f", path])
 
+<<<<<<< Updated upstream
+=======
+    def list_files(self, serial: str, path: str) -> List[str]:
+        """List files in a directory on the device."""
+        try:
+            result = self._run(["-s", serial, "shell", "ls", "-1", path])
+            # Filter out error messages like "ls: /path/to/dir: No such file or directory"
+            if result.stderr and ("No such file or directory" in result.stderr or "Permission denied" in result.stderr):
+                return []
+            files = [f.strip() for f in result.stdout.splitlines() if f.strip() and "No such file or directory" not in f]
+            return files
+        except AdbError:
+            return []
+
+
+>>>>>>> Stashed changes
     def send_console_command(self, serial: str, command: str) -> None:
         """Send a console command to the running Unreal Engine application."""
         # Broadcast intent with 'cmd' extra which UE listens for
