@@ -1,24 +1,36 @@
 param(
-    [Parameter(Mandatory = $false)][string]$TagVersion = "0.0.0",
-    [Parameter(Mandatory = $false)][string]$OutputDir = "installer_output"
+  [Parameter(Mandatory = $false)][string]$TagVersion = "0.0.0",
+  [Parameter(Mandatory = $false)][string]$OutputDir = "installer_output"
 )
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 function Write-Section($text) {
-    Write-Host "`n== $text ==" -ForegroundColor Cyan
+  Write-Host "`n== $text ==" -ForegroundColor Cyan
 }
 
-Write-Section "Preparing staging layout"
-python -m cerebrus.installers.builder --output $OutputDir
+$version = $TagVersion.TrimStart('v')
+if (-not $version) {
+  $version = "0.0.0"
+}
+
+Write-Section "Freezing version to cerebrus/_frozen_version.py"
+$frozenVerPath = "cerebrus/_frozen_version.py"
+Set-Content -Path $frozenVerPath -Value "__version__ = `"$version`"" -Encoding UTF8
+
+try {
+  Write-Section "Preparing staging layout"
+  python -m cerebrus.installers.builder --output $OutputDir
+}
+finally {
+  if (Test-Path $frozenVerPath) {
+    Remove-Item $frozenVerPath
+  }
+}
 
 $resolvedOutput = Resolve-Path $OutputDir
 $stagingRoot = Join-Path $resolvedOutput "Cerebrus"
-$version = $TagVersion.TrimStart('v')
-if (-not $version) {
-    $version = "0.0.0"
-}
 
 Write-Section "Ensuring WiX Toolset"
 # First try to find tools in PATH (e.g., when run on CI)
@@ -28,14 +40,15 @@ $light = (Get-Command light.exe -ErrorAction SilentlyContinue)?.Source
 
 # If not in PATH, try standard installation location
 if (-not $heat) {
-    $wixBinPath = "${env:ProgramFiles(x86)}\WiX Toolset v3.11\bin"
-    if (Test-Path $wixBinPath) {
-        $heat = Join-Path $wixBinPath "heat.exe"
-        $candle = Join-Path $wixBinPath "candle.exe"
-        $light = Join-Path $wixBinPath "light.exe"
-    } else {
-        throw "WiX Toolset not found. Please install WiX Toolset v3.11 or later."
-    }
+  $wixBinPath = "${env:ProgramFiles(x86)}\WiX Toolset v3.11\bin"
+  if (Test-Path $wixBinPath) {
+    $heat = Join-Path $wixBinPath "heat.exe"
+    $candle = Join-Path $wixBinPath "candle.exe"
+    $light = Join-Path $wixBinPath "light.exe"
+  }
+  else {
+    throw "WiX Toolset not found. Please install WiX Toolset v3.11 or later."
+  }
 }
 
 Write-Host "Using WiX tools:"

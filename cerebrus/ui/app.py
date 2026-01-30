@@ -88,6 +88,9 @@ class CerebrusApp:
             dpg.add_key_press_handler(
                 dpg.mvKey_F1, callback=lambda: components._open_user_guide(self.state)
             )
+            
+        # Trigger auto-update check (silent if no update)
+        components.check_for_updates_ui(self.state, silent_on_up_to_date=True)
 
     def run(self) -> None:
         self.build()
