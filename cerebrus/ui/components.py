@@ -19,6 +19,7 @@ from cerebrus.tools.adb import AdbClient, AdbError
 from cerebrus.tools.log_to_html import convert_log_to_html
 from cerebrus.ui.state import UIState
 from cerebrus.ui.themes import get_theme_manager
+from cerebrus.core.updater import check_for_updates, download_update, run_installer
 
 # Log colors are now handled by ThemeManager
 SELECTED_ROW_COLOR = (0, 119, 200, 153)  # Blue highlight with transparency
@@ -113,6 +114,9 @@ def build_menu_bar(state: UIState) -> None:
                 label="Help", shortcut="F1", callback=lambda: _open_user_guide(state)
             )
             dpg.add_menu_item(
+                label="Check for Updates", callback=lambda: check_for_updates_ui(state)
+            )
+            dpg.add_menu_item(
                 label="Provide Feedback", callback=lambda: _provide_feedback(state)
             )
             dpg.add_menu_item(label="About", callback=lambda: _show_about_dialog(state))
@@ -162,6 +166,124 @@ def _provide_feedback(state: UIState) -> None:
         log_message(state, "SUCCESS", "Opened Gmail for feedback")
     except Exception as e:
         log_message(state, "ERROR", f"Failed to open mail client: {e}")
+
+
+from cerebrus.core.updater import check_for_updates, download_update, run_installer
+import threading
+import time
+
+def check_for_updates_ui(state: UIState, silent_on_up_to_date: bool = False) -> None:
+    """Check for updates and show dialog. Set silent_on_up_to_date=True for startup checks."""
+    if not silent_on_up_to_date:
+        log_message(state, "INFO", "Checking for updates...")
+    
+    # Run in thread to avoid UI freeze
+    def check_thread():
+        is_available, latest_tag, download_url = check_for_updates()
+        
+        if is_available:
+            # Always show updates
+            _show_update_dialog(state, latest_tag, download_url)
+        else:
+            if not silent_on_up_to_date:
+                if latest_tag:
+                    log_message(state, "SUCCESS", f"You are up to date (Latest: {latest_tag})")
+                else:
+                    log_message(state, "WARNING", "Could not determine latest version.")
+    
+    threading.Thread(target=check_thread, daemon=True).start()
+             
+             
+def _show_update_dialog(state: UIState, latest_tag: str, download_url: str = None) -> None:
+    """Show update confirmation dialog."""
+    if dpg.does_item_exist("update_dialog"):
+        dpg.delete_item("update_dialog")
+        
+    viewport_width = dpg.get_viewport_width()
+    viewport_height = dpg.get_viewport_height()
+    width = 500
+    height = 300
+    pos_x = (viewport_width - width) // 2
+    pos_y = (viewport_height - height) // 2
+    
+    with dpg.window(
+        tag="update_dialog",
+        label="Update Available",
+        modal=True,
+        width=width,
+        height=height,
+        pos=(pos_x, pos_y),
+        no_resize=True,
+    ):
+        dpg.add_text(f"A new version is available: {latest_tag}")
+        
+        is_frozen = getattr(sys, 'frozen', False)
+        
+        if is_frozen and download_url:
+            dpg.add_text("Ready to download and install.", color=(120, 255, 120))
+            dpg.add_text(f"Installer: {download_url.split('/')[-1]}")
+            
+            dpg.add_spacer(height=10)
+            dpg.add_progress_bar(tag="update_progress_bar", label="Progress", width=-1, default_value=0.0, show=False)
+            dpg.add_text(tag="update_status_text", default_value="", color=(200, 200, 200))
+
+            dpg.add_spacer(height=20)
+            with dpg.group(horizontal=True, tag="update_button_group"):
+                dpg.add_spacer(width=200)
+                dpg.add_button(label="Cancel", callback=lambda: dpg.delete_item("update_dialog"))
+                dpg.add_button(
+                    label="Download & Install", 
+                    width=150, 
+                    callback=lambda: _start_download_update(state, download_url)
+                )
+        else:
+            # Source mode or no installer found
+            dpg.add_text("Please pull the latest changes from git.", color=(200, 200, 200))
+            dpg.add_text("Auto-update is only available for installed versions.", wrap=380, color=(255, 100, 100))
+            if not download_url:
+                 dpg.add_text("(No installer found for this release)", color=(255, 100, 100))
+            
+            dpg.add_spacer(height=20)
+            with dpg.group(horizontal=True):
+                dpg.add_spacer(width=250)
+                dpg.add_button(label="OK", width=80, callback=lambda: dpg.delete_item("update_dialog"))
+                dpg.add_button(
+                    label="Open GitHub",
+                    callback=lambda: webbrowser.open("https://github.com/LightFuryGames/Cerebrus/releases")
+                )
+
+
+def _start_download_update(state: UIState, url: str) -> None:
+    dpg.configure_item("update_button_group", show=False)
+    dpg.configure_item("update_progress_bar", show=True)
+    dpg.set_value("update_status_text", "Starting download...")
+    
+    def download_thread():
+        try:
+            def progress(current, total):
+                if total > 0:
+                    dpg.set_value("update_progress_bar", current / total)
+                    dpg.set_value("update_status_text", f"Downloading: {current/1024/1024:.1f}/{total/1024/1024:.1f} MB")
+            
+            installer_path = download_update(url, progress)
+            
+            dpg.set_value("update_status_text", "Download complete. Launching installer...")
+            time.sleep(1) # Give user a moment to see completion
+            
+            # Launch installer
+            if run_installer(installer_path):
+                 dpg.set_value("update_status_text", "Installer launched. Exiting...")
+                 time.sleep(2)
+                 sys.exit(0)
+            else:
+                 dpg.set_value("update_status_text", "Failed to launch installer.")
+                 dpg.configure_item("update_button_group", show=True)
+                 
+        except Exception as e:
+            dpg.set_value("update_status_text", f"Error: {e}")
+            dpg.configure_item("update_button_group", show=True)
+            
+    threading.Thread(target=download_thread, daemon=True).start()
 
 
 def _show_about_dialog(state: UIState) -> None:
