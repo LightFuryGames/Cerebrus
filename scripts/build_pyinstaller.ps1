@@ -107,7 +107,7 @@ try {
             Write-Host "Using Inno Setup: $iscc"
             
             # Set version environment variable for Inno Setup
-            $env:CEREBRUS_VERSION = $version
+            $env:CEREBRUS_VERSION = $displayVersion
             
             # Run Inno Setup compiler
             $issFile = Join-Path $PSScriptRoot "cerebrus.iss"

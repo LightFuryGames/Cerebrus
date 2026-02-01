@@ -10,10 +10,11 @@ function Write-Section($text) {
   Write-Host "`n== $text ==" -ForegroundColor Cyan
 }
 
-$version = $TagVersion.TrimStart('v')
+$version = $TagVersion.TrimStart('v').TrimStart('.')
 if (-not $version) {
   $version = "0.0.0"
 }
+$displayVersion = "v.$version"
 
 Write-Section "Freezing version to cerebrus/_frozen_version.py"
 $frozenVerPath = "cerebrus/_frozen_version.py"
@@ -33,10 +34,12 @@ $resolvedOutput = Resolve-Path $OutputDir
 $stagingRoot = Join-Path $resolvedOutput "Cerebrus"
 
 Write-Section "Ensuring WiX Toolset"
-# First try to find tools in PATH (e.g., when run on CI)
-$heat = (Get-Command heat.exe -ErrorAction SilentlyContinue)?.Source
-$candle = (Get-Command candle.exe -ErrorAction SilentlyContinue)?.Source
-$light = (Get-Command light.exe -ErrorAction SilentlyContinue)?.Source
+$heatCmd = Get-Command heat.exe -ErrorAction SilentlyContinue
+$heat = if ($heatCmd) { $heatCmd.Source } else { $null }
+$candleCmd = Get-Command candle.exe -ErrorAction SilentlyContinue
+$candle = if ($candleCmd) { $candleCmd.Source } else { $null }
+$lightCmd = Get-Command light.exe -ErrorAction SilentlyContinue
+$light = if ($lightCmd) { $lightCmd.Source } else { $null }
 
 # If not in PATH, try standard installation location
 if (-not $heat) {
@@ -84,7 +87,7 @@ Set-Content -Path $productWxsPath -Value $productWxs -Encoding UTF8
 
 Write-Section "Building MSI"
 & $candle -dStagingDir=$stagingRoot -dProductVersion=$version -out (Join-Path $resolvedOutput "") $productWxsPath $componentsWxs
-& $light -ext WixUIExtension -out (Join-Path $resolvedOutput "Cerebrus-$version.msi") (Join-Path $resolvedOutput "product.wixobj") (Join-Path $resolvedOutput "components.wixobj")
+& $light -ext WixUIExtension -out (Join-Path $resolvedOutput "Cerebrus-$displayVersion.msi") (Join-Path $resolvedOutput "product.wixobj") (Join-Path $resolvedOutput "components.wixobj")
 
 Write-Section "Building Burn bootstrapper (.exe)"
 $bundleWxs = @"
@@ -101,8 +104,8 @@ $bundleWxs = @"
 $bundleWxsPath = Join-Path $resolvedOutput "bundle.wxs"
 Set-Content -Path $bundleWxsPath -Value $bundleWxs -Encoding UTF8
 
-& $candle -ext WixBalExtension -dProductVersion=$version -dMsiPath="$(Join-Path $resolvedOutput "Cerebrus-$version.msi")" -out (Join-Path $resolvedOutput "") $bundleWxsPath
-& $light -ext WixBalExtension -out (Join-Path $resolvedOutput "Cerebrus-$version.exe") (Join-Path $resolvedOutput "bundle.wixobj")
+& $candle -ext WixBalExtension -dProductVersion=$version -dMsiPath="$(Join-Path $resolvedOutput "Cerebrus-$displayVersion.msi")" -out (Join-Path $resolvedOutput "") $bundleWxsPath
+& $light -ext WixBalExtension -out (Join-Path $resolvedOutput "Cerebrus-$displayVersion.exe") (Join-Path $resolvedOutput "bundle.wixobj")
 
 Write-Section "Artifacts"
-Get-ChildItem $resolvedOutput -Filter "Cerebrus-$version.*" | ForEach-Object { Write-Host "Created $_" }
+Get-ChildItem $resolvedOutput -Filter "Cerebrus-$displayVersion.*" | ForEach-Object { Write-Host "Created $_" }
