@@ -3,6 +3,7 @@
 
 from pathlib import Path
 import sys
+import os
 from PyInstaller.utils.hooks import collect_data_files
 
 # Get the root directory
@@ -69,15 +70,21 @@ a = Analysis(
 
 pyz = PYZ(a.pure)
 
-# Get version from cerebrus module
-version_file = cerebrus_dir / '_version.py'
-version = '0.0.0'
-if version_file.exists():
-    version_content = version_file.read_text()
-    for line in version_content.split('\n'):
-        if line.startswith('__version__'):
-            version = line.split('=')[1].strip().strip('"').strip("'")
-            break
+# Get version
+version = os.environ.get('CEREBRUS_BUILD_VERSION')
+if not version:
+    # Get version from cerebrus module
+    version_file = cerebrus_dir / '_version.py'
+    version = '0.0.0'
+    if version_file.exists():
+        version_content = version_file.read_text()
+        for line in version_content.split('\n'):
+            if line.startswith('__version__'):
+                # Avoid capturing function calls like get_version()
+                val = line.split('=')[1].strip()
+                if not val.endswith(')'):
+                    version = val.strip('"').strip("'")
+                break
 
 # Version info for Windows executable
 version_info_content = (

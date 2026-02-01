@@ -2,7 +2,7 @@ import json
 import os
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Dict, List, Optional, Tuple
 
 # Global config path
 CONFIG_DIR = Path.home() / ".cerebrus"
@@ -25,11 +25,9 @@ class Profile:
     generate_perf_report_enabled: bool = True
     generate_memreport_enabled: bool = False
     generate_colored_logs_enabled: bool = True
-    remote_configs: dict[str, str] = field(default_factory=lambda: {
-        "Development": "",
-        "Shipping": "",
-        "Debug": ""
-    })
+    remote_configs: Dict[str, str] = field(
+        default_factory=lambda: {"Development": "", "Shipping": "", "Debug": ""}
+    )
     remote_config_base_url: str = ""
     aws_access_key: str = ""
     aws_secret_key: str = ""
@@ -37,7 +35,7 @@ class Profile:
     aws_profile: str = ""
     remote_manifest_url: str = ""
 
-    def validate(self) -> list[str]:
+    def validate(self) -> List[str]:
         errors = []
         if not self.package_name:
             errors.append("Package Name cannot be empty.")
@@ -107,7 +105,7 @@ class ProfileManager:
             pass
         return None
 
-    def set_last_used_profile_path(self, path: Path | None):
+    def set_last_used_profile_path(self, path: Optional[Path]):
         data = {}
         if CONFIG_FILE.exists():
             try:
@@ -124,7 +122,7 @@ class ProfileManager:
         with open(CONFIG_FILE, "w") as f:
             json.dump(data, f, indent=4)
 
-    def load_last_profile(self) -> tuple[Profile, Optional[Path]]:
+    def load_last_profile(self) -> Tuple[Profile, Optional[Path]]:
         path = self.get_last_used_profile_path()
         if path:
             try:

@@ -1,8 +1,8 @@
-
 """
 Wrapper for modular memreport tool.
 Delegates to cerebrus.tools.memreport.main
 """
+
 import sys
 from pathlib import Path
 
