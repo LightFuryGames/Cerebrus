@@ -21,7 +21,9 @@ class Profile:
 
     move_logs_enabled: bool = True
     move_csv_enabled: bool = True
+    move_memreport_enabled: bool = True
     generate_perf_report_enabled: bool = True
+    generate_memreport_enabled: bool = False
     generate_colored_logs_enabled: bool = True
     remote_configs: dict[str, str] = field(default_factory=lambda: {
         "Development": "",
@@ -64,7 +66,9 @@ class Profile:
             "use_prefix_only",
             "move_logs_enabled",
             "move_csv_enabled",
+            "move_memreport_enabled",
             "generate_perf_report_enabled",
+            "generate_memreport_enabled",
             "generate_colored_logs_enabled",
             "remote_configs",
             "remote_config_base_url",

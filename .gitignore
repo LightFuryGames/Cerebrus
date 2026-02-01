@@ -287,12 +287,20 @@ config/profiles/*.local.json
 **/test_profiles/
 
 ###############################################
-# Profiling data & captures
+# Profiling data, Debug data & captures
 ###############################################
 # Raw profiling data – NEVER commit large CSV/PRC/logcat files
 captures/
 */captures/
 **/captures/
+
+DebugInfo/
+*/DebugInfo/
+**/DebugInfo/
+
+TestData/
+*/TestData/
+**/TestData/
 
 # Common profiling output files
 *.csvprofile
