@@ -940,7 +940,7 @@ def _handle_generate_perf_report(state: UIState) -> None:
     # Locate PerfreportTool.exe
     # Assuming repo root is 3 levels up from this file (cerebrus/ui/components.py -> cerebrus/ui -> cerebrus -> root)
     repo_root = Path(__file__).resolve().parent.parent.parent
-    tool_path = repo_root / "Binaries" / "CsvTools" / "PerfreportTool.exe"
+    tool_path = repo_root / "Binaries" / "CsvTools" / "PerfReportTool.exe"
 
     if not tool_path.exists():
         log_message(state, "ERROR", f"PerfreportTool not found at: {tool_path}")
@@ -981,17 +981,21 @@ def _handle_generate_perf_report(state: UIState) -> None:
             else:
                 output_filename = csv_file.stem
         else:
-            # Use output_file_name as exact filename (or CSV filename if not set)
+        # Use output_file_name as exact filename (or CSV filename if not set)
             output_filename = (
                 state.output_file_name if state.output_file_name else csv_file.stem
             )
 
-        # Get unique path to avoid overwriting existing files
-        # PerfreportTool generates .html output
-        output_file_path = _get_unique_output_path(output_dir, output_filename, ".html")
-
-        # Remove extension for the -o parameter (tool adds it automatically)
-        output_path_param = output_file_path.with_suffix("")
+        # PerfReportTool uses -o as the Output Directory
+        # We need a unique directory name to avoid conflicts
+        report_dir_name = output_filename
+        report_dir = output_dir / report_dir_name
+        
+        # Simple uniqueness check for directory
+        counter = 1
+        while report_dir.exists():
+             report_dir = output_dir / f"{report_dir_name}_{counter}"
+             counter += 1
 
         cmd = [
             str(tool_path),
@@ -1000,7 +1004,7 @@ def _handle_generate_perf_report(state: UIState) -> None:
             "-reportType",
             "Default60fps",
             "-o",
-            str(output_path_param),
+            str(report_dir),
             "-perfLog",
         ]
 
@@ -1019,9 +1023,24 @@ def _handle_generate_perf_report(state: UIState) -> None:
             )
 
             if result.returncode == 0:
+                # Calculate likely HTML path
+                generated_html_path = report_dir / f"{csv_file.stem}.html"
+                
                 log_message(
-                    state, "SUCCESS", f"Generated report: {output_file_path.name}"
+                    state, "SUCCESS", f"Generated report in: {report_dir.name}"
                 )
+                # Inject System Metadata
+                try:
+                    _inject_metadata_into_report(state, csv_file, generated_html_path)
+                except Exception as e:
+                    log_message(state, "WARNING", f"Metadata injection failed: {e}")
+
+                # Post-process to add Avg FPS - pass the actual HTML file
+                try:
+                    _post_process_perf_report(state, generated_html_path)
+                except Exception as e:
+                     log_message(state, "WARNING", f"Post-processing failed: {e}")
+
                 # Delete the CSV file
                 try:
                     csv_file.unlink()
@@ -1030,9 +1049,6 @@ def _handle_generate_perf_report(state: UIState) -> None:
                     log_message(
                         state, "WARNING", f"Failed to delete {csv_file.name}: {e}"
                     )
-                
-                # Post-process to add Avg FPS
-                _post_process_perf_report(state, output_file_path)
 
             else:
                 log_message(state, "ERROR", f"Failed to process {csv_file.name}")
@@ -1055,214 +1071,258 @@ def _post_process_perf_report(state: UIState, file_path: Path) -> None:
     try:
         content = file_path.read_text(encoding="utf-8")
         
-        # 1. Update Table Header
-        # Find the header row containing "Frametime" and "Avg" below it or similar structure.
-        # This regex looks for the specific structure where Frametime is a main header and Avg is sub-header or same cell.
-        # Based on typical output, it might be separate ths.
-        # Let's try to find the "Frametime" header cell and insert "Avg FPS" after it.
-        # Or if it's a multi-row header, we need to be careful.
-        # Assuming standard simple table for now: <th>Frametime<br>Avg</th> or similar.
-        
-        # Strategy: Find the "Frametime" column index and insert new column.
-        # Regex to find: <th ...>Frametime<br>Avg</th> OR <td ...>Frametime<br>Avg</td> (depending on how the tool generates it)
-        # Based on user image: "Frametime Avg" seems to be in one cell or vertically stacked.
-        
-        # Let's try a robust regex to find the header row.
-        # We'll look for the "Frametime" cell.
-        
-        # Find <th>...Frametime...Avg...</th>
-        header_pattern = re.compile(r"(<th[^>]*>.*?Frametime.*?Avg.*?</th>)", re.IGNORECASE | re.DOTALL)
-        
-        if not header_pattern.search(content):
-            log_message(state, "WARNING", "Could not find Frametime Avg header for FPS calculation.")
+        # We target the table immediately following "FPSChart"
+        # 1. Find the start of FPSChart section
+        chart_start_match = re.search(r"FPSChart", content)
+        if not chart_start_match:
+            _log_debug_to_file("FPSChart section not found")
             return
 
-        # Insert Header
-        content = header_pattern.sub(r"\1<th style=\"background-color:#ffedcc\">Avg FPS</th>", content)
+        # 2. Find the table start after that
+        table_start_match = re.search(r"<table", content[chart_start_match.end():])
+        if not table_start_match:
+            _log_debug_to_file("Table after FPSChart not found")
+            return
+            
+        real_table_start_idx = chart_start_match.end() + table_start_match.start()
         
-        # 2. Update Data Rows
-        # We need to find the value corresponding to Frametime Avg.
-        # This is tricky without a proper HTML parser, but since the structure is generated machine-code, it should be regular.
-        # We'll assume the FPS column comes right after Frametime Avg column.
+        # 3. Find table end
+        table_end_match = re.search(r"</table>", content[real_table_start_idx:])
+        if not table_end_match:
+            return
+            
+        real_table_end_idx = real_table_start_idx + table_end_match.end()
         
-        # Regex to capture the Frametime Avg value.
-        # We look for a cell that comes approx after MVP60 or similar, but simpler:
-        # We effectively iterate all rows.
-        # Warning: This regex approach is brittle. 
-        # Better approach: Split by <tr>, then process each row.
+        table_content = content[real_table_start_idx:real_table_end_idx]
         
-        new_content_parts = []
-        # Split by rows, keeping delimiters
-        rows = re.split(r"(<tr[^>]*>.*?</tr>)", content, flags=re.DOTALL)
+        # PROCESS HEADER
+        # Find the header row (contains Frametime)
+        # Using a marker for the FrameTime column to insert after.
+        # Screenshot shows: "Frametime Avg" or "Frametime<br>Avg"
         
-        for part in rows:
-            if not part.lower().startswith("<tr"):
-                new_content_parts.append(part)
-                continue
-            
-            # Inside a row
-            # Check if this row has data cells
-            # We look for the cell that corresponds to Frametime Avg.
-            # In the screenshot: MVP60 | Frametime Avg | GameThreadTime
-            # We need to find the number in the cell.
-            
-            # Start simplistically: match all <td>...</td>
-            cells = re.findall(r"(<td[^>]*>.*?</td>)", part, re.DOTALL)
-            
-            # The tool output usually has fixed columns. 
-            # If we know Frametime Avg is, say, column 6 (0-indexed).
-            # From screenshot: Section Name | Total Time | ... | MVP60 | Frametime Avg
-            # 1: Section Name
-            # 2: Total Time
-            # 3: Hitches/Min
-            # 4: HitchTimePercent
-            # 5: MVP60
-            # 6: Frametime Avg
-            
-            # Let's try to verify if we found the header earlier to confirm index, but for now assuming we modify ALL rows that look like data rows.
-            
-            # We need to find the cell that contains the Frametime value.
-            # It usually looks like <td style="...">19.34</td>
-            
-            # We can use a regex to find the Frametime cell specifically if we anchor it to MVP60 if possible,
-            # OR we just try to find the cell that matches the header replacement we did (which is hard sequentially).
-            
-            # Alternative: find the floating point number in the cell following MVP60's cell.
-            # MVP60 cell: <td ...>13.82</td>
-            # Frametime cell: <td ...>19.34</td>
-            
-            # Regex for the row replacement:
-            # Look for: (<td[^>]*>[\d\.]+)</td>(\s*<td[^>]*>[\d\.]+)</td>  <-- capturing MVP60 and Frametime
-            # But the styles make it complex.
-            
-            # Let's try a split approach on <td>.
-            # This is risky if nested tables exist, but unlikely in this report.
-            
-            # Re-assemble row string with the new cell.
-            # We need to identify WHICH cell is Frametime.
-            # Heuristic: the cell value is roughly 1000/FPS.
-            # But we don't know FPS yet.
-            
-            # Let's just look for the specific sequence of cells shown in the screenshot.
-            # ... MVP60 </td> <td ...> Frametime </td> ...
-            # We will perform a replacement on the row string.
-            
-            # Pattern: (MVP60_Cell_Content)(Frametime_Cell_Wrapper_Start)(Frametime_Value)(Frametime_Cell_Wrapper_End)
-            # We want to insert: <td style="...">FPS_Value</td> after it.
-            
-            # Refined Regex:
-            # Find 2 consecutive cells with numbers.
-            # We rely on the fact that we injected the header.
-            # Actually, doing it blindly on every row that has numbers might be safer if we target the *specific* column index.
-            # But we don't know the index for sure without parsing headers.
-            
-            # Let's try to be smart: 
-            # In the header, we gathered that Frametime Avg follows MVP60.
-            # So in data rows, we find the cell after the MVP60 cell.
-            # But MVP60 might not be unique text.
-            
-            # Let's look at the headers again.
-            # 60FPS Performance Report
-            # ...
-            # <th>MVP60</th><th>Frametime<br>Avg</th>
-            
-            # So if we replace the header properly, we just need to match the corresponding cells.
-            # Let's assume the report format is stable as per the tool.
-            
-            # Regex to find the frametime value in a data row:
-            # We'll look for the cell that *was* the target.
-            # We can't easily validly parse HTML with regex.
-            
-            # Fallback: Just append string if we match the context.
-            # Context: A cell with a float, followed by another cell with a float.
-            # This is too generic.
-            
-            # Let's assume the user wants this specifically for the "FPSChart" table.
-            # The table ID or class might trigger us?
-            # Content contains "FPSChart".
-            
-            # Let's try to match the EXACT cell style if possible, or just the number.
-            
-            # NEW APPROACH:
-            # 1. Split content by "FPSChart". Process only the table AFTER that.
-            # 2. In that table, find the column index of "Frametime" in the headers.
-            # 3. For each row, grab the value at that index, calc FPS, insert cell.
-            
-            # Since I can't easily parse DOM, I will do a simplistic index finder.
-            # This requires the file to be reasonably well-formatted (newlines etc).
-            # The generated content usually has no newlines between cells? Or has them?
-            # `file_path.read_text()` gave us string.
-            
-            # Let's assume standard formatting.
-            
-            # Find the start of the table after "FPSChart"
-            chart_match = re.search(r"FPSChart.*?<table[^>]*>(.*?)</table>", part, re.DOTALL)
-            # Wait, `part` is a row from previous loop - I should operate on full `content` first.
-            
-             # Let's do simple regex replacement for the header first.
-            if "Frametime<br>Avg" in content:
-                 target_header = "Frametime<br>Avg"
-            elif "Frametime Avg" in content:
-                 target_header = "Frametime Avg"
-            else:
-                 # Try to catch the header from the regex match above if needed
-                 # Actually regex sub above already modifies content header.
-                 # If header modification failed, we duplicate logic? 
-                 # We already did header mod.
-                 pass
+        if "Frametime" in table_content:
+             # pattern to find <th>...Frametime...</th>
+            header_pattern = re.compile(r"(<th[^>]*>.*?Frametime.*?</th>)", re.IGNORECASE | re.DOTALL)
+            if header_pattern.search(table_content):
+                table_content = header_pattern.sub(r"\1<th style=\"background-color:#e0e0e0\">FPS Avg</th>", table_content, count=1)
+                _log_debug_to_file("Injected Header")
 
-            # Now identifying the rows.
-            # We need to iterate <tr>s again on the modified content.
-            
-            def row_processor(match):
-                row_content = match.group(1)
-                # Find all cells
-                cells = re.findall(r"<td[^>]*>(.*?)</td>", row_content, re.IGNORECASE | re.DOTALL)
-                if not cells: 
-                    return match.group(0)
+        # PROCESS ROWS
+        # We iterate over <tr> rows
+        # We need to find the index of Frametime column if possible, or assume based on screenshot.
+        # Screenshot: Section Name(0), Total Time(1), Hitches/Min(2), HitchTimePercent(3), MVP60(4), Frametime(5)
+        # We will assume index 5 for Frametime.
+        
+        def row_processor(match):
+            row_html = match.group(0)
+            # Skip if header (contains <th>)
+            if "<th" in row_html:
+                return row_html
                 
-                # Check if this row looks like the data row we want.
-                # It should have numbers.
-                # And we need to know WHICH cell is Frametime.
-                # If we assume it's the 6th cell (index 5) based on screenshot?
-                # Screenshot: Section Name, Total Time, Hitches/Min, HitchTimePercent, MVP60, Frametime Avg
-                # Yes, index 5.
+            cells_match = list(re.finditer(r"(<td[^>]*>.*?</td>)", row_html, re.IGNORECASE | re.DOTALL))
+            if not cells_match:
+                return row_html
                 
-                target_index = 5
-                if len(cells) > target_index:
-                    try:
-                        frametime_text = cells[target_index].strip()
-                        frametime_val = float(frametime_text)
-                        if frametime_val > 0:
-                            fps = 1000.0 / frametime_val
-                            # Construct the new cell
-                            new_cell = f'<td style="background-color:#ffedcc">{fps:.2f}</td>'
-                            
-                            # We need to insert this into the original string of the row using regex or split.
-                            # We can't just join `cells` because we lose attributes.
-                            
-                            # Let's find the end of the 6th cell </td> and insert after it.
-                            # We can use finditer.
-                            
-                            cell_matches = list(re.finditer(r"(<td[^>]*>.*?</td>)", row_content, re.IGNORECASE | re.DOTALL))
-                            if len(cell_matches) > target_index:
-                                target_cell_match = cell_matches[target_index]
-                                insertion_point = target_cell_match.end()
-                                new_row = row_content[:insertion_point] + new_cell + row_content[insertion_point:]
-                                return f"<tr>{new_row}</tr>"
-                    except ValueError:
-                        pass # Not a number, maybe header row or summary without data
+            # Target Frametime column (Index 5)
+            target_idx = 5
+            if len(cells_match) > target_idx:
+                try:
+                    # Extract text from cell
+                    cell_html = cells_match[target_idx].group(0)
+                    # Strip tags
+                    cell_text = re.sub(r"<[^>]+>", "", cell_html).strip()
+                    frametime = float(cell_text)
+                    
+                    if frametime > 0:
+                        fps = 1000.0 / frametime
                         
-                return match.group(0)
-
-            # Apply to all rows
-            content = re.sub(r"<tr[^>]*>(.*?)</tr>", row_processor, content, flags=re.DOTALL)
+                        # Color Coding
+                        if fps >= 59.99:
+                            color = "#87d387" # Green
+                        elif fps <= 30.0:
+                            color = "#ff6666" # Red
+                        else:
+                            color = "#ffedcc" # Orange
+                            
+                        new_cell = f'<td bgcolor="{color}" style="font-weight:bold;">{fps:.2f}</td>'
+                        
+                        # Insert after target cell
+                        target_end = cells_match[target_idx].end()
+                        
+                        # We must splice into original row_html
+                        # But row_html is just the <tr>...</tr> string from regex
+                        # We use the relative positions from finditer
+                        
+                        return row_html[:target_end] + new_cell + row_html[target_end:]
+                        
+                except ValueError:
+                    pass # Header row or invalid data
             
-            file_path.write_text(content, encoding="utf-8")
-            log_message(state, "SUCCESS", "Added 'Avg FPS' column to report.")
+            return row_html
+
+        # Replace rows in table_content
+        new_table_content = re.sub(r"<tr[^>]*>.*?</tr>", row_processor, table_content, flags=re.DOTALL)
+        
+        # Splice back into main content
+        new_content = content[:real_table_start_idx] + new_table_content + content[real_table_end_idx:]
+        
+        file_path.write_text(new_content, encoding="utf-8")
+        _log_debug_to_file("FPS Column processing complete")
+        log_message(state, "SUCCESS", "Added FPS Avg column to report.")
 
     except Exception as e:
+        _log_debug_to_file(f"Post-process error: {e}")
         log_message(state, "ERROR", f"Failed to post-process report: {e}")
+
+
+def _log_debug_to_file(msg: str):
+    try:
+        # Determine root: Handle frozen vs script
+        if getattr(sys, 'frozen', False):
+            # In installed app, use executable dir
+            root_path = Path(sys.executable).parent
+        else:
+             # In dev, use repo root (cerebrus/ui/components.py -> cerebrus/ui -> cerebrus -> root)
+            root_path = Path(__file__).resolve().parent.parent.parent
+            
+        debug_dir = root_path / "DebugInfo"
+        if not debug_dir.exists():
+            debug_dir.mkdir(parents=True, exist_ok=True)
+            
+        debug_path = debug_dir / "cerebrus_debug.txt"
+        
+        with open(debug_path, "a", encoding="utf-8") as f:
+             from datetime import datetime
+             f.write(f"[{datetime.now()}] {msg}\n")
+    except:
+        pass
+
+def _inject_metadata_into_report(state: UIState, csv_file: Path, html_file: Path) -> None:
+    """Read metadata from CSV and append to HTML report table."""
+    _log_debug_to_file(f"Starting injection for {html_file}")
+    if not html_file.exists():
+        _log_debug_to_file("HTML file does not exist")
+        return
+
+    try:
+        metadata = _read_csv_metadata(csv_file)
+        _log_debug_to_file(f"Parsed metadata keys: {list(metadata.keys())}")
+        
+        if not metadata:
+            log_message(state, "WARNING", f"No metadata found in {csv_file.name}")
+            return
+        
+        # Log metadata keys for debugging
+        # log_message(state, "DEBUG", f"Metadata keys: {list(metadata.keys())}")
+
+        # Extract fields
+        config = metadata.get("config", "Unknown")
+        os_name = metadata.get("os", "Unknown")
+        cpu = metadata.get("cpu", "Unknown")
+        duration = metadata.get("captureduration", "0")
+        try:
+            duration_val = float(duration)
+            duration_str = f"{duration_val:.2f} s"
+        except ValueError:
+            duration_str = duration
+        
+        cmd_line = metadata.get("commandline", "").strip()
+        target_fps = metadata.get("targetframerate", "60")
+
+        # Features Logic
+        features_list = []
+        if metadata.get("largeworldcoordinates") == "1":
+            features_list.append("Large World Coordinates (LWC) Enabled")
+        
+        # PGO/LTO/ASAN
+        pgo = metadata.get("pgoenabled", "0")
+        lto = metadata.get("ltoenabled", "0")
+        asan = metadata.get("asan", "0")
+        if pgo == "0" and lto == "0" and asan == "0":
+            features_list.append("PGO/LTO/ASAN Disabled")
+        else:
+            enabled = []
+            if pgo == "1": enabled.append("PGO")
+            if lto == "1": enabled.append("LTO")
+            if asan == "1": enabled.append("ASAN")
+            if enabled:
+                features_list.append(f"{'/'.join(enabled)} Enabled")
+
+        features_str = "; ".join(features_list)
+
+        # Build HTML Rows
+        extra_rows = f'''
+        <tr><td>Configuration</td><td><b>{config}</b></td></tr>
+        <tr><td>OS</td><td><b>{os_name}</b></td></tr>
+        <tr><td>CPU/Device</td><td><b>{cpu}</b></td></tr>
+        <tr><td>Capture Duration</td><td><b>{duration_str}</b></td></tr>
+        <tr><td>Command Line</td><td><b>{cmd_line}</b></td></tr>
+        <tr><td>Features</td><td><b>{features_str}</b></td></tr>
+        <tr><td>Target Framerate</td><td><b>{target_fps} FPS</b></td></tr>
+        '''
+
+        # Inject into HTML
+        content = html_file.read_text(encoding="utf-8")
+
+        # Robust regex to find the summary table row containing "Frame count"
+        # Matches: <tr ...> ... Frame count ... </tr>
+        # Uses [\s\S] or DOTALL to match across newlines inside tags/content
+        pattern = re.compile(r"(<tr[^>]*>.*?Frame\s*count.*?</tr>)", re.IGNORECASE | re.DOTALL)
+        
+        match = pattern.search(content)
+        
+        if match:
+             _log_debug_to_file("Found Frame count row match")
+             insertion_point = match.end()
+             new_content = content[:insertion_point] + extra_rows + content[insertion_point:]
+             html_file.write_text(new_content, encoding="utf-8")
+             log_message(state, "SUCCESS", f"Metadata successfully appended to {html_file.name}")
+        else:
+             # Fallback: Try finding specific table class or ID if known, or just log clearer warning
+             _log_debug_to_file("Failed to find Frame count row match")
+             _log_debug_to_file(f"HTML Preview: {content[:1000]}") # First 1000 chars
+             
+             log_message(state, "WARNING", f"Metadata injection failed: Could not find 'Frame count' row in {html_file.name}")
+             # Dump snippet for debugging if needed
+             # log_message(state, "DEBUG", f"Content start: {content[:500]}")
+
+    except Exception as e:
+        _log_debug_to_file(f"Exception: {e}")
+        log_message(state, "ERROR", f"Failed to inject metadata into {html_file.name}: {e}")
+
+
+def _read_csv_metadata(csv_path: Path) -> dict:
+    """Read the last chunk of CSV to extract metadata."""
+    metadata = {}
+    try:
+        with open(csv_path, 'rb') as f:
+            try:
+                f.seek(-16384, 2)  # Read last 16KB
+            except OSError:
+                f.seek(0)
+            
+            tail_bytes = f.read()
+            # Decode carefully
+            tail = tail_bytes.decode('utf-8', errors='ignore')
+            
+        _log_debug_to_file(f"CSV Tail read: {len(tail)} chars")
+        # _log_debug_to_file(f"Tail snippet: {tail[-200:]}")
+
+        # Find key-values: [key] value (handling commas from CSV format)
+        # Regex captures:
+        # Group 1: key (inside [])
+        # Group 2: remaining content until next [ or newline
+        matches = re.findall(r"\[([a-zA-Z0-9_]+)\]\s*([^[\]\r\n]+)", tail)
+        for key, value in matches:
+            # Strip whitespace and potential CSV commas
+            clean_value = value.strip().strip(',').strip()
+            metadata[key.lower()] = clean_value
+            
+    except Exception as e:
+        _log_debug_to_file(f"CSV Read Exception: {e}")
+        print(f"Error reading CSV metadata: {e}")
+        
+    return metadata
 
 
 def _handle_generate_colored_logs(state: UIState) -> None:
