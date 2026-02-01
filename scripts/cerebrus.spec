@@ -86,12 +86,28 @@ if not version:
                     version = val.strip('"').strip("'")
                 break
 
+# Sanitize version for Windows version info (needs 4-part integer tuple)
+# This handles cases like '1.2.3', '.1.2.3', 'v1.2.3', '1.2.3-beta'
+clean_version = version.lstrip('v.')
+parts = clean_version.split('.')
+version_tuple_parts = []
+for i in range(4):
+    if i < len(parts):
+        # Keep only digits
+        p = "".join(filter(str.isdigit, parts[i]))
+        version_tuple_parts.append(p if p else "0")
+    else:
+        version_tuple_parts.append("0")
+
+version_tuple = ", ".join(version_tuple_parts)
+
 # Version info for Windows executable
+display_version = f"v.{clean_version}"
 version_info_content = (
     f'VSVersionInfo(\n'
     f'  ffi=FixedFileInfo(\n'
-    f'    filevers=({version.replace(".", ", ")}, 0),\n'
-    f'    prodvers=({version.replace(".", ", ")}, 0),\n'
+    f'    filevers=({version_tuple}),\n'
+    f'    prodvers=({version_tuple}),\n'
     f'    mask=0x3f,\n'
     f'    flags=0x0,\n'
     f'    OS=0x40004,\n'
@@ -106,12 +122,12 @@ version_info_content = (
     f'        u\'040904B0\',\n'
     f'        [StringStruct(u\'CompanyName\', u\'LeagueX Gaming Private Limited\'),\n'
     f'        StringStruct(u\'FileDescription\', u\'Cerebrus - Unreal Engine Android Profiling Tool\'),\n'
-    f'        StringStruct(u\'FileVersion\', u\'{version}\'),\n'
+    f'        StringStruct(u\'FileVersion\', u\'{display_version}\'),\n'
     f'        StringStruct(u\'InternalName\', u\'Cerebrus\'),\n'
     f'        StringStruct(u\'LegalCopyright\', u\'© 2025 LeagueX Gaming Private Limited. All rights reserved.\'),\n'
     f'        StringStruct(u\'OriginalFilename\', u\'Cerebrus.exe\'),\n'
     f'        StringStruct(u\'ProductName\', u\'Cerebrus\'),\n'
-    f'        StringStruct(u\'ProductVersion\', u\'{version}\')])\n'
+    f'        StringStruct(u\'ProductVersion\', u\'{display_version}\')])\n'
     f'      ]), \n'
     f'    VarFileInfo([VarStruct(u\'Translation\', [1033, 1200])])\n'
     f'  ]\n'
