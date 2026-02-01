@@ -12,12 +12,13 @@ function Write-Section($text) {
 }
 
 $repoRoot = Split-Path $PSScriptRoot -Parent
-$version = $TagVersion.TrimStart('v')
+$version = $TagVersion.TrimStart('v').TrimStart('.')
 if (-not $version) {
     $version = "0.0.0"
 }
+$displayVersion = "v.$version"
 
-Write-Section "Building Cerebrus v$version"
+Write-Section "Building Cerebrus $displayVersion"
 Write-Host "Output Directory: $OutputDir"
 
 # Install PyInstaller if not already available
@@ -59,7 +60,7 @@ try {
     
     # Create ZIP archive
     Write-Section "Creating ZIP archive"
-    $zipName = "Cerebrus-$version-win64.zip"
+    $zipName = "Cerebrus-$displayVersion-win64.zip"
     $zipPath = Join-Path $OutputDir $zipName
     
     if (Test-Path $zipPath) {
@@ -112,7 +113,7 @@ try {
             $issFile = Join-Path $PSScriptRoot "cerebrus.iss"
             & $iscc $issFile
             
-            $installerName = "Cerebrus-$version-Setup.exe"
+            $installerName = "Cerebrus-$displayVersion-Setup.exe"
             $installerPath = Join-Path $OutputDir $installerName
             
             if (Test-Path $installerPath) {
@@ -127,7 +128,7 @@ try {
     
     Write-Section "Build Complete!"
     Write-Host "`nArtifacts created:" -ForegroundColor Cyan
-    Get-ChildItem $OutputDir -Filter "Cerebrus-$version*" | ForEach-Object {
+    Get-ChildItem $OutputDir -Filter "Cerebrus-$displayVersion*" | ForEach-Object {
         Write-Host "  [+] $($_.Name) ($([Math]::Round($_.Length / 1MB, 2)) MB)" -ForegroundColor Green
     }
     
