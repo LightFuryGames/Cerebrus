@@ -16,7 +16,9 @@ import dearpygui.dearpygui as dpg
 from cerebrus._version import __version__
 from cerebrus.core.devices import DeviceInfo, collect_device_info
 from cerebrus.tools.adb import AdbClient, AdbError
+from cerebrus.tools.adb import AdbClient, AdbError
 from cerebrus.tools.log_to_html import convert_log_to_html
+from cerebrus.tools.memreport.main import parse_memreport, generate_html_report
 from cerebrus.ui.state import UIState
 from cerebrus.ui.themes import get_theme_manager
 from cerebrus.core.updater import check_for_updates, download_update, run_installer
@@ -821,6 +823,71 @@ def _handle_memreport(state: UIState) -> None:
     _send_console_command_wrapper(state, "memreport")
 
 
+def _handle_generate_mem_report(state: UIState) -> None:
+    """Generate HTML reports from all .memreport files recursively in the MemReports directory."""
+    
+    # Source: Base Output Path / MemReports (where files are moved to)
+    base_path = state.base_output_path if state.base_output_path else state.output_path
+    source_dir = base_path / "MemReports"
+    
+    # Destination: Output Path (includes Device Name if configured) / MemReports
+    dest_dir = state.output_path / "MemReports"
+    
+    if not source_dir.exists():
+        log_message(state, "WARNING", f"MemReports source directory not found: {source_dir}")
+        return
+
+    # Find all .memreport files recursively
+    report_files = list(source_dir.rglob("*.memreport"))
+    if not report_files:
+        log_message(state, "WARNING", f"No .memreport files found in {source_dir}")
+        return
+        
+    # Ensure destination exists
+    if not dest_dir.exists():
+        try:
+            dest_dir.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            log_message(state, "ERROR", f"Failed to create output directory {dest_dir}: {e}")
+            return
+
+    log_message(state, "INFO", f"Found {len(report_files)} memreport files. Starting generation...")
+
+    for report_file in report_files:
+        try:
+            # Determine output filename
+            output_filename = report_file.stem
+            
+            if state.use_prefix_only and state.output_file_name:
+                 output_filename = f"{state.output_file_name}_{report_file.stem}"
+            
+            output_filename += ".html"
+            
+            # Write to Destination Directory
+            output_path = dest_dir / output_filename
+            
+            log_message(state, "INFO", f"Parsing {report_file.name}...")
+            context = parse_memreport(report_file)
+            
+            log_message(state, "INFO", f"Generating HTML: {output_filename}...")
+            generate_html_report(context, output_path)
+            
+            # Delete original file on success
+            try:
+                report_file.unlink()
+                # Optional: Try to remove parent dir if empty? Skipping for now.
+                log_message(state, "INFO", f"Deleted source: {report_file.name}")
+            except Exception as e:
+                log_message(state, "WARNING", f"Failed to delete source {report_file.name}: {e}")
+                
+            log_message(state, "SUCCESS", f"Report generated: {output_filename}")
+
+        except Exception as e:
+            log_message(state, "ERROR", f"Failed to process {report_file.name}: {e}")
+
+    log_message(state, "INFO", "MemReport generation completed.")
+
+
 def _handle_memreport_full(state: UIState) -> None:
     """Send 'memreport -full' command to the selected device."""
     _send_console_command_wrapper(state, "memreport -full")
@@ -903,6 +970,8 @@ def _handle_generate_actions(state: UIState) -> None:
         _handle_move_memreport(state)
     if state.generate_perf_report_enabled:
         _handle_generate_perf_report(state)
+    if state.generate_memreport_enabled:
+        _handle_generate_mem_report(state)
     if state.generate_colored_logs_enabled:
         _handle_generate_colored_logs(state)
 
