@@ -37,6 +37,7 @@ try {
     
     # Run PyInstaller
     Write-Section "Running PyInstaller"
+    $env:CEREBRUS_BUILD_VERSION = $version
     $specFile = Join-Path $PSScriptRoot "cerebrus.spec"
     python -m PyInstaller $specFile --clean --noconfirm
     

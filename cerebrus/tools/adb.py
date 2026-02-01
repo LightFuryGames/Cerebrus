@@ -66,9 +66,16 @@ class AdbClient:
         try:
             result = self._run(["-s", serial, "shell", "ls", "-1", path])
             # Filter out error messages like "ls: /path/to/dir: No such file or directory"
-            if result.stderr and ("No such file or directory" in result.stderr or "Permission denied" in result.stderr):
+            if result.stderr and (
+                "No such file or directory" in result.stderr
+                or "Permission denied" in result.stderr
+            ):
                 return []
-            files = [f.strip() for f in result.stdout.splitlines() if f.strip() and "No such file or directory" not in f]
+            files = [
+                f.strip()
+                for f in result.stdout.splitlines()
+                if f.strip() and "No such file or directory" not in f
+            ]
             return files
             return []
         except AdbError:

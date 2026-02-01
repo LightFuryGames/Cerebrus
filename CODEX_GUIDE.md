@@ -38,6 +38,10 @@ For any substantive change, Codex should:
 
 Examples:
 
+- Wrappers for complex tools (like `memreport`) should follow the **Modular Tool Pattern**:
+  - `main.py`: Entry point and orchestration.
+  - `parsing.py` / `tabs/`: Specialized parsing logic separated by concern.
+  - `template.py`: HTML/Report templates.
 - Wrapping a new CsvTools mode → update `docs/CSVTOOLS_REFERENCE.md`.
 - Changing report generation behavior → update `docs/PERFREPORTTOOL_REFERENCE.md`.
 - Adjusting module boundaries → update `docs/ARCHITECTURE_OVERVIEW.md`.

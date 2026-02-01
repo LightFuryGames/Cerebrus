@@ -1,2 +1,1 @@
-
-from .main import main
+from .tool import generate_html as main

@@ -117,6 +117,20 @@ See `CODEX_GUIDE.md` for detailed patterns and examples.
   - Unit tests for pure logic.
   - Integration tests for tool wrappers that can run without a full UE environment (use temp directories and mocked paths).
 
+## Building Installers
+
+We use `PyInstaller` and `Inno Setup` to build the application.
+
+1. **Install Requirements**:
+   ```powershell
+   pip install -r requirements.txt
+   ```
+2. **Run Build Script**:
+   ```powershell
+   ./scripts/build_pyinstaller.ps1
+   ```
+   This will create a standalone executable in `dist/` and an installer if Inno Setup is available.
+
 ## Adding New Tool Integrations
 
 When integrating a new external tool (e.g. another Unreal utility):
