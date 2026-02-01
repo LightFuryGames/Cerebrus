@@ -26,11 +26,7 @@ def get_version():
                 .decode("utf-8")
                 .strip()
             )
-            # Remove 'v' or 'v.' prefix if present
-            if version.lower().startswith("v"):
-                version = version[1:]
-            if version.startswith("."):
-                version = version[1:]
+            # Keep the version exactly as reported by git (e.g., v2.1.0)
             return version
     except Exception:
         pass

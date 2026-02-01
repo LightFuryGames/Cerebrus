@@ -11,13 +11,22 @@ function Write-Section($text) {
 }
 
 $version = $TagVersion.TrimStart('v').TrimStart('.')
-if (-not $version) {
-  $version = "0.0.0"
+if (-not $version -or $version -eq "0.0.0") {
+  # Try to get version from git
+  $gitVersion = git describe --tags --always --dirty 2>$null
+  if ($gitVersion) {
+    $version = $gitVersion.TrimStart('v').TrimStart('.')
+    Write-Host "Detected version from git: $version" -ForegroundColor Green
+  }
+  else {
+    $version = "0.0.0"
+  }
 }
 $displayVersion = "v.$version"
 
+$repoRoot = Split-Path $PSScriptRoot -Parent
 Write-Section "Freezing version to cerebrus/_frozen_version.py"
-$frozenVerPath = "cerebrus/_frozen_version.py"
+$frozenVerPath = Join-Path $repoRoot "cerebrus\_frozen_version.py"
 Set-Content -Path $frozenVerPath -Value "__version__ = `"$version`"" -Encoding UTF8
 
 try {
