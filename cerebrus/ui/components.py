@@ -570,6 +570,16 @@ def _build_profiling_tab(state: UIState) -> None:
 
                     with dpg.table_row():
                         dpg.add_checkbox(
+                            tag="cb_move_mem",
+                            label="Move Memreport Data",
+                            default_value=state.move_memreport_enabled,
+                            callback=_handle_bulk_action_toggle,
+                            user_data=(state, "move_memreport_enabled"),
+                        )
+                        _add_help_button("memreport")
+
+                    with dpg.table_row():
+                        dpg.add_checkbox(
                             tag="cb_move_logs",
                             label="Move logs",
                             default_value=state.move_logs_enabled,
@@ -594,6 +604,16 @@ def _build_profiling_tab(state: UIState) -> None:
                         )
                         _add_help_button("generate_perf")
 
+                    with dpg.table_row():
+                        dpg.add_checkbox(
+                            tag="cb_gen_mem",
+                            label="Generate Mem Report Only",
+                            default_value=state.generate_memreport_enabled,
+                            callback=_handle_bulk_action_toggle,
+                            user_data=(state, "generate_memreport_enabled"),
+                        )
+                        _add_help_button("memreport_full")
+                    
                     with dpg.table_row():
                         dpg.add_checkbox(
                             tag="cb_gen_logs",
@@ -879,6 +899,8 @@ def _handle_generate_actions(state: UIState) -> None:
         _handle_move_logs(state)
     if state.move_csv_enabled:
         _handle_move_csv(state)
+    if state.move_memreport_enabled:
+        _handle_move_memreport(state)
     if state.generate_perf_report_enabled:
         _handle_generate_perf_report(state)
     if state.generate_colored_logs_enabled:
@@ -898,6 +920,10 @@ def _open_profile_folder(state: UIState) -> None:
 
 def _handle_move_csv(state: UIState) -> None:
     _move_files_from_device(state, "Profiling/CSV", "CSV")
+
+
+def _handle_move_memreport(state: UIState) -> None:
+    _move_files_from_device(state, "Profiling/MemReports", "MemReports")
 
 
 def _handle_move_logs(state: UIState) -> None:
@@ -2271,8 +2297,10 @@ def _auto_save_profile(state: UIState) -> None:
         # Save bulk action states
         profile.move_logs_enabled = state.move_logs_enabled
         profile.move_csv_enabled = state.move_csv_enabled
+        profile.move_memreport_enabled = state.move_memreport_enabled
         profile.generate_perf_report_enabled = state.generate_perf_report_enabled
         profile.generate_colored_logs_enabled = state.generate_colored_logs_enabled
+        profile.generate_memreport_enabled = state.generate_memreport_enabled
         
         # Save manifest URL
         if dpg.does_item_exist("remote_manifest_url_input"):
@@ -2458,11 +2486,15 @@ def _load_profile_from_path(state: UIState, path: Path) -> None:
         # Load bulk action states (with defaults if missing in old profiles)
         state.move_logs_enabled = getattr(profile, "move_logs_enabled", True)
         state.move_csv_enabled = getattr(profile, "move_csv_enabled", True)
+        state.move_memreport_enabled = getattr(profile, "move_memreport_enabled", True)
         state.generate_perf_report_enabled = getattr(
             profile, "generate_perf_report_enabled", True
         )
         state.generate_colored_logs_enabled = getattr(
             profile, "generate_colored_logs_enabled", True
+        )
+        state.generate_memreport_enabled = getattr(
+            profile, "generate_memreport_enabled", False
         )
 
         # Update UI elements
@@ -2499,6 +2531,8 @@ def _load_profile_from_path(state: UIState, path: Path) -> None:
             dpg.set_value("cb_move_logs", state.move_logs_enabled)
         if dpg.does_item_exist("cb_move_csv"):
             dpg.set_value("cb_move_csv", state.move_csv_enabled)
+        if dpg.does_item_exist("cb_move_mem"):
+            dpg.set_value("cb_move_mem", state.move_memreport_enabled)
 
         # Refresh AWS S3 fields in dialog if open
         if dpg.does_item_exist("dlg_aws_access_key"):
@@ -2513,6 +2547,8 @@ def _load_profile_from_path(state: UIState, path: Path) -> None:
             dpg.set_value("cb_gen_perf", state.generate_perf_report_enabled)
         if dpg.does_item_exist("cb_gen_logs"):
             dpg.set_value("cb_gen_logs", state.generate_colored_logs_enabled)
+        if dpg.does_item_exist("cb_gen_mem"):
+            dpg.set_value("cb_gen_mem", state.generate_memreport_enabled)
 
         _update_profile_display_colors(state)
 
