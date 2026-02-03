@@ -48,7 +48,8 @@ def try_format_cell_value(header: str, value: str) -> str:
     # Check if value string ends in KB/MB (common in summary tables)
     # Regex for "123.45 KB" or "123.45KB"
     # Improved: Allow optional space, force space in output
-    match = re.search(r"^([\d\.,]+)\s*(KB|MB|mb|kb)$", val_clean, re.IGNORECASE)
+    # Updated Regex to be fully case insensitive and optional space
+    match = re.search(r"^([\d\.,]+)\s*(KB|MB|GB)$", val_clean, re.IGNORECASE)
     if match:
         num_part = float(match.group(1).replace(",", ""))
         unit = match.group(2).upper()
@@ -59,7 +60,7 @@ def try_format_cell_value(header: str, value: str) -> str:
 
     # Fallback: Check if it LOOKS like it has units but no space (e.g. 710.95MB)
     # and just needs a space inserted.
-    match_tight = re.search(r"^([\d\.,]+)(KB|MB)$", val_clean, re.IGNORECASE)
+    match_tight = re.search(r"^([\d\.,]+)(KB|MB|GB)$", val_clean, re.IGNORECASE)
     if match_tight:
         num_part = float(match_tight.group(1).replace(",", ""))
         unit = match_tight.group(2).upper()

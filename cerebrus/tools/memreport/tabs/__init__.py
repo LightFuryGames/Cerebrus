@@ -23,3 +23,6 @@ class ReportTab:
     def get_buttons(self, context: Dict[str, Any]) -> str:
         """Return HTML for the tab button(s)."""
         return f'<button class="tab-btn" onclick="openTab(event, \'{self.id}\')">{self.name}</button>'
+
+
+from .rhi_stats import RhiMemoryTab
