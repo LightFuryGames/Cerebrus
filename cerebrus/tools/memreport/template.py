@@ -144,7 +144,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             max-width: 400px; /* Prevent single columns from dominating */
         }}
         
-        /* Tree View */
+        /* Tree View - PRESERVED CRITICAL STYLES */
         .tree-node {{
             margin-bottom: 5px;
             border: 1px solid var(--border-color);
@@ -169,6 +169,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             padding: 10px;
             background-color: var(--row-odd);
             border-top: 1px solid var(--border-color);
+            /* Ensure indentation for nested items */
+            padding-left: 20px; 
         }}
         
         .tree-child {{
@@ -192,43 +194,74 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             background-color: #383838;
         }}
 
-        tr:nth-child(even) {{
-            background-color: var(--row-even);
+        /* Sort Icons */
+        th {{
+            cursor: pointer;
+            user-select: none;
+            position: relative;
         }}
-
-        tr:hover {{
-            background-color: var(--hover-bg);
+        th::after {{
+            content: '';
+            position: absolute;
+            right: 5px;
+            font-size: 10px;
         }}
-
-        .numeric {{
-            text-align: right;
-            font-family: 'Consolas', monospace;
+        th.sort-asc::after {{
+            content: '▲';
+            color: #4caf50; /* Green */
+            font-size: 14px;
+        }}
+        th.sort-desc::after {{
+            content: '▼';
+            color: #f44336; /* Red */
+            font-size: 14px;
         }}
         
+        .sub-btn.active-sub {{
+            background-color: var(--accent-color) !important;
+        }}
+
+        .alert {{
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 6px;
+            border: 1px solid transparent;
+            font-size: 14px;
+        }}
+
+        .alert-warning {{
+            background-color: rgba(255, 152, 0, 0.1);
+            border-color: #ff9800;
+            color: #ffb74d;
+        }}
+
+        .alert-feedback {{
+            background-color: rgba(255, 82, 82, 0.1);
+            border-color: #ff5252;
+            color: #ff8a80;
+        }}
+
+        .alert-icon {{
+            font-size: 40px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }}
+
+        .alert-content {{
+            flex-grow: 1;
+        }}
+
         .search-container {{
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }}
-        
-        input[type="text"] {{
-            width: 100%;
-            padding: 10px;
-            background-color: var(--row-even);
-            border: 1px solid var(--border-color);
-            color: var(--text-color);
-            border-radius: 4px;
-        }}
-        
-        input[type="text"]:focus {{
-            outline: none;
-            border-color: var(--accent-color);
-        }}
-        
-        /* Loading */
-        .loading {{
-            color: #888;
-            font-style: italic;
-            padding: 20px;
-            text-align: center;
+
+        hr.section-divider {{
+            border: 0;
+            height: 1px;
+            background: var(--border-color);
+            margin: 40px 0 20px 0;
         }}
 
     </style>
@@ -245,6 +278,50 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     </div>
 
     <script>
+        // Init - Add Original Index to all rows for Reset
+        document.addEventListener('DOMContentLoaded', () => {{
+            document.querySelectorAll('tbody tr').forEach((row, index) => {{
+                row.setAttribute('data-original-index', index);
+            }});
+            
+            // Add Reset Button to all search containers
+            document.querySelectorAll('.search-container').forEach(container => {{
+                // Check if it's a table container (has input) and allows reset
+                if(container.querySelector('input') && container.getAttribute('data-no-reset') !== 'true') {{
+                     const resetBtn = document.createElement('button');
+                     resetBtn.innerText = "Reset View";
+                     resetBtn.className = "tab-btn";
+                     resetBtn.style.fontSize = "12px";
+                     resetBtn.style.padding = "4px 10px";
+                     resetBtn.style.marginLeft = "10px";
+                     resetBtn.onclick = function() {{
+                         // Find the table in this scope
+                         const tabContent = container.closest('.tab-content, .sub-tab-content');
+                         if(tabContent) {{
+                             const table = tabContent.querySelector('table');
+                             if(table) {{
+                                 const tbody = table.querySelector('tbody');
+                                 const rows = Array.from(tbody.querySelectorAll('tr'));
+                                 rows.sort((a, b) => {{
+                                     return a.getAttribute('data-original-index') - b.getAttribute('data-original-index');
+                                 }});
+                                 rows.forEach(r => tbody.appendChild(r));
+                                 
+                                 // Clear Headers
+                                 table.querySelectorAll('th').forEach(th => {{
+                                     th.classList.remove('sort-asc', 'sort-desc');
+                                     th.removeAttribute('data-asc');
+                                 }});
+                             }}
+                         }}
+                     }};
+                     
+                     // Append next to input
+                     container.appendChild(resetBtn);
+                }}
+            }});
+        }});
+
         function openTab(evt, tabName) {{
             var i, tabContent, tabBtns;
             
@@ -255,17 +332,38 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             }}
 
             tabBtns = document.getElementsByClassName("tab-btn");
-            for (i = 0; i < tabBtns.length; i++) {{
-                tabBtns[i].className = tabBtns[i].className.replace(" active", "");
+            // Only top level buttons - filter by parent?
+            // "tab-btn" class is used for sub-tabs too. 
+            // We need to distinguish strictly top level by ID or parent.
+            const tabsContainer = document.getElementById("tabs");
+            const mainBtns = Array.from(document.getElementsByClassName("tab-btn"))
+                                  .filter(btn => btn.parentElement === tabsContainer);
+                                  
+            for (i = 0; i < mainBtns.length; i++) {{
+                mainBtns[i].className = mainBtns[i].className.replace(" active", "");
             }}
 
             document.getElementById(tabName).style.display = "block";
             
-            // Trigger reflow to enable animation
+            // Trigger reflow
             void document.getElementById(tabName).offsetWidth;
             document.getElementById(tabName).classList.add("active");
             
             evt.currentTarget.className += " active";
+        }}
+        
+        function openSubTab(evt, viewId, parentId) {{
+            const parent = document.getElementById(parentId);
+            
+            // Hide all sub-contents
+            parent.querySelectorAll('.sub-tab-content').forEach(el => el.style.display = 'none');
+            
+            // Show target
+            document.getElementById(viewId).style.display = 'block';
+            
+            // Update Buttons
+            parent.querySelectorAll('.sub-btn').forEach(btn => btn.classList.remove('active-sub'));
+            evt.currentTarget.classList.add('active-sub');
         }}
         
         function filterTree(containerId, term) {{
@@ -283,50 +381,121 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             const details = container.querySelectorAll('details');
             details.forEach(d => d.open = true);
             
-            // This is a naive filter for tree structures, improving it requires more logic.
-            // For now, let's keep it simple: Show block if text matches.
+             // Simple Filter
+             nodes.forEach(node => {{
+                 if(node.innerText.toLowerCase().includes(term)) {{
+                     node.style.display = "";
+                 }} else {{
+                     node.style.display = "none";
+                 }}
+             }});
         }}
         
         function filterTable(tableId, colIndex, term) {{
             const table = document.getElementById(tableId);
+            if (!table) return;
             const rows = table.getElementsByTagName('tr');
             term = term.toLowerCase();
             
-            // Start from 1 to skip header
+            // Skip header (i=0)
             for(let i=1; i < rows.length; i++) {{
-                const cell = rows[i].getElementsByTagName('td')[colIndex];
-                if(cell) {{
-                    const text = cell.innerText.toLowerCase();
-                    rows[i].style.display = text.includes(term) ? "" : "none";
-                }}
+                // Skip pinned rows
+                if (rows[i].getAttribute('data-pinned') === 'true') continue;
+                
+                // Search ALL columns
+                const text = rows[i].innerText.toLowerCase();
+                rows[i].style.display = text.includes(term) ? "" : "none";
             }}
         }}
 
-        // Simple Sortable Table Script
+        // Sortable Table Script
         document.querySelectorAll('th').forEach(th => {{
             th.addEventListener('click', () => {{
                 const table = th.closest('table');
                 const tbody = table.querySelector('tbody');
-                const rows = Array.from(tbody.querySelectorAll('tr'));
+                const allRows = Array.from(tbody.querySelectorAll('tr'));
+                const rows = allRows.filter(r => r.getAttribute('data-pinned') !== 'true');
+                const pinnedRows = allRows.filter(r => r.getAttribute('data-pinned') === 'true');
                 const index = Array.from(th.parentNode.children).indexOf(th);
-                const isNumeric = th.classList.contains('numeric');
+                
+                // Detect Number column vs String
+                const isNumeric = th.classList.contains('numeric') || 
+                                (rows.length > 0 && /[\d\.,]+\s*(B|KB|MB|GB|TB)/i.test(rows[0].children[index].innerText));
+                                
                 const asc = th.getAttribute('data-asc') !== 'true'; // Toggle
                 
+                // Reset other headers
+                table.querySelectorAll('th').forEach(h => {{
+                     h.classList.remove('sort-asc', 'sort-desc');
+                     if(h !== th) h.removeAttribute('data-asc');
+                }});
+                
+                th.classList.toggle('sort-asc', asc);
+                th.classList.toggle('sort-desc', !asc);
+                
                 rows.sort((a, b) => {{
-                    const aVal = a.children[index].innerText;
-                    const bVal = b.children[index].innerText;
+                    const aVal = a.children[index].innerText.trim();
+                    const bVal = b.children[index].innerText.trim();
                     
                     if(isNumeric) {{
-                        return (parseFloat(aVal.replace(/,/g, '')) - parseFloat(bVal.replace(/,/g, ''))) * (asc ? 1 : -1);
+                        const aNum = parseFloat(aVal.replace(/,/g, '').replace(/[a-zA-Z]/g, '')) || 0;
+                        const bNum = parseFloat(bVal.replace(/,/g, '').replace(/[a-zA-Z]/g, '')) || 0;
+                        return (aNum - bNum) * (asc ? 1 : -1);
                     }} else {{
                         return aVal.localeCompare(bVal) * (asc ? 1 : -1);
                     }}
                 }});
                 
+                
+                // Re-append pinned rows first, then sorted rows
+                pinnedRows.forEach(row => tbody.appendChild(row));
                 rows.forEach(row => tbody.appendChild(row));
                 th.setAttribute('data-asc', asc);
             }});
         }});
+
+        // Scroll to Top
+        const scrollBtn = document.createElement("button");
+        scrollBtn.innerHTML = "↑";
+        scrollBtn.id = "scrollTopBtn";
+        scrollBtn.style.cssText = `
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            display: none;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            z-index: 1000;
+            transition: opacity 0.3s;
+        `;
+        scrollBtn.onclick = () => window.scrollTo({{top: 0, behavior: 'smooth'}});
+        document.body.appendChild(scrollBtn);
+
+        window.onscroll = () => {{
+            if (document.body.scrollTop > 200 || document.documentElement.scrollTop > 200) {{
+                scrollBtn.style.display = "block";
+            }} else {{
+                scrollBtn.style.display = "none";
+            }}
+        }};
+
+        // Expand/Collapse All
+        function expandAll(containerId) {{
+            const container = document.getElementById(containerId);
+            container.querySelectorAll('details').forEach(d => d.open = true);
+        }}
+
+        function collapseAll(containerId) {{
+            const container = document.getElementById(containerId);
+            container.querySelectorAll('details').forEach(d => d.open = false);
+        }}
     </script>
 </body>
 </html>
