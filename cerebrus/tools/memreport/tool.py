@@ -9,6 +9,7 @@ from .tabs.detailed_lists import DetailedListsTab
 from .tabs.device_info import DeviceInfoTab
 from .tabs.memory_stats import MemoryStatsTab
 from .tabs.obj_summary import ObjectSummaryTab
+from .tabs.class_stats import ClassStatsTab
 from .tabs.rhi_stats import RhiMemoryTab, RhiResourceMemoryTab
 from .template import HTML_TEMPLATE
 from .utils import format_seconds_to_hms
@@ -147,7 +148,7 @@ def parse_memreport(file_path: Path) -> Dict[str, Any]:
 
     # Tabs that handle parsing
     # Order matters!
-    tabs = [DeviceInfoTab(), MemoryStatsTab(), RhiMemoryTab(), RhiResourceMemoryTab(), DetailedListsTab(), ObjectSummaryTab()]
+    tabs = [DeviceInfoTab(), MemoryStatsTab(), RhiMemoryTab(), RhiResourceMemoryTab(), ClassStatsTab(), DetailedListsTab(), ObjectSummaryTab()]
 
     # 1. Read File with Robust Encoding
     content = ""
@@ -277,6 +278,7 @@ def generate_html_report(context: Dict[str, Any], output_path: Path):
         MemoryStatsTab(),
         RhiMemoryTab(),
         RhiResourceMemoryTab(),
+        ClassStatsTab(),
         ObjectSummaryTab(),
         DetailedListsTab(),
     ]

@@ -239,13 +239,11 @@ class MemoryStatsTab(ReportTab):
         active_cls = " active" if is_active else ""
         html = f"""
         <div id="{self.id}" class="tab-content{active_cls}">
-            <h3>{self.name}</h3>
+            <h3>Memory Statistics</h3>
              <div class="search-container" data-no-reset="true">
                 <input type="text" placeholder="Search stats..." onkeyup="filterTree('mem-stats-tree', this.value)">
-                <div style="margin-top: 8px;">
-                    <button class="tab-btn" onclick="expandAll('mem-stats-tree')" style="font-size: 12px; padding: 4px 10px;">Expand All</button>
-                    <button class="tab-btn" onclick="collapseAll('mem-stats-tree')" style="font-size: 12px; padding: 4px 10px;">Collapse All</button>
-                </div>
+                <button class="action-btn" onclick="expandAll('mem-stats-tree')">Expand All</button>
+                <button class="action-btn" onclick="collapseAll('mem-stats-tree')">Collapse All</button>
             </div>
             <div id="mem-stats-tree">
         """

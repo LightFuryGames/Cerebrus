@@ -203,7 +203,8 @@ class DetailedListsTab(ReportTab):
             tab_id = f"list-{class_name}"
             
             # Sub-Tab Navigation (Variants)
-            sub_nav = '<div class="sub-tabs" style="margin-bottom: 15px;">'
+            # Variant Buttons
+            variant_btns = ""
             views_html = ""
             
             first_variant = True
@@ -217,9 +218,8 @@ class DetailedListsTab(ReportTab):
                 active_cls = " active-sub" if first_variant else ""
                 
                 # Button
-                sub_nav += f"""
-                <button class="tab-btn sub-btn{active_cls}" onclick="openSubTab(event, '{vid}', '{tab_id}')" 
-                        style="font-size: 12px; padding: 5px 15px; border-radius: 15px; margin-right: 5px; background-color: #333;">
+                variant_btns += f"""
+                <button class="action-btn sub-btn{active_cls}" onclick="openSubTab(event, '{vid}', '{tab_id}')">
                     {variant if variant != 'default' else 'Default'}
                 </button>
                 """
@@ -241,7 +241,7 @@ class DetailedListsTab(ReportTab):
                 # Summary Block
                 summary_html = ""
                 if view["summary"]:
-                     summary_html = '<div class="table-summary" style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.05); font-family: monospace;">'
+                     summary_html = '<div class="table-summary" style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.05); font-family: monospace; border-left: 3px solid var(--accent-color);">'
                      for s in view["summary"]:
                          summary_html += f"<div>{s}</div>"
                      summary_html += "</div>"
@@ -251,6 +251,8 @@ class DetailedListsTab(ReportTab):
                     {summary_html}
                     <div class="search-container">
                         <input type="text" placeholder="Filter {class_name} ({variant})..." onkeyup="filterTable('tbl-{vid}', 0, this.value)">
+                        <span style="font-size: 10px; color: #666; font-weight: 600; text-transform: uppercase;">View:</span>
+                        {variant_btns}
                     </div>
                     <div class="table-container">
                         <table id="tbl-{vid}">
@@ -262,8 +264,6 @@ class DetailedListsTab(ReportTab):
                 """
                 
                 first_variant = False
-            
-            sub_nav += "</div>"
             
             html += f"""
             <div id="{tab_id}" class="tab-content">

@@ -124,6 +124,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             word-break: break-all;
         }}
 
+        #device-info .stat-value {{
+            font-size: 14px;
+        }}
+
         /* Tables */
         .table-container {{
             overflow-x: auto;
@@ -219,6 +223,39 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         
         .sub-btn.active-sub {{
             background-color: var(--accent-color) !important;
+            color: white !important;
+            border-color: var(--accent-color) !important;
+        }}
+
+        /* Action Buttons (Default View, Sort By) */
+        .action-btn {{
+            padding: 6px 14px;
+            background: transparent; /* Hollow by default */
+            border: 1px solid var(--accent-color);
+            color: var(--accent-color);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }}
+
+        .action-btn:hover {{
+            background-color: rgba(59, 130, 246, 0.1);
+            color: var(--accent-color);
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
+            transform: translateY(-1px);
+        }}
+
+        .action-btn.active-sub {{
+            background-color: var(--accent-color) !important; /* Filled when active */
+            color: white !important;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
         }}
 
         .alert {{
@@ -255,6 +292,20 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
         .search-container {{
             margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }}
+
+        .search-container input {{
+            margin-bottom: 0;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-color);
+            flex-grow: 1;
+            max-width: 400px;
         }}
 
         hr.section-divider {{
@@ -289,14 +340,18 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 // Check if it's a table container (has input) and allows reset
                 if(container.querySelector('input') && container.getAttribute('data-no-reset') !== 'true') {{
                      const resetBtn = document.createElement('button');
-                     resetBtn.innerText = "Reset View";
-                     resetBtn.className = "tab-btn";
-                     resetBtn.style.fontSize = "12px";
-                     resetBtn.style.padding = "4px 10px";
-                     resetBtn.style.marginLeft = "10px";
+                     resetBtn.innerText = "Default View";
+                     resetBtn.className = "action-btn active-sub"; // Start filled
+                     resetBtn.style.marginLeft = "5px";
                      resetBtn.onclick = function() {{
-                         // Find the table in this scope
-                         const tabContent = container.closest('.tab-content, .sub-tab-content');
+                         // Clear all action buttons in the nearest search container or tab parent
+                         const container = resetBtn.closest('.search-container');
+                         if(container) {{
+                             container.querySelectorAll('.action-btn').forEach(b => b.classList.remove('active-sub'));
+                         }}
+                         resetBtn.classList.add('active-sub');
+
+                         const tabContent = resetBtn.closest('.tab-content, .sub-tab-content');
                          if(tabContent) {{
                              const table = tabContent.querySelector('table');
                              if(table) {{
@@ -353,6 +408,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }}
         
         function openSubTab(evt, viewId, parentId) {{
+            const btn = evt.currentTarget;
+            const container = btn.closest('.search-container');
             const parent = document.getElementById(parentId);
             
             // Hide all sub-contents
@@ -361,9 +418,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             // Show target
             document.getElementById(viewId).style.display = 'block';
             
-            // Update Buttons
-            parent.querySelectorAll('.sub-btn').forEach(btn => btn.classList.remove('active-sub'));
-            evt.currentTarget.classList.add('active-sub');
+            // Update Buttons in the container
+            if(container) {{
+                container.querySelectorAll('.action-btn').forEach(b => b.classList.remove('active-sub'));
+            }}
+            btn.classList.add('active-sub');
         }}
         
         function filterTree(containerId, term) {{
@@ -412,6 +471,15 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         document.querySelectorAll('th').forEach(th => {{
             th.addEventListener('click', () => {{
                 const table = th.closest('table');
+                // Search for the container in the nearest tab-content root
+                const tabRoot = table.closest('.tab-content');
+                const container = tabRoot ? tabRoot.querySelector('.search-container') : null;
+                
+                // When sorting by column, clear all 'active' buttons (Resource Size, Default View etc)
+                if(container) {{
+                    container.querySelectorAll('.action-btn').forEach(b => b.classList.remove('active-sub'));
+                }}
+
                 const tbody = table.querySelector('tbody');
                 const allRows = Array.from(tbody.querySelectorAll('tr'));
                 const rows = allRows.filter(r => r.getAttribute('data-pinned') !== 'true');
