@@ -36,6 +36,15 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             --hover-bg: #f8fafc;
         }}
 
+        .unreal-red {{ 
+            color: #f43f5e; 
+            font-style: italic; 
+            font-weight: 500; 
+        }}
+        body.light-mode .unreal-red {{ 
+            color: #9f1239; 
+        }}
+
         body {{
             transition: background-color var(--transition-speed), color var(--transition-speed);
         }}
@@ -162,7 +171,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             width: 100%;
             border-collapse: collapse;
             font-size: 13px;
-            table-layout: auto;
+            table-layout: auto; /* Allow auto layout to wrap */
         }}
 
         th, td {{
@@ -175,9 +184,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }}
 
         /* Constrain Name column to prevent table explosion */
-        th:nth-child(9), td:nth-child(9) {{
-            max-width: 500px;
-            min-width: 200px;
+        /* Constrain columns to prevent table explosion, allow wrapping */
+        th:nth-child(n+1), td:nth-child(n+1) {{
+            max-width: 600px;
+            min-width: 50px;
+            word-break: break-all;
+            white-space: normal;
         }}
 
         .theme-toggle {{
@@ -213,31 +225,64 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             border: 1px solid transparent;
             font-size: 14px;
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             gap: 15px;
         }}
-        .alert-warning {{
-            background: rgba(255, 193, 7, 0.1);
-            border: 1px solid rgba(255, 193, 7, 0.3);
-            color: #ffc107;
+        .alert-icon {{
+            font-size: 24px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }}
-        .alert-feedback {{
-            background: rgba(244, 63, 94, 0.1);
-            border: 1px solid rgba(244, 63, 94, 0.3);
-            color: #f43f5e;
+        .alert-content {{
+            flex-grow: 1;
         }}
 
+        /* Dark Mode Alerts */
+        .alert-info {{
+            background: rgba(59, 130, 246, 0.1);
+            border-color: rgba(59, 130, 246, 0.3);
+            color: #60a5fa;
+        }}
+        .alert-warning {{
+            background: rgba(245, 158, 11, 0.1);
+            border-color: rgba(245, 158, 11, 0.3);
+            color: #fbbf24;
+        }}
+        .alert-danger {{
+            background: rgba(244, 63, 94, 0.1);
+            border-color: rgba(244, 63, 94, 0.3);
+            color: #fb7185;
+        }}
+
+        /* Light Mode Alerts */
+        body.light-mode .alert-info {{
+            background: #eff6ff;
+            border-color: #bfdbfe;
+            color: #1e40af;
+            font-weight: 500;
+        }}
         body.light-mode .alert-warning {{
             background: #fffbeb;
             border-color: #fcd34d;
-            color: #92400e; /* High contrast brown-yellow */
+            color: #92400e;
             font-weight: 500;
         }}
-        body.light-mode .alert-feedback {{
+        body.light-mode .alert-danger {{
             background: #fff1f2;
             border-color: #fda4af;
-            color: #9f1239; /* High contrast dark red */
+            color: #9f1239;
             font-weight: 500;
+        }}
+
+        /* Keyword Highlights */
+        .alert-content b, .alert-content strong {{
+            font-weight: 700;
+        }}
+        .alert-danger .alert-content strong {{
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }}
 
         th:last-child, td:last-child {{
@@ -354,34 +399,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
         }}
 
-        .alert {{
-            padding: 15px;
-            margin-bottom: 20px;
-            border-radius: 6px;
-            border: 1px solid transparent;
-            font-size: 14px;
-        }}
-
-        .alert-warning {{
-            background-color: rgba(255, 152, 0, 0.1);
-            border-color: #ff9800;
-            color: #ffb74d;
-        }}
-
-        .alert-feedback {{
-            background-color: rgba(255, 82, 82, 0.1);
-            border-color: #ff5252;
-            color: #ff8a80;
-        }}
-
-        .alert-icon {{
-            font-size: 40px;
-            flex-shrink: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }}
-
         .alert-content {{
             flex-grow: 1;
         }}
@@ -457,8 +474,49 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             updateThemeIcon();
         }});
 
+        // Global Counter Logic
+        function updateTableCounters(table) {{
+            if (!table) return;
+            const tbody = table.querySelector('tbody');
+            if (!tbody) return;
+            
+            const rows = Array.from(tbody.rows);
+            // Check if first column is the counter column
+            const header = table.querySelector('thead th');
+            if (!header || (header.innerText.trim() !== '#' && header.innerText.trim() !== 'No.')) return;
+
+            let count = 0;
+            rows.forEach(row => {{
+                if (row.style.display !== 'none') {{
+                    count++;
+                    row.cells[0].innerText = count;
+                }}
+            }});
+        }}
+
         // Init - Add Original Index to all rows for Reset
         document.addEventListener('DOMContentLoaded', () => {{
+            // Auto-Add '#' column if missing in any table
+            document.querySelectorAll('table:not(.no-counter)').forEach(table => {{
+                const thead = table.querySelector('thead tr');
+                if (thead && !['#', 'No.'].includes(thead.cells[0].innerText.trim())) {{
+                    // Add Header
+                    const th = document.createElement('th');
+                    th.innerText = '#';
+                    th.className = 'numeric counter-head';
+                    th.style.width = '40px';
+                    thead.insertBefore(th, thead.firstChild);
+                    
+                    // Add Cell to each row
+                    table.querySelectorAll('tbody tr').forEach(row => {{
+                        const td = document.createElement('td');
+                        td.className = 'counter-cell';
+                        row.insertBefore(td, row.firstChild);
+                    }});
+                }}
+                updateTableCounters(table);
+            }});
+
             document.querySelectorAll('tbody tr').forEach((row, index) => {{
                 row.setAttribute('data-original-index', index);
             }});
@@ -581,7 +639,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         function filterTable(tableId, colIndex, term) {{
             const table = document.getElementById(tableId);
             if (!table) return;
-            const rows = table.getElementsByTagName('tr');
+            const rows = Array.from(table.getElementsByTagName('tr'));
             term = term.toLowerCase();
             
             // Skip header (i=0)
@@ -589,70 +647,104 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 // Skip pinned rows
                 if (rows[i].getAttribute('data-pinned') === 'true') continue;
                 
-                let text = "";
-                if (colIndex >= 0 && colIndex < rows[i].children.length) {{
-                    text = rows[i].children[colIndex].innerText.toLowerCase();
+                let matches = false;
+                if (colIndex === -1) {{
+                     // Search all columns
+                     matches = rows[i].innerText.toLowerCase().includes(term);
                 }} else {{
-                    text = rows[i].innerText.toLowerCase();
+                     // If we have a counter column at 0 and they asked for 0, they likely want the original first data column (now at 1)
+                     let actualIdx = colIndex;
+                     const header = table.querySelector('thead th');
+                     if (header && ['#', 'No.'].includes(header.innerText.trim())) {{
+                          actualIdx = colIndex + 1;
+                     }}
+                     
+                     if (actualIdx < rows[i].cells.length) {{
+                          matches = rows[i].cells[actualIdx].innerText.toLowerCase().includes(term);
+                     }} else {{
+                          // Fallback to searching everything if index is out of bounds
+                          matches = rows[i].innerText.toLowerCase().includes(term);
+                     }}
                 }}
                 
-                rows[i].style.display = text.includes(term) ? "" : "none";
+                rows[i].style.display = matches ? "" : "none";
             }}
+            updateTableCounters(table);
         }}
 
-        // Sortable Table Script
-        document.querySelectorAll('th').forEach(th => {{
-            th.addEventListener('click', () => {{
-                const table = th.closest('table');
-                // Search for the container in the nearest tab-content root
-                const tabRoot = table.closest('.tab-content');
-                const container = tabRoot ? tabRoot.querySelector('.search-container') : null;
-                
-                // When sorting by column, clear all 'active' buttons (Resource Size, Default View etc)
-                if(container) {{
-                    container.querySelectorAll('.action-btn').forEach(b => b.classList.remove('active-sub'));
-                }}
+        // Sortable Table Script via Event Delegation
+        document.addEventListener('click', (e) => {{
+            const th = e.target.closest('th');
+            if (!th) return;
+            
+            const table = th.closest('table');
+            if (!table) return;
+            
+            // Search for the container in the nearest tab-content root
+            const tabRoot = table.closest('.tab-content');
+            const container = tabRoot ? tabRoot.querySelector('.search-container') : null;
+            
+            // When sorting by column, clear all 'active' buttons (Resource Size, Default View etc)
+            if(container) {{
+                container.querySelectorAll('.action-btn').forEach(b => b.classList.remove('active-sub'));
+            }}
 
-                const tbody = table.querySelector('tbody');
-                const allRows = Array.from(tbody.querySelectorAll('tr'));
-                const rows = allRows.filter(r => r.getAttribute('data-pinned') !== 'true');
-                const pinnedRows = allRows.filter(r => r.getAttribute('data-pinned') === 'true');
-                const index = Array.from(th.parentNode.children).indexOf(th);
-                
-                // Detect Number column vs String
-                const isNumeric = th.classList.contains('numeric') || 
-                                (rows.length > 0 && /[\d\.,]+\s*(B|KB|MB|GB|TB)/i.test(rows[0].children[index].innerText));
-                                
-                const asc = th.getAttribute('data-asc') !== 'true'; // Toggle
-                
-                // Reset other headers
-                table.querySelectorAll('th').forEach(h => {{
-                     h.classList.remove('sort-asc', 'sort-desc');
-                     if(h !== th) h.removeAttribute('data-asc');
-                }});
-                
-                th.classList.toggle('sort-asc', asc);
-                th.classList.toggle('sort-desc', !asc);
-                
-                rows.sort((a, b) => {{
-                    const aVal = a.children[index].innerText.trim();
-                    const bVal = b.children[index].innerText.trim();
-                    
-                    if(isNumeric) {{
-                        const aNum = parseFloat(aVal.replace(/,/g, '').replace(/[a-zA-Z]/g, '')) || 0;
-                        const bNum = parseFloat(bVal.replace(/,/g, '').replace(/[a-zA-Z]/g, '')) || 0;
-                        return (aNum - bNum) * (asc ? 1 : -1);
-                    }} else {{
-                        return aVal.localeCompare(bVal) * (asc ? 1 : -1);
-                    }}
-                }});
-                
-                
-                // Re-append pinned rows first, then sorted rows
-                pinnedRows.forEach(row => tbody.appendChild(row));
-                rows.forEach(row => tbody.appendChild(row));
-                th.setAttribute('data-asc', asc);
+            const tbody = table.querySelector('tbody');
+            if (!tbody) return;
+            
+            const allRows = Array.from(tbody.querySelectorAll('tr'));
+            const rows = allRows.filter(r => r.getAttribute('data-pinned') !== 'true');
+            const pinnedRows = allRows.filter(r => r.getAttribute('data-pinned') === 'true');
+            const index = Array.from(th.parentNode.children).indexOf(th);
+            
+            // Detect Number column vs String
+            const isNumeric = th.classList.contains('numeric') || 
+                            th.classList.contains('counter-head') ||
+                            (rows.length > 0 && /[\d\.,]+\s*(B|KB|MB|GB|TB)/i.test(rows[0].children[index].innerText));
+                            
+            const asc = th.getAttribute('data-asc') !== 'true'; // Toggle
+            
+            // Reset other headers
+            table.querySelectorAll('th').forEach(h => {{
+                 h.classList.remove('sort-asc', 'sort-desc');
+                 if(h !== th) h.removeAttribute('data-asc');
             }});
+            
+            th.classList.toggle('sort-asc', asc);
+            th.classList.toggle('sort-desc', !asc);
+            
+            function parseSizeToBytes(val) {{
+                val = val.replace(/,/g, '').toLowerCase().trim();
+                const match = val.match(/^([\d\.]+)\s*([a-z]+)?/);
+                if (!match) return 0;
+                const num = parseFloat(match[1]);
+                const unit = match[2] || "";
+                if (unit.startsWith('k')) return num * 1024;
+                if (unit.startsWith('m')) return num * 1024 * 1024;
+                if (unit.startsWith('g')) return num * 1024 * 1024 * 1024;
+                if (unit.startsWith('t')) return num * 1024 * 1024 * 1024 * 1024;
+                return num;
+            }}
+
+            rows.sort((a, b) => {{
+                const aVal = a.children[index].innerText.trim();
+                const bVal = b.children[index].innerText.trim();
+                
+                if(isNumeric) {{
+                    const aNum = parseSizeToBytes(aVal);
+                    const bNum = parseSizeToBytes(bVal);
+                    return (aNum - bNum) * (asc ? 1 : -1);
+                }} else {{
+                    return aVal.localeCompare(bVal) * (asc ? 1 : -1);
+                }}
+            }});
+            
+            // Re-append pinned rows first, then sorted rows
+            pinnedRows.forEach(row => tbody.appendChild(row));
+            rows.forEach(row => tbody.appendChild(row));
+            th.setAttribute('data-asc', asc);
+            
+            updateTableCounters(table);
         }});
 
         // Scroll to Top

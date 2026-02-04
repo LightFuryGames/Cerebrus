@@ -4,6 +4,31 @@ from ..utils import try_format_cell_value
 from . import ReportTab
 
 class ClassStatsTab(ReportTab):
+    def _parse_total_line(self, line: str) -> Optional[Dict[str, Any]]:
+        # Count is usually at the start
+        count_match = re.search(r"(\d+)\s+Objects", line)
+        count = int(count_match.group(1)) if count_match else 0
+        
+        # Use a helper to extract values with unit awareness
+        def get_val(key):
+            # Matches "Key: 123.45M" or "Key: 123.45"
+            m = re.search(rf"{key}:\s+([\d\.]+)\s*(M|K|G)?", line, re.IGNORECASE)
+            if m:
+                val = float(m.group(1))
+                unit = (m.group(2) or "").upper()
+                if unit == 'M': return val
+                if unit == 'K': return val / 1024.0
+                if unit == 'G': return val * 1024.0
+                return val # Default to MB if possible? Unreal usually uses MB for these totals.
+            return 0.0
+
+        return {
+            "count": count,
+            "total": get_val("Total"),
+            "max": get_val("Max"),
+            "res": get_val("Res")
+        }
+
     def __init__(self):
         super().__init__("Class Memory Stats", "class-stats-generic")
         self.current_class: Optional[str] = None
@@ -67,9 +92,10 @@ class ClassStatsTab(ReportTab):
                 stats["summary"] = {"headers": [h.strip() for h in re.split(r"\s+", stripped) if h.strip()], "rows": []}
             return
 
-        # Overall Total Detection - redundantly captured but we'll ignore it in render if requested
+        # Overall Total Detection
         if "Objects (Total:" in line:
             stats["overall_total"] = stripped
+            stats["total_data"] = self._parse_total_line(stripped)
             return
 
         if self.parsing_summary:
@@ -134,40 +160,76 @@ class ClassStatsTab(ReportTab):
         for idx, cls_name in enumerate(sorted_classes):
             stats = class_stats[cls_name]
             tab_id = f"class-{cls_name}"
+            total_data = stats.get("total_data")
             
             has_res = stats.get("resource_size") is not None
             has_alpha = stats.get("alpha_sort") is not None
             
-            header_html = f'<h3>{cls_name} Memory Statistics</h3>'
+            # Count Mismatch Warning
+            warning_html = ""
+            if total_data:
+                # Sum the count from the primary view
+                check_view = stats.get("resource_size") or stats.get("alpha_sort")
+                if check_view:
+                    sum_count = len(check_view["rows"])
+                    if sum_count != total_data["count"]:
+                        diff = total_data["count"] - sum_count
+                        warning_html = f"""
+                        <div class="alert alert-warning" style="margin-top: 15px;">
+                            <div class="alert-icon">⚠️</div>
+                            <div class="alert-content">
+                                <strong>WARNING: Count Mismatch:</strong> Unreal's summary reports <b>{total_data['count']:,}</b> {cls_name} instances, but the detailed list contains only <b>{sum_count:,}</b> entries. Stats for <b>{abs(diff):,}</b> {cls_name}s are missing from the detailed data dump.
+                            </div>
+                        </div>
+                        """
             
-            # Summary Section
-            summary_html = ""
-            if stats.get("summary"):
-                s_headers = stats["summary"]["headers"]
-                s_rows = stats["summary"]["rows"]
-                sh_html = "<thead><tr>" + "".join([f'<th class="numeric">{h}</th>' for h in s_headers]) + "</tr></thead>"
-                sr_html = "<tbody>"
-                for r in s_rows:
-                     # Make the summary entry blue background and bold per user request
-                     sr_html += '<tr style="background-color: rgba(59, 130, 246, 0.15); font-weight: bold; color: var(--accent-light);">'
-                     sr_html += "".join([f'<td class="numeric">{c}</td>' for c in r]) + "</tr>"
-                sr_html += "</tbody>"
-                
-                # Redundant block removed per user request: No blue text line at bottom if table has same data
-                # aggregate_text = stats.get("overall_total", "")
-                
-                summary_html = f"""
-                <div class="stat-card" style="margin-bottom: 20px; overflow-x: auto; border-left: 4px solid var(--accent-color);">
-                    <h4 style="margin-bottom: 10px; color: var(--accent-color); font-size: 10px; text-transform: uppercase; letter-spacing: 1px;">Class Aggregate Summary</h4>
-                    <table>{sh_html}{sr_html}</table>
+            header_html = f"<h3>{cls_name} Memory Statistics</h3>"
+            
+            # Dashboard Section
+            reported_total_card = ""
+            if total_data:
+                reported_total_card = f"""
+                <div class="analytics-card" style="flex: 1; min-width: 250px; background: var(--header-bg); padding: 15px; border-radius: 6px; border: 1px solid var(--border-color); text-align: center;">
+                    <h4 style="margin: 0 0 10px 0; color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">
+                        Reported Total<br>
+                        <span class="unreal-red" style="font-size: 0.85em;">(UNREAL REPORTED)</span>
+                    </h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9em; text-align: left;">
+                        <div><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Count:</span> <b style="color: #ce9178;">{total_data['count']:,}</b></div>
+                        <div><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Total:</span> <b style="color: #ce9178;">{total_data['total']:.2f} MB</b></div>
+                        <div><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Max:</span> <b style="color: #ce9178;">{total_data['max']:.2f} MB</b></div>
+                        <div><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Res:</span> <b style="color: #ce9178;">{total_data['res']:.2f} MB</b></div>
+                    </div>
                 </div>
                 """
+            
+            filtered_stats_card = f"""
+            <div class="analytics-card" title-id="{tab_id}" style="flex: 1; min-width: 250px; background: rgba(59, 130, 246, 0.05); padding: 15px; border-radius: 6px; border: 1px solid var(--accent-color); text-align: center;">
+                <h4 style="margin: 0 0 10px 0; color: var(--accent-color); font-size: 0.8em; text-transform: uppercase;">Filtered Statistics</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9em; text-align: left;">
+                    <div><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Count:</span> <b id="filt-count-{tab_id}" style="color: var(--accent-color);">0</b></div>
+                    <div id="filt-box-numkb-{tab_id}"><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Total:</span> <b id="filt-numkb-{tab_id}" style="color: var(--accent-color);">0.00 MB</b></div>
+                    <div id="filt-box-maxkb-{tab_id}"><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Max:</span> <b id="filt-maxkb-{tab_id}" style="color: var(--accent-color);">0.00 MB</b></div>
+                    <div id="filt-box-reskb-{tab_id}"><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Res:</span> <b id="filt-reskb-{tab_id}" style="color: var(--accent-color);">0.00 MB</b></div>
+                </div>
+            </div>
+            """
+            
+            summary_html = f"""
+            <div class="analytics-wrapper" style="background: var(--row-even); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color);">
+                <div class="analytics-row" style="display: flex; gap: 20px; flex-wrap: wrap;">
+                    {reported_total_card}
+                    {filtered_stats_card}
+                </div>
+                {warning_html}
+            </div>
+            """
 
             def render_view_content(view_key, view_suffix, is_visible):
                 view_data = stats.get(view_key)
                 if not view_data: return ""
                 
-                v_headers = view_data["headers"]
+                v_headers = [h if h != "Count" else "Instance Count" for h in view_data["headers"]]
                 v_rows = view_data["rows"]
                 view_id = f"{tab_id}-{view_suffix}"
                 display_style = "block" if is_visible else "none"
@@ -178,8 +240,23 @@ class ClassStatsTab(ReportTab):
                      tr_html += f'<tr data-index="{r_idx}">' + "".join([f'<td {"class=\\'numeric\\'" if i>1 else ""}>{c}</td>' for i, c in enumerate(r)]) + "</tr>"
                 tr_html += "</tbody>"
                 
+                # Detect columns for aggregation
+                idx_numkb = -1
+                idx_maxkb = -1
+                idx_reskb = -1
+                for i, h in enumerate(v_headers):
+                    h_lower = h.lower()
+                    if "numkb" in h_lower or "size" in h_lower: idx_numkb = i + 1
+                    elif "maxkb" in h_lower: idx_maxkb = i + 1
+                    elif "res" in h_lower: idx_reskb = i + 1
+                
+                # Check for counter/index column added by template? 
+                # (Actually ClassStatsTab headers are raw from file, but template might auto-inject one if not present)
+                # We'll assume the JS will handle the actual index passed.
+
                 return f"""
-                <div id="{view_id}" class="sub-tab-content" style="display: {display_style};">
+                <div id="{view_id}" class="sub-tab-content class-view" style="display: {display_style};"
+                     data-idx-numkb="{idx_numkb}" data-idx-maxkb="{idx_maxkb}" data-idx-reskb="{idx_reskb}">
                     <div class="table-container">
                         <table id="tbl-{view_id}">
                             {th_html}
@@ -204,7 +281,7 @@ class ClassStatsTab(ReportTab):
 
             search_row_html = f"""
             <div class="search-container" data-no-reset="true">
-                <input type="text" placeholder="Search objects..." onkeyup="filterTable('tbl-{tab_id}-' + (document.getElementById('{tab_id}-res') && document.getElementById('{tab_id}-res').style.display !== 'none' ? 'res' : 'alpha'), 0, this.value)">
+                <input type="text" placeholder="Search objects..." onkeyup="filterClassTable('{tab_id}', this.value)">
                 <span style="font-size: 10px; color: #666; font-weight: 600; text-transform: uppercase; margin-left: 10px;">Sort By:</span>
                 {sort_btns_html}
             </div>
@@ -228,4 +305,86 @@ class ClassStatsTab(ReportTab):
             </div>
             """
             
-        return html_out
+        # Global Script for Class Stats
+        script_html = """
+        <script>
+            function parseClassSize(val) {
+                val = val.replace(/,/g, '').toLowerCase().trim();
+                let num = parseFloat(val) || 0;
+                if (val.includes('mb')) return num;
+                if (val.includes('kb')) return num / 1024.0;
+                if (val.includes('gb')) return num * 1024.0;
+                return num / 1024.0; // Default to KB like Unreal NumKB
+            }
+
+            function updateClassAggregates(tabId) {
+                const activeSub = document.querySelector(`#${tabId} .sub-tab-content[style*="block"]`);
+                if (!activeSub) return;
+                
+                const table = activeSub.querySelector('table');
+                if (!table) return;
+
+                const idxNumKB = parseInt(activeSub.getAttribute('data-idx-numkb'));
+                const idxMaxKB = parseInt(activeSub.getAttribute('data-idx-maxkb'));
+                const idxResKB = parseInt(activeSub.getAttribute('data-idx-reskb'));
+
+                const rows = Array.from(table.tBodies[0].rows);
+                let count = 0;
+                let sumNum = 0, sumMax = 0, sumRes = 0;
+
+                rows.forEach(row => {
+                    if (row.style.display !== 'none') {
+                        count++;
+                        if (idxNumKB !== -1 && row.cells[idxNumKB]) sumNum += parseClassSize(row.cells[idxNumKB].innerText);
+                        if (idxMaxKB !== -1 && row.cells[idxMaxKB]) sumMax += parseClassSize(row.cells[idxMaxKB].innerText);
+                        if (idxResKB !== -1 && row.cells[idxResKB]) sumRes += parseClassSize(row.cells[idxResKB].innerText);
+                    }
+                });
+
+                document.getElementById('filt-count-' + tabId).innerText = count;
+                
+                const setVal = (id, boxId, val, idx) => {
+                    const el = document.getElementById(id);
+                    const box = document.getElementById(boxId);
+                    if (idx === -1) {
+                        if (box) box.style.display = 'none';
+                    } else {
+                        if (box) box.style.display = '';
+                        if (el) el.innerText = val.toFixed(2) + " MB";
+                    }
+                };
+
+                setVal('filt-numkb-' + tabId, 'filt-box-numkb-' + tabId, sumNum, idxNumKB);
+                setVal('filt-maxkb-' + tabId, 'filt-box-maxkb-' + tabId, sumMax, idxMaxKB);
+                setVal('filt-reskb-' + tabId, 'filt-box-reskb-' + tabId, sumRes, idxResKB);
+            }
+
+            function filterClassTable(tabId, term) {
+                const activeSub = document.querySelector(`#${tabId} .sub-tab-content[style*="block"]`);
+                if (activeSub) {
+                    filterTable(activeSub.querySelector('table').id, -1, term);
+                    updateClassAggregates(tabId);
+                }
+            }
+
+            // Hook into sub-tab changes
+            const originalOpenSubTab = window.openSubTab;
+            window.openSubTab = function(evt, subId, tabId) {
+                if (originalOpenSubTab) originalOpenSubTab(evt, subId, tabId);
+                setTimeout(() => updateClassAggregates(tabId), 50);
+            };
+
+            document.addEventListener('DOMContentLoaded', () => {
+                document.querySelectorAll('.tab-content[id^="class-"]').forEach(tc => {
+                    updateClassAggregates(tc.id);
+                    tc.querySelectorAll('th').forEach(th => {
+                        th.addEventListener('click', () => {
+                            setTimeout(() => updateClassAggregates(tc.id), 20);
+                        });
+                    });
+                });
+            });
+        </script>
+        """
+        
+        return html_out + script_html

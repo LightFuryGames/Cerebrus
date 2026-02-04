@@ -204,64 +204,92 @@ class TextureStatsTab(ReportTab):
         summary = store["summary"]
         textures = list(store["textures"].values())
         
+        # Validation Alerts
         error_html = ""
         if summary["errors"]:
             error_html = f"""
-            <div class="alert alert-feedback">
-                <div class="alert-icon" style="font-size: 24px;">🛑</div>
+            <div class="alert alert-danger" style="margin-top: 15px;">
+                <div class="alert-icon">🛑</div>
                 <div class="alert-content">
-                    <h4 style="margin-top: 0;">Statistics Mismatch</h4>
-                    <ul style="margin-bottom: 0; font-size: 13px;">
-                        {"".join([f"<li>{e}</li>" for e in summary["errors"]])}
+                    <strong>Statistics Mismatch:</strong> The reported texture totals do not match the sum of individual formats/groups.
+                    <ul style="margin: 10px 0 0 0; padding-left: 20px; font-size: 0.9em;">
+                        {"".join([f"<li>{e}</li>" for e in summary['errors']])}
                     </ul>
                 </div>
             </div>
             """
 
-        stats_html = f"""
-        <div class="texture-stats-summary" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-            <div class="stats-card" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px;">
-                <h4 style="margin-top: 0; color: var(--accent-color); font-size: 11px; text-transform: uppercase;">Overall Totals</h4>
-                <div style="font-size: 1.4em; font-weight: bold; margin-top: 10px;">
-                    <span style="color: var(--text-secondary); font-size: 0.8em;">InMem:</span> {summary['total_in_mem']:.2f} MB
+        warning_html = ""
+        textures_list_count = len(store["textures"])
+        if summary["total_count"] > 0 and summary["total_count"] != textures_list_count:
+            diff = summary["total_count"] - textures_list_count
+            warning_html = f"""
+            <div class="alert alert-warning" style="margin-top: 15px;">
+                <div class="alert-icon">⚠️</div>
+                <div class="alert-content">
+                    <strong>Count Mismatch:</strong> Unreal's summary reports <b>{summary['total_count']:,}</b> textures, but the detailed list contains only <b>{textures_list_count:,}</b> entries. Stats for <b>{abs(diff):,}</b> textures are missing from the detailed data dump.
                 </div>
-                <div style="font-size: 1.4em; font-weight: bold;">
-                    <span style="color: var(--text-secondary); font-size: 0.8em;">OnDisk:</span> {summary['total_on_disk']:.2f} MB
-                </div>
-                <div style="font-size: 1.1em; font-weight: bold; margin-top: 5px; color: var(--text-secondary);">
-                    <span style="font-size: 0.8em;">Count:</span> {summary['total_count']}
-                </div>
-                
-                <div id="tex-filtered-summary" style="margin-top: 15px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
-                    <h4 style="margin-top: 0; color: var(--text-muted); font-size: 10px; text-transform: uppercase;">Filtered Totals</h4>
-                    <div style="font-size: 1.1em; font-weight: bold; color: var(--accent-color);">
-                        <span style="color: var(--text-muted); font-size: 0.8em;">InMem:</span> <span id="tex-filtered-inmem">0.00 MB</span>
+            </div>
+            """
+
+        overall_stats = f"""
+        <div class="analytics-card" style="flex: 1; min-width: 250px; background: var(--header-bg); padding: 15px; border-radius: 6px; border: 1px solid var(--border-color); text-align: center;">
+            <h4 style="margin: 0 0 10px 0; color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">
+                Overall Totals<br>
+                <span class="unreal-red" style="font-size: 0.85em;">(UNREAL REPORTED)</span>
+            </h4>
+            <div style="display: grid; grid-template-columns: 1fr; gap: 5px; font-size: 1.1em; text-align: left;">
+                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">InMem:</span> <b style="color: #ce9178;">{summary['total_in_mem']:.2f} MB</b></div>
+                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">OnDisk:</span> <b style="color: #ce9178;">{summary['total_on_disk']:.2f} MB</b></div>
+                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Count:</span> <b style="color: #ce9178;">{summary['total_count']:,}</b></div>
+            </div>
+        </div>
+        """
+
+        filtered_stats = f"""
+        <div class="analytics-card" style="flex: 1; min-width: 250px; background: rgba(59, 130, 246, 0.05); padding: 15px; border-radius: 6px; border: 1px solid var(--accent-color); text-align: center;">
+            <h4 style="margin: 0 0 10px 0; color: var(--accent-color); font-size: 0.8em; text-transform: uppercase;">Filtered Statistics</h4>
+            <div style="display: grid; grid-template-columns: 1fr; gap: 5px; font-size: 1.1em; text-align: left;">
+                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">InMem:</span> <b id="tex-filtered-inmem" style="color: var(--accent-color);">0.00 MB</b></div>
+                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">OnDisk:</span> <b id="tex-filtered-ondisk" style="color: var(--accent-color);">0.00 MB</b></div>
+                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Count:</span> <b id="tex-filtered-count" style="color: var(--accent-color);">0</b></div>
+            </div>
+        </div>
+        """
+
+        distribution_stats = f"""
+        <div class="analytics-card" style="flex: 2; min-width: 500px; background: rgba(255, 255, 255, 0.02); padding: 15px; border-radius: 6px; border: 1px solid var(--border-color);">
+            <h4 style="margin: 0 0 10px 0; color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Texture Distribution</h4>
+            <div style="display: flex; gap: 20px; align-items: flex-start;">
+                <div style="flex: 1;">
+                    <div style="color: var(--accent-color); font-size: 0.8em; font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px;">▼ BY FORMAT ({len(summary['formats'])})</div>
+                    <div style="padding-right: 5px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.85em;">
+                            {"".join([f"<tr><td style='border:none; padding:2px; color: var(--text-muted); white-space: nowrap;'>{f}</td><td style='text-align:right; border:none; padding:2px; white-space: nowrap;'><b>{d['in_mem']:.2f} MB</b></td></tr>" for f, d in sorted(summary['formats'].items(), key=lambda x: x[1]['in_mem'], reverse=True)])}
+                        </table>
                     </div>
-                    <div style="font-size: 1.1em; font-weight: bold; color: var(--accent-color);">
-                        <span style="color: var(--text-muted); font-size: 0.8em;">OnDisk:</span> <span id="tex-filtered-ondisk">0.00 MB</span>
-                    </div>
-                    <div style="font-size: 0.9em; font-weight: bold; color: var(--accent-color); margin-top: 3px;">
-                        <span style="color: var(--text-muted); font-size: 0.8em;">Count:</span> <span id="tex-filtered-count">0</span>
+                </div>
+                <div style="flex: 1;">
+                    <div style="color: var(--accent-color); font-size: 0.8em; font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px;">▼ BY GROUP ({len(summary['groups'])})</div>
+                    <div style="padding-right: 5px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.85em;">
+                            {"".join([f"<tr><td style='border:none; padding:2px; color: var(--text-muted); white-space: normal; word-break: break-all; width: 120px;'>{g}</td><td style='text-align:right; border:none; padding:2px; white-space: nowrap; vertical-align: top;'><b>{d['in_mem']:.2f} MB</b></td></tr>" for g, d in sorted(summary['groups'].items(), key=lambda x: x[1]['in_mem'], reverse=True)])}
+                        </table>
                     </div>
                 </div>
             </div>
-            <div class="stats-card" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px;">
-                <h4 style="margin-top: 0; color: var(--accent-color); font-size: 11px; text-transform: uppercase;">Texture Distribution</h4>
-                <div style="display: flex; gap: 20px; margin-top: 10px;">
-                    <details style="flex: 1;">
-                        <summary style="cursor: pointer; color: var(--text-secondary); font-size: 0.9em;">By Format ({len(summary['formats'])})</summary>
-                        <table style="width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 0.8em;">
-                            {"".join([f"<tr><td style='border:none; padding:2px;'>{f}</td><td style='text-align:right; border:none; padding:2px;'>{d['in_mem']:.2f} MB</td></tr>" for f, d in sorted(summary['formats'].items(), key=lambda x: x[1]['in_mem'], reverse=True)])}
-                        </table>
-                    </details>
-                    <details style="flex: 1;">
-                        <summary style="cursor: pointer; color: var(--text-secondary); font-size: 0.9em;">By Group ({len(summary['groups'])})</summary>
-                        <table style="width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 0.8em;">
-                            {"".join([f"<tr><td style='border:none; padding:2px;'>{g}</td><td style='text-align:right; border:none; padding:2px;'>{d['in_mem']:.2f} MB</td></tr>" for g, d in sorted(summary['groups'].items(), key=lambda x: x[1]['in_mem'], reverse=True)])}
-                        </table>
-                    </details>
-                </div>
+        </div>
+        """
+
+        summary_html = f"""
+        <div class="analytics-wrapper" style="background: var(--row-even); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color);">
+            <div class="analytics-row" style="display: flex; gap: 20px; flex-wrap: wrap;">
+                {overall_stats}
+                {filtered_stats}
+                {distribution_stats}
             </div>
+            {error_html}
+            {warning_html}
         </div>
         """
 
@@ -269,15 +297,15 @@ class TextureStatsTab(ReportTab):
         has_bias = any(t["bias"] and any(c.isdigit() for c in t["bias"]) for t in textures)
         headers = [
             ("#", "count-header"),
-            ("On RAM (Cooked) Width", "numeric"), 
-            ("On RAM (Cooked) Height", "numeric"), 
-            ("On RAM (Cooked) Size", "numeric")
+            ("On RAM<br>(Cooked)<br>Width", "numeric"), 
+            ("On RAM<br>(Cooked)<br>Height", "numeric"), 
+            ("On RAM<br>(Cooked)<br>Size", "numeric")
         ]
         if has_bias: headers.append(("Authored Bias", ""))
         headers.extend([
-            ("On Disk Width", "numeric"), 
-            ("On Disk Height", "numeric"), 
-            ("On Disk Size", "numeric"), 
+            ("On Disk<br>(Cooked)<br>Width", "numeric"), 
+            ("On Disk<br>(Cooked)<br>Height", "numeric"), 
+            ("On Disk<br>(Cooked)<br>Size", "numeric"), 
             ("Format", ""), ("Group", ""), ("Name", ""), 
             ("Streaming", ""), ("UnknownRef", ""), ("VT", ""), 
             ("Usage", "numeric"), ("Mips", "numeric"), ("Uncompressed", "")
@@ -369,7 +397,7 @@ class TextureStatsTab(ReportTab):
             row_html += f"<td {ram_w_style}>{t['ram_w']}</td><td {ram_h_style}>{t['ram_h']}</td><td {ram_sz_style}>{self._format_size_smart(t['ram_kb'])}</td>"
             if has_bias: row_html += f"<td>{t['bias']}</td>"
             row_html += f"<td {disk_w_style}>{t['disk_w']}</td><td {disk_h_style}>{t['disk_h']}</td><td {disk_sz_style}>{self._format_size_smart(t['disk_kb'])}</td>"
-            row_html += f"<td>{t['format']}</td><td>{t['group']}</td>"
+            row_html += f"<td class='format-cell'>{t['format']}</td><td class='group-cell'>{t['group']}</td>"
             row_html += f"<td title='{t['name']}' class='name-cell'>{t['name']}</td>"
             # Boolean columns
             for col in ["streaming", "unknown_ref", "vt"]:
@@ -580,18 +608,50 @@ class TextureStatsTab(ReportTab):
         <style>
             #tbl-{self.id} {{
                 min-width: 1400px;
+                font-size: 13px; /* Standardize with other tabs */
+                table-layout: auto;
+                border-spacing: 0;
+            }}
+            #tbl-{self.id} th {{
+                white-space: nowrap !important;
+                vertical-align: bottom;
+                padding: 6px 4px;
+                background-color: var(--header-bg);
+                word-break: normal !important;
+                overflow-wrap: normal !important;
+            }}
+            #tbl-{self.id} td {{
+                padding: 6px 4px;
+                vertical-align: middle;
             }}
             .name-cell {{
-                max-width: 500px;
-                min-width: 300px;
+                min-width: 500px;
                 word-break: break-all;
+                white-space: normal;
+            }}
+            .format-cell {{
+                white-space: nowrap !important;
+                min-width: 80px;
+            }}
+            .group-cell {{
+                white-space: normal !important;
+                word-break: break-all !important;
+                min-width: 100px;
+                max-width: 120px;
+                line-height: 1.1;
+                font-size: 0.95em;
             }}
             .boolean-cell {{
-                min-width: 80px;
+                min-width: 100px;
                 text-align: center;
+                white-space: nowrap !important;
+            }}
+            .numeric {{
+                min-width: 85px;
+                white-space: nowrap !important;
             }}
             .count-cell, .count-header {{
-                min-width: 40px;
+                min-width: 50px;
                 text-align: center;
                 color: var(--text-muted);
                 font-weight: bold;
@@ -611,8 +671,7 @@ class TextureStatsTab(ReportTab):
         </style>
         <div id="{self.id}" class="tab-content" style="display: {display_style}; width: 100%;">
             <h3 style="margin-bottom: 20px;">Texture Statistics</h3>
-            {error_html}
-            {stats_html}
+            {summary_html}
             
             <div class="search-container" data-no-reset="true">
                 <input type="text" placeholder="Search textures..." onkeyup="applyTextureFilters()">

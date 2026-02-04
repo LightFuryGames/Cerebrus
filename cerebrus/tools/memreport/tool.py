@@ -14,6 +14,7 @@ from .tabs.rhi_stats import RhiMemoryTab, RhiResourceMemoryTab
 from .tabs.texture_stats import TextureStatsTab
 from .tabs.level_stats import LevelLoadingStatsTab
 from .tabs.persistent_actors_stats import PersistentActorsStatsTab
+from .tabs.config_cache_memory_stats import ConfigCacheMemoryStatsTab
 from .template import HTML_TEMPLATE
 from .utils import format_seconds_to_hms
 
@@ -66,26 +67,30 @@ class GenericTableTab:
         # Case 1: Purely Empty
         if not self.rows and not self.raw_lines:
              warning_html = f"""
-             <div class="alert alert-warning">
-                <div class="alert-icon">⚠️</div>
-                <div class="alert-content">
-                    <strong><u>WARNING</u></strong>: This section ({self.command_name}) contains no data in the report.
-                </div>
+             <div class="analytics-wrapper" style="background: var(--row-even); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color);">
+                 <div class="alert alert-warning">
+                    <div class="alert-icon">⚠️</div>
+                    <div class="alert-content">
+                        <strong>WARNING:</strong> This section ({self.command_name}) contains no data in the report.
+                    </div>
+                 </div>
              </div>
              """
         # Case 2: No rows but have raw lines (Unparsed)
         elif not self.rows and self.raw_lines:
              warning_html = f"""
-             <div class="alert alert-warning">
-                <div class="alert-icon">⚠️</div>
-                <div class="alert-content">
-                    <strong><u>WARNING</u></strong>: This section ({self.command_name}) could not be parsed into a table.
+             <div class="analytics-wrapper" style="background: var(--row-even); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color);">
+                <div class="alert alert-warning">
+                    <div class="alert-icon">⚠️</div>
+                    <div class="alert-content">
+                        <strong>WARNING:</strong> This section ({self.command_name}) could not be parsed into a table.
+                    </div>
                 </div>
-             </div>
-             <div class="alert alert-feedback">
-                <div class="alert-icon">🛑</div>
-                <div class="alert-content">
-                    <strong><u>FATAL</u></strong> :- Please Provide Feedback to the Tech & Tools team to request a parsing update for this section with a copy of this HTML file or a new raw .memreport file using the Cerebrus Help -> Provide Feedback in the top Menu toolbar
+                <div class="alert alert-danger" style="margin-top: 15px;">
+                    <div class="alert-icon">🛑</div>
+                    <div class="alert-content">
+                        <strong>FATAL:</strong> Please Provide Feedback to the Tech & Tools team to request a parsing update for this section with a copy of this HTML file or a new raw .memreport file using the Cerebrus Help -> Provide Feedback in the top Menu toolbar.
+                    </div>
                 </div>
              </div>
              """
@@ -151,7 +156,20 @@ def parse_memreport(file_path: Path) -> Dict[str, Any]:
 
     # Tabs that handle parsing
     # Order matters!
-    tabs = [DeviceInfoTab(), MemoryStatsTab(), RhiMemoryTab(), RhiResourceMemoryTab(), TextureStatsTab(), LevelLoadingStatsTab(), PersistentActorsStatsTab(), ClassStatsTab(), DetailedListsTab(), ObjectSummaryTab()]
+    # Order matters!
+    tabs = [
+        DeviceInfoTab(), 
+        MemoryStatsTab(), 
+        RhiMemoryTab(), 
+        RhiResourceMemoryTab(), 
+        TextureStatsTab(), 
+        LevelLoadingStatsTab(), 
+        PersistentActorsStatsTab(), 
+        ClassStatsTab(), 
+        DetailedListsTab(), 
+        ObjectSummaryTab(),
+        ConfigCacheMemoryStatsTab(),
+    ]
 
     # 1. Read File with Robust Encoding
     content = ""
@@ -286,7 +304,9 @@ def generate_html_report(context: Dict[str, Any], output_path: Path):
         PersistentActorsStatsTab(),
         ClassStatsTab(),
         ObjectSummaryTab(),
+
         DetailedListsTab(),
+        ConfigCacheMemoryStatsTab(),
     ]
 
     tab_buttons_html = ""

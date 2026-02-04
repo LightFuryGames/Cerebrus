@@ -15,7 +15,6 @@ class RhiMemoryTab(ReportTab):
         if "rhi_memory_data" not in context:
             context["rhi_memory_data"] = []
         
-        # Format:          0.000MB  -  Bindless Resource Heap - STAT_BindlessResourceHeapMemory - STATGROUP_RHI - STATCAT_Advanced
         match = re.search(r"^\s*([\d\.]+\s*[KMGM]?B)\s*-\s*(.*?)\s*-\s*(STAT_.*?)\s*-\s*STATGROUP_RHI", line, re.IGNORECASE)
         if match:
             size_raw = match.group(1).strip()
@@ -38,23 +37,73 @@ class RhiMemoryTab(ReportTab):
         active_cls = " active" if is_active else ""
         thead = "<thead><tr>" + "".join([f"<th>{h}</th>" for h in self.headers]) + "</tr></thead>"
         tbody = "<tbody>"
-        if total_val:
-            tbody += f'<tr data-pinned="true" style="background-color: rgba(59, 130, 246, 0.2); font-weight: bold; position: sticky; top: 40px; z-index: 10;">'
-            tbody += f'<td>TOTAL</td><td></td><td class="numeric">{total_val}</td></tr>'
 
         for row in data:
             tbody += f"<tr><td>{row[0]}</td><td>{row[1]}</td><td class=\"numeric\">{row[2]}</td></tr>"
         tbody += "</tbody>"
         
+        dashboard_html = ""
+        if total_val:
+            dashboard_html = f"""
+        <div class="analytics-wrapper" style="background: var(--row-even); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color);">
+            <div class="analytics-row" style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <div class="analytics-card" style="flex: 1; max-width: 300px; background: var(--header-bg); padding: 15px; border-radius: 6px; border: 1px solid var(--border-color); text-align: center;">
+                    <h4 style="margin: 0 0 10px 0; color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Total RHI Memory</h4>
+                    <div style="font-size: 1.5em; font-weight: bold; color: #ce9178;">{total_val}</div>
+                    <div style="font-size: 0.8em; color: var(--text-muted);">(Reported by rhi.DumpMemory)</div>
+                </div>
+                <div class="analytics-card" style="flex: 1; max-width: 300px; background: rgba(59, 130, 246, 0.05); padding: 15px; border-radius: 6px; border: 1px solid var(--accent-color); text-align: center;">
+                     <h4 style="margin: 0 0 10px 0; color: var(--accent-color); font-size: 0.8em; text-transform: uppercase;">Filtered Statistics</h4>
+                     <div style="font-size: 0.9em; text-align: left; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Rows:</span> <b id="rhi-filt-count" style="color: var(--accent-color);">0</b></div>
+                        <div><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Sum:</span> <b id="rhi-filt-sum" style="color: var(--accent-color);">0.00 MB</b></div>
+                     </div>
+                </div>
+            </div>
+        </div>
+        """
+
         return f"""
         <div id="{self.id}" class="tab-content{active_cls}">
             <h3>RHI Memory Statistics</h3>
+            {dashboard_html}
             <div class="search-container">
-                <input type="text" placeholder="Search RHI Memory Statistics..." onkeyup="filterTable('tbl-{self.id}', 0, this.value)">
+                <input type="text" placeholder="Search RHI Memory Statistics..." onkeyup="filterRhiTable(this.value)">
             </div>
             <div class="table-container">
                 <table id="tbl-{self.id}">{thead}{tbody}</table>
             </div>
+            <script>
+                function parseRhiSize(val) {{
+                    val = val.replace(/,/g, '').toLowerCase();
+                    let num = parseFloat(val) || 0;
+                    if (val.includes('mb')) return num;
+                    if (val.includes('kb')) return num / 1024.0;
+                    if (val.includes('gb')) return num * 1024.0;
+                    return num / 1024.0;
+                }}
+                function updateRhiAggregates() {{
+                    const table = document.getElementById('tbl-{self.id}');
+                    const rows = Array.from(table.tBodies[0].rows);
+                    let count = 0;
+                    let sum = 0;
+                    rows.forEach(row => {{
+                        if (row.style.display !== 'none' && row.getAttribute('data-pinned') !== 'true') {{
+                            count++;
+                            sum += parseRhiSize(row.cells[row.cells.length-1].innerText);
+                        }}
+                    }});
+                    const countEl = document.getElementById('rhi-filt-count');
+                    const sumEl = document.getElementById('rhi-filt-sum');
+                    if(countEl) countEl.innerText = count;
+                    if(sumEl) sumEl.innerText = sum.toFixed(2) + " MB";
+                }}
+                function filterRhiTable(term) {{
+                    filterTable('tbl-{self.id}', -1, term);
+                    updateRhiAggregates();
+                }}
+                document.addEventListener('DOMContentLoaded', updateRhiAggregates);
+            </script>
         </div>
         """
 
@@ -77,9 +126,12 @@ class RhiResourceMemoryTab(ReportTab):
 
         match2 = re.search(r"Total tracked resource size:\s*([\d\.]+\s*[KMGM]?B)", line, re.IGNORECASE)
         if match2:
-            size = try_format_cell_value("Size", match2.group(1).strip())
+            size_str = match2.group(1).strip()
+            size = try_format_cell_value("Size", size_str)
             context["rhi_resource_memory_data"]["metrics"].append(["total tracked resource Size", size, size])
-            if float(re.search(r"([\d\.]+)", match2.group(1)).group(1)) > 0:
+            # Store raw MB for threshold check
+            num_val = float(re.search(r"([\d\.]+)", size_str).group(1))
+            if num_val > 0:
                 context["rhi_resource_memory_data"]["has_large_content"] = True
             return
 
@@ -103,13 +155,15 @@ class RhiResourceMemoryTab(ReportTab):
         warning_html = ""
         if has_large_content:
             warning_html = """
-            <div class="alert alert-warning">
-                <div class="alert-icon">⚠️</div>
-                <div class="alert-content"><strong><u>WARNING</u></strong>: Large resource tracking detected. Detailed info is currently unparsed.</div>
-            </div>
-            <div class="alert alert-feedback">
-                <div class="alert-icon">🛑</div>
-                <div class="alert-content" style="font-weight: 600;"><strong><u>FATAL</u></strong> :- Please Provide Feedback...</div>
+            <div class="analytics-wrapper" style="background: var(--row-even); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color);">
+                <div class="alert alert-warning">
+                    <div class="alert-icon">⚠️</div>
+                    <div class="alert-content"><strong>WARNING:</strong> Large resource tracking detected. Detailed info is currently unparsed.</div>
+                </div>
+                <div class="alert alert-danger" style="margin-top: 15px;">
+                    <div class="alert-icon">🛑</div>
+                    <div class="alert-content"><strong>FATAL:</strong> Please Provide Feedback...</div>
+                </div>
             </div>
             """
 
@@ -118,7 +172,7 @@ class RhiResourceMemoryTab(ReportTab):
             raw_trace_html = f"""
             <hr class="section-divider">
             <h4>Raw Trace Data</h4>
-            <pre style="background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 8px; overflow-x: auto;">{"\n".join(raw_lines)}</pre>
+            <pre style="background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 8px; overflow-x: auto; font-size: 11px;">{"\n".join(raw_lines)}</pre>
             """
 
         return f"""
@@ -126,7 +180,7 @@ class RhiResourceMemoryTab(ReportTab):
             <h3>RHI Resource Memory Statistics</h3>
             {warning_html}
             <div class="search-container">
-                <input type="text" placeholder="Search RHI Resource Memory Statistics..." onkeyup="filterTable('tbl-{self.id}', 0, this.value)">
+                <input type="text" placeholder="Search RHI Resource Memory Statistics..." onkeyup="filterTable('tbl-{self.id}', -1, this.value)">
             </div>
             <div class="table-container">
                 <table id="tbl-{self.id}">{thead}{tbody}</table>

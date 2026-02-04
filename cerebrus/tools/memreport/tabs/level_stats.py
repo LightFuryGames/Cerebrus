@@ -29,15 +29,12 @@ class LevelLoadingStatsTab(ReportTab):
         if not stripped or stripped == "Levels:":
             return
 
-        # Handle persistent level marker "->"
         is_persistent = False
         level_text = stripped
         if stripped.startswith("->"):
             is_persistent = True
             level_text = stripped[2:].strip()
         
-        # Check if it has the standard stat format: Level - Time Streaming Visibility
-        # Example: /Game/Environments/Lynton/Maps/L_Lynton_Cameras_LevelInstance_2 -  2.0 sec 		Loaded Visible
         match = re.search(r"^(.*?)\s*-\s*([\d\.]+\s*sec)\s+(.*?)\s+(.*?)$", level_text)
         
         if match:
@@ -46,12 +43,11 @@ class LevelLoadingStatsTab(ReportTab):
             streaming = match.group(3).strip()
             visibility = match.group(4).strip()
         else:
-            # Persistent level or unknown format
             level = level_text
             time_to_load = ""
             streaming = ""
             visibility = ""
-            is_persistent = True # If it doesn't match the stat pattern, we treat it as persistent per user rule
+            is_persistent = True
 
         if is_persistent:
             context["level_stats"]["persistent_count"] += 1
@@ -75,10 +71,10 @@ class LevelLoadingStatsTab(ReportTab):
         warning_html = ""
         if persistent_count >= 2:
             warning_html = f"""
-            <div class="alert alert-warning" style="margin-bottom: 20px;">
+            <div class="alert alert-warning" style="margin-top: 15px;">
                 <div class="alert-icon">⚠️</div>
                 <div class="alert-content">
-                    <strong><u>WARNING</u></strong>: More than 1 persistent level detected ({persistent_count}). Please check if they are sub-levels, as only 1 persistent primary level can be loaded at all times.
+                    <strong>WARNING:</strong> More than 1 persistent level detected ({persistent_count}). Please check if they are sub-levels, as only 1 persistent primary level can be loaded at all times.
                 </div>
             </div>
             """
@@ -86,20 +82,30 @@ class LevelLoadingStatsTab(ReportTab):
         thead = "<thead><tr>" + "".join([f"<th>{h}</th>" for h in self.headers]) + "</tr></thead>"
         tbody = "<tbody>"
         for row in rows:
-            # Highlight persistent levels (no time to load)
             row_style = ""
-            if not row[1]: # No Time to Load means persistent
+            if not row[1]: 
                 row_style = ' style="background-color: rgba(59, 130, 246, 0.1); font-weight: 600;"'
-            
             tbody += f"<tr{row_style}>" + "".join([f"<td>{c}</td>" for c in row]) + "</tr>"
         tbody += "</tbody>"
+
+        dashboard_html = f"""
+        <div class="analytics-wrapper" style="background: var(--row-even); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color);">
+            <div class="analytics-row" style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <div class="analytics-card" style="flex: 1; max-width: 300px; background: rgba(59, 130, 246, 0.05); padding: 15px; border-radius: 6px; border: 1px solid var(--accent-color); text-align: center;">
+                     <h4 style="margin: 0 0 10px 0; color: var(--accent-color); font-size: 0.8em; text-transform: uppercase;">Filtered Statistics</h4>
+                     <div style="font-size: 0.9em; text-align: left;"><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Levels:</span> <b id="lvl-filt-count" style="color: var(--accent-color);">0</b></div>
+                </div>
+            </div>
+            {warning_html}
+        </div>
+        """
 
         return f"""
         <div id="{self.id}" class="tab-content{active_class}">
             <h3 id="level-loading-statistics">Level Loading Statistics</h3>
-            {warning_html}
+            {dashboard_html}
             <div class="search-container">
-                <input type="text" placeholder="Search levels..." onkeyup="filterTable('tbl-{self.id}', 0, this.value)">
+                <input type="text" placeholder="Search levels..." onkeyup="filterLvlTable(this.value)">
             </div>
             <div class="table-container">
                 <table id="tbl-{self.id}">
@@ -107,5 +113,21 @@ class LevelLoadingStatsTab(ReportTab):
                     {tbody}
                 </table>
             </div>
+            <script>
+                function updateLvlAggregates() {{
+                    const table = document.getElementById('tbl-{self.id}');
+                    const rows = Array.from(table.tBodies[0].rows);
+                    let count = 0;
+                    rows.forEach(row => {{
+                        if (row.style.display !== 'none') count++;
+                    }});
+                    document.getElementById('lvl-filt-count').innerText = count;
+                }}
+                function filterLvlTable(term) {{
+                    filterTable('tbl-{self.id}', -1, term);
+                    updateLvlAggregates();
+                }}
+                document.addEventListener('DOMContentLoaded', updateLvlAggregates);
+            </script>
         </div>
         """

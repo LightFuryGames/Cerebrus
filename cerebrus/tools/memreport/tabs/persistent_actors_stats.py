@@ -155,168 +155,261 @@ class PersistentActorsStatsTab(ReportTab):
         for root in sorted(roots, key=lambda x: (x['owner'], x['name'])):
             tree_html += render_tree_node(root)
 
+        # Prepare Warning logic
+        warning_html = ""
+        if reported_total > 0 and actual_total_found != reported_total:
+            diff = reported_total - actual_total_found
+            warning_html = f"""
+            <div class="alert alert-warning" style="margin-top: 15px;">
+                <div class="alert-icon">⚠️</div>
+                <div class="alert-content">
+                    <strong>WARNING: Count Mismatch:</strong> Unreal's summary reports <b>{reported_total:,}</b> spawned actors, but the detailed list contains only <b>{listed_count:,}</b> entries.
+                    Even including the <b>{len(external_owners)}</b> implied external owners found during scan (Total: <b>{actual_total_found:,}</b>), 
+                    the detailed data dump is still missing stats for <b>{abs(diff):,}</b> actors.
+                </div>
+            </div>
+            """
+
+        info_html = f"""
+        <div class="alert alert-info" style="margin-top: 15px;">
+            <div class="alert-icon">ℹ️</div>
+            <div class="alert-content">
+                <strong>WorldSettings Context:</strong> <code>WorldSettings</code> is an internal actor representing the Persistent Level itself. 
+                It is always present, even in empty levels, as the root of the world state and global level settings.
+            </div>
+        </div>
+        """
+
         html = f"""
         <style>
             .persistent-actors-analytics {{
                 display: flex;
                 gap: 12px;
-                margin-bottom: 20px;
+                margin-bottom: 25px;
                 flex-wrap: wrap;
             }}
             .analytics-card {{
-                background: rgba(255,255,255,0.05);
-                padding: 10px;
+                background: var(--header-bg);
+                padding: 12px;
                 border-radius: 8px;
                 flex: 1;
                 min-width: 150px;
                 text-align: center;
                 border: 1px solid var(--border-color);
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                transition: transform 0.2s, box-shadow 0.2s;
+            }}
+            .analytics-card:hover {{
+                transform: translateY(-2px);
+                box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            }}
+            body.light-mode .analytics-card {{
+                background: #f1f5f9;
+                border-color: #cbd5e1;
             }}
             .analytics-label {{
                 font-size: 10px;
                 text-transform: uppercase;
                 color: var(--text-muted);
-                margin-bottom: 4px;
+                margin-bottom: 6px;
+                font-weight: 600;
+                letter-spacing: 0.5px;
             }}
             .analytics-value {{
-                font-size: 18px;
+                font-size: 22px;
                 font-weight: bold;
                 color: var(--accent-color);
             }}
             .view-selector {{
                 display: flex;
                 gap: 10px;
-                margin-bottom: 15px;
+                margin-bottom: 12px;
                 align-items: center;
             }}
             .filter-container {{
                 background: rgba(0,0,0,0.2);
-                padding: 15px;
-                border-radius: 6px;
-                margin-bottom: 20px;
-                display: flex;
-                flex-direction: column;
-                gap: 12px;
+                padding: 18px;
+                border-radius: 8px;
+                margin-bottom: 15px;
+                border: 1px solid var(--border-color);
+            }}
+            body.light-mode .filter-container {{
+                background: #f1f5f9;
+                border-color: #cbd5e1;
             }}
             .slider-wrapper {{
                 display: flex;
                 align-items: center;
                 gap: 15px;
             }}
-            .slider-wrapper label {{ min-width: 180px; font-size: 13px; }}
+            .slider-wrapper label {{ 
+                min-width: 200px; 
+                font-size: 13px; 
+                font-weight: 600;
+                color: var(--text-color);
+            }}
             .slider-wrapper input {{ flex: 1; height: 6px; cursor: pointer; }}
+            .slider-value {{
+                font-weight: bold;
+                color: var(--accent-color);
+                min-width: 45px;
+                text-align: right;
+            }}
             
             .highlight-red-row {{
-                background: rgba(255, 68, 68, 0.1) !important;
-                box-shadow: inset 0 0 0 1px rgba(255, 68, 68, 0.3) !important;
+                background: rgba(255, 68, 68, 0.15) !important;
+            }}
+            body.light-mode .highlight-red-row {{
+                background: rgba(239, 68, 68, 0.1) !important;
             }}
             .table-container tbody tr.highlight-red-row td {{
-                border-top: 1px solid rgba(255, 68, 68, 0.3) !important;
-                border-bottom: 1px solid rgba(255, 68, 68, 0.3) !important;
-                background: transparent !important;
+                border-bottom: 1px solid rgba(255, 68, 68, 0.2);
             }}
 
             /* Tree Styles */
             .tree-view-wrapper {{
-                background: rgba(0,0,0,0.2);
+                background: rgba(0,0,0,0.1);
                 border: 1px solid var(--border-color);
-                border-radius: 4px;
-                font-family: 'Consolas', monospace;
+                border-radius: 8px;
+                font-family: 'Consolas', 'Monaco', monospace;
                 font-size: 12px;
+                overflow: hidden;
+            }}
+            body.light-mode .tree-view-wrapper {{
+                background: #ffffff;
             }}
             .tree-header-row {{
                 display: flex;
                 background: var(--header-bg);
                 font-weight: bold;
-                padding: 10px;
+                padding: 10px 15px;
                 border-bottom: 1px solid var(--border-color);
+                color: var(--text-muted);
+                text-transform: uppercase;
+                font-size: 11px;
+                letter-spacing: 0.5px;
             }}
             .tree-row {{
                 display: flex;
-                padding: 4px 10px;
-                border-bottom: 1px solid rgba(255,255,255,0.02);
+                padding: 6px 15px;
+                border-bottom: 1px solid rgba(128,128,128,0.05);
                 align-items: center;
+                transition: background 0.1s;
             }}
             .tree-row:hover {{ background: var(--hover-bg); }}
             
             /* Column Alignment */
-            .tree-cell {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 5px; }}
-            .name-col {{ flex: 1; min-width: 250px; display: flex; align-items: center; }}
+            .tree-cell {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 8px; }}
+            .name-col {{ flex: 1.2; min-width: 300px; display: flex; align-items: center; }}
             .class-col {{ flex: 0.8; min-width: 150px; color: var(--text-muted); font-size: 11px; }}
-            .numeric-col {{ width: 85px; text-align: right; flex-shrink: 0; }}
+            .numeric-col {{ width: 90px; text-align: right; flex-shrink: 0; }}
             
-            .tree-toggle-icon {{ width: 20px; color: var(--accent-color); cursor: pointer; display: inline-block; font-size: 12px; text-align: center; }}
-            .actor-name {{ color: #4cd137; margin-right: 5px; }}
+            .tree-toggle-icon {{ 
+                width: 24px; 
+                color: var(--accent-color); 
+                cursor: pointer; 
+                display: inline-flex; 
+                align-items: center;
+                justify-content: center;
+                font-size: 10px;
+                transition: transform 0.2s;
+            }}
+            .actor-name {{ 
+                color: #4cd137; 
+                margin-right: 5px; 
+                font-weight: 500;
+            }}
+            body.light-mode .actor-name {{
+                color: #16a34a; /* Darker green for light mode */
+            }}
             
             .child-collapsed .tree-children-container {{ display: none; }}
             
-            .info-zone {{ display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; }}
+            .info-zone {{ display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }}
             .discrepancy-warning, .world-info {{
-                font-size: 11px;
-                padding: 8px 12px;
-                border-radius: 2px;
-                border-left: 3px solid;
+                font-size: 12px;
+                padding: 10px 15px;
+                border-radius: 6px;
+                border: 1px solid transparent;
             }}
             .discrepancy-warning {{
-                color: #ffb74d; background: rgba(255, 183, 77, 0.1); border-color: #ffb74d;
+                color: #f59e0b; 
+                background: rgba(245, 158, 11, 0.1); 
+                border-color: rgba(245, 158, 11, 0.2);
+            }}
+            body.light-mode .discrepancy-warning {{
+                background: #fffbeb;
+                color: #92400e;
+                border-color: #fde68a;
             }}
             .world-info {{
-                color: #3b82f6; background: rgba(59, 130, 246, 0.1); border-color: #3b82f6;
+                color: #3b82f6; 
+                background: rgba(59, 130, 246, 0.1); 
+                border-color: rgba(59, 130, 246, 0.2);
+            }}
+            body.light-mode .world-info {{
+                background: #eff6ff;
+                color: #1e40af;
+                border-color: #bfdbfe;
+            }}
+            
+            .search-bar-row {{
+                display: flex;
+                gap: 10px;
+                margin-bottom: 20px;
+                align-items: center;
             }}
         </style>
 
         <div id="{self.id}" class="tab-content{active_cls}">
             <h2>Persistent Level Actors Statistics</h2>
             
-            <div class="persistent-actors-analytics">
-                <div class="analytics-card" title="Actor count reported in MemReport summary header">
-                    <div class="analytics-label">Unreal Reported Total</div>
-                    <div class="analytics-value">{reported_total}</div>
+            <div class="analytics-wrapper" style="background: var(--row-even); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color);">
+                <div class="analytics-row" style="display: flex; gap: 20px; flex-wrap: wrap;">
+                    <div class="analytics-card" title="Actor count reported in MemReport summary header" style="flex: 1; min-width: 200px;">
+                        <div class="analytics-label">
+                            Unreal Reported Total<br>
+                            <span class="unreal-red" style="font-size: 0.85em;">(UNREAL REPORTED)</span>
+                        </div>
+                        <div class="analytics-value" style="color: #ce9178; font-size: 1.5em;">{reported_total:,}</div>
+                    </div>
+                    <div class="analytics-card" title="Actual actors found in detailed list + implied unique owners" style="flex: 1; min-width: 200px;">
+                        <div class="analytics-label">Actual Total Found</div>
+                        <div class="analytics-value" style="color: #4ec9b0; font-size: 1.5em;">{actual_total_found:,}</div>
+                    </div>
+                    <div class="analytics-card" title="Actors meeting the current Unseen Threshold" style="flex: 1; min-width: 200px;">
+                        <div class="analytics-label">Threshold Met</div>
+                        <div class="analytics-value" style="color: #ef4444; font-size: 1.5em;" id="ra-threshold-{self.id}">0</div>
+                    </div>
+                    <div class="analytics-card" title="Items currently visible in the active view" style="flex: 1; min-width: 200px;">
+                        <div class="analytics-label">Visible View Items</div>
+                        <div class="analytics-value" style="color: #3b82f6; font-size: 1.5em;" id="ra-visible-{self.id}">0</div>
+                    </div>
                 </div>
-                <div class="analytics-card" title="Actual actors found in detailed list + implied unique owners">
-                    <div class="analytics-label">Actual Total Found</div>
-                    <div class="analytics-value" style="color: #3b82f6;">{actual_total_found}</div>
-                </div>
-                <div class="analytics-card" title="Actors meeting the current Unseen Threshold">
-                    <div class="analytics-label">Threshold Met</div>
-                    <div class="analytics-value" style="color: #ff4444;" id="ra-threshold-{self.id}">0</div>
-                </div>
-                <div class="analytics-card" title="Items currently visible in the active view">
-                    <div class="analytics-label">Visible View Items</div>
-                    <div class="analytics-value" style="color: #4cd137;" id="ra-visible-{self.id}">0</div>
-                </div>
+                {info_html}
+                {warning_html}
             </div>
 
-            <div class="info-zone">
-                <div class="world-info">
-                    <b>WorldSettings Context:</b> <code>WorldSettings</code> is an internal actor representing the Persistent Level itself. 
-                    It is always present, even in empty levels, as the root of the world state and global level settings.
-                </div>
-                <div class="discrepancy-warning">
-                    <b>Count Mismatch:</b> Unreal's summary reports <b>{reported_total}</b> spawned actors, but the detailed list contains only <b>{listed_count}</b> entries.
-                    Even including the <b>{len(external_owners)}</b> implied external owners found during scan (Total: <b>{actual_total_found}</b>), 
-                    the detailed data dump is still missing stats for <b>{reported_total - actual_total_found}</b> actors.
+            <div class="view-selector">
+                <button class="action-btn active-sub" id="btn-flat-{self.id}" onclick="toggleView_{safe_id}('flat')">Flat List</button>
+                <button class="action-btn" id="btn-tree-{self.id}" onclick="toggleView_{safe_id}('tree')">Hierarchy View</button>
+                
+                <div id="tree-controls-{self.id}" style="display: none; margin-left: auto; gap: 8px;">
+                    <button class="action-btn" onclick="expandAllTree_{safe_id}()">Expand All</button>
+                    <button class="action-btn" onclick="collapseAllTree_{safe_id}()">Collapse All</button>
                 </div>
             </div>
 
             <div class="filter-container">
-                <div class="view-selector">
-                    <button class="action-btn active-sub" id="btn-flat-{self.id}" onclick="toggleView_{safe_id}('flat')">Flat List</button>
-                    <button class="action-btn" id="btn-tree-{self.id}" onclick="toggleView_{safe_id}('tree')">Hierarchy View</button>
-                    
-                    <div id="tree-controls-{self.id}" style="display: none; margin-left: auto; gap: 5px;">
-                        <button class="action-btn" onclick="expandAllTree_{safe_id}()">Expand All</button>
-                        <button class="action-btn" onclick="collapseAllTree_{safe_id}()">Collapse All</button>
-                    </div>
-                </div>
-
                 <div class="slider-wrapper">
                     <label for="slider-{self.id}">Unseen Threshold (% of Alive Time):</label>
                     <input type="range" id="slider-{self.id}" min="0" max="100" value="70" oninput="updateActors_{safe_id}()">
                     <span class="slider-value" id="val-{self.id}">70%</span>
                 </div>
+            </div>
 
-                <div class="search-container" data-no-reset="true" style="margin-top: 0; background: transparent; padding: 0; display: flex; gap: 10px; align-items: center;">
+            <div class="search-bar-row">
+                <div class="search-container" data-no-reset="true" style="margin-top: 0; background: transparent; padding: 0; display: flex; gap: 10px; align-items: center; flex: 1; margin-bottom: 0;">
                     <input type="text" id="srch-{self.id}" placeholder="Search actors..." onkeyup="updateActors_{safe_id}()" style="flex: 1;">
                     <button class="action-btn" onclick="resetView_{safe_id}()">Default View</button>
                 </div>
