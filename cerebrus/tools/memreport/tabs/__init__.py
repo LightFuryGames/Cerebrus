@@ -26,3 +26,4 @@ class ReportTab:
 
 
 from .rhi_stats import RhiMemoryTab
+from .persistent_actors_stats import PersistentActorsStatsTab

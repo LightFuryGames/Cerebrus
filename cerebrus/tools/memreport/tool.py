@@ -13,6 +13,7 @@ from .tabs.class_stats import ClassStatsTab
 from .tabs.rhi_stats import RhiMemoryTab, RhiResourceMemoryTab
 from .tabs.texture_stats import TextureStatsTab
 from .tabs.level_stats import LevelLoadingStatsTab
+from .tabs.persistent_actors_stats import PersistentActorsStatsTab
 from .template import HTML_TEMPLATE
 from .utils import format_seconds_to_hms
 
@@ -150,7 +151,7 @@ def parse_memreport(file_path: Path) -> Dict[str, Any]:
 
     # Tabs that handle parsing
     # Order matters!
-    tabs = [DeviceInfoTab(), MemoryStatsTab(), RhiMemoryTab(), RhiResourceMemoryTab(), TextureStatsTab(), LevelLoadingStatsTab(), ClassStatsTab(), DetailedListsTab(), ObjectSummaryTab()]
+    tabs = [DeviceInfoTab(), MemoryStatsTab(), RhiMemoryTab(), RhiResourceMemoryTab(), TextureStatsTab(), LevelLoadingStatsTab(), PersistentActorsStatsTab(), ClassStatsTab(), DetailedListsTab(), ObjectSummaryTab()]
 
     # 1. Read File with Robust Encoding
     content = ""
@@ -282,6 +283,7 @@ def generate_html_report(context: Dict[str, Any], output_path: Path):
         RhiResourceMemoryTab(),
         TextureStatsTab(),
         LevelLoadingStatsTab(),
+        PersistentActorsStatsTab(),
         ClassStatsTab(),
         ObjectSummaryTab(),
         DetailedListsTab(),
