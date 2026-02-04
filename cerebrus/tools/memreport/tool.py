@@ -14,6 +14,7 @@ from .tabs.rhi_stats import RhiMemoryTab, RhiResourceMemoryTab
 from .tabs.texture_stats import TextureStatsTab
 from .tabs.level_stats import LevelLoadingStatsTab
 from .tabs.persistent_actors_stats import PersistentActorsStatsTab
+from .tabs.render_target_pool import RenderTargetPoolTab
 from .tabs.config_cache_memory_stats import ConfigCacheMemoryStatsTab
 from .template import HTML_TEMPLATE
 from .utils import format_seconds_to_hms
@@ -168,6 +169,7 @@ def parse_memreport(file_path: Path) -> Dict[str, Any]:
         ClassStatsTab(), 
         DetailedListsTab(), 
         ObjectSummaryTab(),
+        RenderTargetPoolTab(),
         ConfigCacheMemoryStatsTab(),
     ]
 
@@ -304,6 +306,7 @@ def generate_html_report(context: Dict[str, Any], output_path: Path):
         PersistentActorsStatsTab(),
         ClassStatsTab(),
         ObjectSummaryTab(),
+        RenderTargetPoolTab(),
 
         DetailedListsTab(),
         ConfigCacheMemoryStatsTab(),
@@ -371,7 +374,7 @@ def generate_html_report(context: Dict[str, Any], output_path: Path):
 )
 @click.option(
     "--open-report/--no-open-report",
-    default=True,
+    default=False,
     help="Open the report in browser after generation",
 )
 @click.option(

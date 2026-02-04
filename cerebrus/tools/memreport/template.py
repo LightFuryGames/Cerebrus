@@ -428,6 +428,18 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             margin: 40px 0 20px 0;
         }}
 
+        /* Status Colors */
+        .status-yes {{ color: #00c851; font-weight: bold; }}
+        .status-no {{ color: #ff4444; font-weight: bold; }}
+        body.light-mode .status-yes {{ color: #059669; }}
+        body.light-mode .status-no {{ color: #dc2626; }}
+
+        /* Row Highlighting */
+        .unused-warn {{ background: rgba(209, 154, 102, 0.05) !important; }}
+        .unused-danger {{ background: rgba(224, 108, 117, 0.1) !important; }}
+        body.light-mode .unused-warn {{ background: #fffbeb !important; }}
+        body.light-mode .unused-danger {{ background: #fee2e2 !important; }}
+
     </style>
 </head>
 <body>
