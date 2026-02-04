@@ -103,11 +103,11 @@ class RhiResourceMemoryTab(ReportTab):
         warning_html = ""
         if has_large_content:
             warning_html = """
-            <div class="alert alert-warning" style="display: flex; align-items: center; gap: 20px; margin-bottom: 10px;">
+            <div class="alert alert-warning">
                 <div class="alert-icon">⚠️</div>
                 <div class="alert-content"><strong><u>WARNING</u></strong>: Large resource tracking detected. Detailed info is currently unparsed.</div>
             </div>
-            <div class="alert alert-feedback" style="display: flex; align-items: center; gap: 20px;">
+            <div class="alert alert-feedback">
                 <div class="alert-icon">🛑</div>
                 <div class="alert-content" style="font-weight: 600;"><strong><u>FATAL</u></strong> :- Please Provide Feedback...</div>
             </div>

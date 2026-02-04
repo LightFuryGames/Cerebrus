@@ -11,6 +11,7 @@ from .tabs.memory_stats import MemoryStatsTab
 from .tabs.obj_summary import ObjectSummaryTab
 from .tabs.class_stats import ClassStatsTab
 from .tabs.rhi_stats import RhiMemoryTab, RhiResourceMemoryTab
+from .tabs.texture_stats import TextureStatsTab
 from .template import HTML_TEMPLATE
 from .utils import format_seconds_to_hms
 
@@ -63,7 +64,7 @@ class GenericTableTab:
         # Case 1: Purely Empty
         if not self.rows and not self.raw_lines:
              warning_html = f"""
-             <div class="alert alert-warning" style="display: flex; align-items: center; gap: 20px;">
+             <div class="alert alert-warning">
                 <div class="alert-icon">⚠️</div>
                 <div class="alert-content">
                     <strong><u>WARNING</u></strong>: This section ({self.command_name}) contains no data in the report.
@@ -73,15 +74,15 @@ class GenericTableTab:
         # Case 2: No rows but have raw lines (Unparsed)
         elif not self.rows and self.raw_lines:
              warning_html = f"""
-             <div class="alert alert-warning" style="display: flex; align-items: center; gap: 20px; margin-bottom: 10px;">
+             <div class="alert alert-warning">
                 <div class="alert-icon">⚠️</div>
                 <div class="alert-content">
                     <strong><u>WARNING</u></strong>: This section ({self.command_name}) could not be parsed into a table.
                 </div>
              </div>
-             <div class="alert alert-feedback" style="display: flex; align-items: center; gap: 20px;">
+             <div class="alert alert-feedback">
                 <div class="alert-icon">🛑</div>
-                <div class="alert-content" style="font-weight: 600;">
+                <div class="alert-content">
                     <strong><u>FATAL</u></strong> :- Please Provide Feedback to the Tech & Tools team to request a parsing update for this section with a copy of this HTML file or a new raw .memreport file using the Cerebrus Help -> Provide Feedback in the top Menu toolbar
                 </div>
              </div>
@@ -148,7 +149,7 @@ def parse_memreport(file_path: Path) -> Dict[str, Any]:
 
     # Tabs that handle parsing
     # Order matters!
-    tabs = [DeviceInfoTab(), MemoryStatsTab(), RhiMemoryTab(), RhiResourceMemoryTab(), ClassStatsTab(), DetailedListsTab(), ObjectSummaryTab()]
+    tabs = [DeviceInfoTab(), MemoryStatsTab(), RhiMemoryTab(), RhiResourceMemoryTab(), TextureStatsTab(), ClassStatsTab(), DetailedListsTab(), ObjectSummaryTab()]
 
     # 1. Read File with Robust Encoding
     content = ""
@@ -278,6 +279,7 @@ def generate_html_report(context: Dict[str, Any], output_path: Path):
         MemoryStatsTab(),
         RhiMemoryTab(),
         RhiResourceMemoryTab(),
+        TextureStatsTab(),
         ClassStatsTab(),
         ObjectSummaryTab(),
         DetailedListsTab(),

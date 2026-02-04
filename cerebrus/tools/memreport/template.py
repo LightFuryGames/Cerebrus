@@ -12,12 +12,32 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         :root {{
             --bg-color: #1e1e1e;
             --text-color: #e0e0e0;
+            --text-muted: #888;
+            --text-secondary: #aaa;
             --accent-color: #3b82f6;
             --border-color: #333;
             --header-bg: #2d2d2d;
             --row-even: #252525;
             --row-odd: #1e1e1e;
             --hover-bg: #3a3a3a;
+            --transition-speed: 0.3s;
+        }}
+
+        body.light-mode {{
+            --bg-color: #f8fafc;
+            --text-color: #0f172a;
+            --text-muted: #475569; /* Much darker slate for high contrast */
+            --text-secondary: #1e293b;
+            --accent-color: #2563eb;
+            --border-color: #cbd5e1;
+            --header-bg: #ffffff;
+            --row-even: #f1f5f9;
+            --row-odd: #ffffff;
+            --hover-bg: #f8fafc;
+        }}
+
+        body {{
+            transition: background-color var(--transition-speed), color var(--transition-speed);
         }}
 
         * {{
@@ -130,22 +150,98 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
         /* Tables */
         .table-container {{
+            width: 100%;
             overflow-x: auto;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: rgba(0,0,0,0.2);
         }}
-
+        
         table {{
             width: 100%;
             border-collapse: collapse;
             font-size: 13px;
+            table-layout: auto;
         }}
 
         th, td {{
-            padding: 10px;
+            padding: 12px 10px;
             text-align: left;
             border-bottom: 1px solid var(--border-color);
+            border-right: 1px solid rgba(128,128,128,0.1); /* Subtle vertical lines */
             word-wrap: break-word;
             white-space: normal;
-            max-width: 400px; /* Prevent single columns from dominating */
+        }}
+
+        /* Constrain Name column to prevent table explosion */
+        th:nth-child(9), td:nth-child(9) {{
+            max-width: 500px;
+            min-width: 200px;
+        }}
+
+        .theme-toggle {{
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: var(--header-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }}
+
+        .theme-toggle:hover {{
+            transform: scale(1.1);
+            border-color: var(--accent-color);
+        }}
+
+        /* Alerts & Feedback */
+        .alert {{
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid transparent;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }}
+        .alert-warning {{
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            color: #ffc107;
+        }}
+        .alert-feedback {{
+            background: rgba(244, 63, 94, 0.1);
+            border: 1px solid rgba(244, 63, 94, 0.3);
+            color: #f43f5e;
+        }}
+
+        body.light-mode .alert-warning {{
+            background: #fffbeb;
+            border-color: #fcd34d;
+            color: #92400e; /* High contrast brown-yellow */
+            font-weight: 500;
+        }}
+        body.light-mode .alert-feedback {{
+            background: #fff1f2;
+            border-color: #fda4af;
+            color: #9f1239; /* High contrast dark red */
+            font-weight: 500;
+        }}
+
+        th:last-child, td:last-child {{
+            border-right: none;
         }}
         
         /* Tree View - PRESERVED CRITICAL STYLES */
@@ -318,7 +414,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="container" style="position: relative;">
+        <button class="theme-toggle" id="theme-toggle" title="Toggle Light/Dark Mode">
+            <span id="theme-icon">🌙</span>
+        </button>
         <h1>{report_title}</h1>
 
         <div class="tabs" id="tabs">
@@ -329,6 +428,35 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     </div>
 
     <script>
+        // Theme Toggle Logic
+        const themeToggle = document.getElementById('theme-toggle');
+        const themeIcon = document.getElementById('theme-icon');
+        const body = document.body;
+
+        function updateThemeIcon() {{
+            if (body.classList.contains('light-mode')) {{
+                themeIcon.innerText = '☀️';
+            }} else {{
+                themeIcon.innerText = '🌙';
+            }}
+        }}
+
+        // Auto-detect theme (Preference > OS > Default Dark)
+        const savedTheme = localStorage.getItem('theme');
+        const osPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        
+        if (savedTheme === 'light' || (!savedTheme && !osPrefersDark)) {{
+            body.classList.add('light-mode');
+            updateThemeIcon();
+        }}
+
+        themeToggle.addEventListener('click', () => {{
+            body.classList.toggle('light-mode');
+            const isLight = body.classList.contains('light-mode');
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            updateThemeIcon();
+        }});
+
         // Init - Add Original Index to all rows for Reset
         document.addEventListener('DOMContentLoaded', () => {{
             document.querySelectorAll('tbody tr').forEach((row, index) => {{
@@ -461,8 +589,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 // Skip pinned rows
                 if (rows[i].getAttribute('data-pinned') === 'true') continue;
                 
-                // Search ALL columns
-                const text = rows[i].innerText.toLowerCase();
+                let text = "";
+                if (colIndex >= 0 && colIndex < rows[i].children.length) {{
+                    text = rows[i].children[colIndex].innerText.toLowerCase();
+                }} else {{
+                    text = rows[i].innerText.toLowerCase();
+                }}
+                
                 rows[i].style.display = text.includes(term) ? "" : "none";
             }}
         }}
