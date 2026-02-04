@@ -197,7 +197,7 @@ class TextureStatsTab(ReportTab):
     def render(self, context: Dict[str, Any], is_active: bool = False) -> str:
         store = context.get("texture_stats", {
             "textures": {}, 
-            "summary": {"total_in_mem": 0.0, "total_on_disk": 0.0, "formats": {}, "groups": {}, "errors": []}
+            "summary": {"total_in_mem": 0.0, "total_on_disk": 0.0, "total_count": 0, "formats": {}, "groups": {}, "errors": []}
         })
         
         self._validate_stats(store)
