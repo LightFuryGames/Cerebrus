@@ -24,6 +24,10 @@ class ReportTab:
         """Return HTML for the tab button(s)."""
         return f'<button class="tab-btn" onclick="openTab(event, \'{self.id}\')">{self.name}</button>'
 
+    def get_tab_info(self) -> List[Dict[str, str]]:
+        """Return a list of dicts with 'id' and 'name' for each tab provided by this class."""
+        return [{"id": self.id, "name": self.name}]
+
 
 from .rhi_stats import RhiMemoryTab
 from .persistent_actors_stats import PersistentActorsStatsTab

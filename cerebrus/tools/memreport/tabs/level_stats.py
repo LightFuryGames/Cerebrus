@@ -91,9 +91,34 @@ class LevelLoadingStatsTab(ReportTab):
         dashboard_html = f"""
         <div class="analytics-wrapper" style="background: var(--row-even); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color);">
             <div class="analytics-row" style="display: flex; gap: 20px; flex-wrap: wrap;">
-                <div class="analytics-card" style="flex: 1; max-width: 300px; background: rgba(59, 130, 246, 0.05); padding: 15px; border-radius: 6px; border: 1px solid var(--accent-color); text-align: center;">
-                     <h4 style="margin: 0 0 10px 0; color: var(--accent-color); font-size: 0.8em; text-transform: uppercase;">Filtered Statistics</h4>
-                     <div style="font-size: 0.9em; text-align: left;"><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Levels:</span> <b id="lvl-filt-count" style="color: var(--accent-color);">0</b></div>
+                <!-- Reported Total (N/A for level stats as summary isn't provided by Unreal) -->
+                <div class="analytics-card" style="flex: 1; min-width: 250px; background: var(--header-bg); padding: 15px; border-radius: 6px; border: 1px solid var(--border-color); text-align: center;">
+                    <h4 style="margin: 0 0 10px 0; color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">
+                        Reported Total<br>
+                        <span class="unreal-red" style="font-size: 0.85em;">(UNREAL REPORTED)</span>
+                    </h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.85em; text-align: left; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                        <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Reported Count:</span></div><div style="color: #ce9178; text-align: right;"><b>N/A</b></div>
+                        <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Reported Time to Load:</span></div><div style="color: #ce9178; text-align: right;"><b>N/A</b></div>
+                    </div>
+                </div>
+
+                <!-- Calculated Total -->
+                <div class="analytics-card" style="flex: 1; min-width: 250px; background: var(--header-bg); padding: 15px; border-radius: 6px; border: 1px solid var(--border-color); text-align: center;">
+                    <h4 style="margin: 0 0 10px 0; color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated Total</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.85em; text-align: left; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                        <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated Count:</span></div><div style="color: #4ec9b0; text-align: right;"><b id="lvl-calc-count">0</b></div>
+                        <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated Time to Load:</span></div><div style="color: #4ec9b0; text-align: right;"><b id="lvl-calc-time">0.00 sec</b></div>
+                    </div>
+                </div>
+
+                <!-- Filtered Statistics -->
+                <div class="analytics-card" style="flex: 1; min-width: 250px; background: rgba(59, 130, 246, 0.08); padding: 15px; border-radius: 6px; border: 1px solid var(--accent-color); text-align: center;">
+                    <h4 style="margin: 0 0 10px 0; color: var(--accent-color); font-size: 0.8em; text-transform: uppercase;">Filtered Statistics</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.85em; text-align: left; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                        <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Filtered Count:</span></div><div style="color: var(--accent-color); text-align: right;"><b id="lvl-filt-count">0</b></div>
+                        <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Filtered Time to Load:</span></div><div style="color: var(--accent-color); text-align: right;"><b id="lvl-filt-time">0.00 sec</b></div>
+                    </div>
                 </div>
             </div>
             {warning_html}
@@ -117,11 +142,28 @@ class LevelLoadingStatsTab(ReportTab):
                 function updateLvlAggregates() {{
                     const table = document.getElementById('tbl-{self.id}');
                     const rows = Array.from(table.tBodies[0].rows);
-                    let count = 0;
+                    
+                    let calcCount = 0, filtCount = 0;
+                    let calcTime = 0, filtTime = 0;
+                    
                     rows.forEach(row => {{
-                        if (row.style.display !== 'none') count++;
+                        const isVisible = row.style.display !== 'none';
+                        const timeStr = row.cells[1].innerText.trim();
+                        const timeVal = parseFloat(timeStr) || 0;
+                        
+                        calcCount++;
+                        calcTime += timeVal;
+                        
+                        if (isVisible) {{
+                            filtCount++;
+                            filtTime += timeVal;
+                        }}
                     }});
-                    document.getElementById('lvl-filt-count').innerText = count;
+                    
+                    document.getElementById('lvl-calc-count').innerText = calcCount;
+                    document.getElementById('lvl-calc-time').innerText = calcTime.toFixed(2) + " sec";
+                    document.getElementById('lvl-filt-count').innerText = filtCount;
+                    document.getElementById('lvl-filt-time').innerText = filtTime.toFixed(2) + " sec";
                 }}
                 function filterLvlTable(term) {{
                     filterTable('tbl-{self.id}', -1, term);

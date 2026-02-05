@@ -235,24 +235,35 @@ class TextureStatsTab(ReportTab):
         overall_stats = f"""
         <div class="analytics-card" style="flex: 1; min-width: 250px; background: var(--header-bg); padding: 15px; border-radius: 6px; border: 1px solid var(--border-color); text-align: center;">
             <h4 style="margin: 0 0 10px 0; color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">
-                Overall Totals<br>
+                Reported Total<br>
                 <span class="unreal-red" style="font-size: 0.85em;">(UNREAL REPORTED)</span>
             </h4>
-            <div style="display: grid; grid-template-columns: 1fr; gap: 5px; font-size: 1.1em; text-align: left;">
-                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">InMem:</span> <b style="color: #ce9178;">{summary['total_in_mem']:.2f} MB</b></div>
-                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">OnDisk:</span> <b style="color: #ce9178;">{summary['total_on_disk']:.2f} MB</b></div>
-                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Count:</span> <b style="color: #ce9178;">{summary['total_count']:,}</b></div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.85em; text-align: left; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Reported InMem (Cooked) Size:</span></div><div style="color: #ce9178; text-align: right;"><b>{summary['total_in_mem']:.2f} MB</b></div>
+                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Reported OnDisk Size:</span></div><div style="color: #ce9178; text-align: right;"><b>{summary['total_on_disk']:.2f} MB</b></div>
+                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Reported Count:</span></div><div style="color: #ce9178; text-align: right;"><b>{summary['total_count']:,}</b></div>
+            </div>
+        </div>
+        """
+
+        calculated_stats = f"""
+        <div class="analytics-card" style="flex: 1; min-width: 250px; background: var(--header-bg); padding: 15px; border-radius: 6px; border: 1px solid var(--border-color); text-align: center;">
+            <h4 style="margin: 0 0 10px 0; color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated Total</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.85em; text-align: left; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated InMem (Cooked) Size:</span></div><div style="color: #4ec9b0; text-align: right;"><b id="tex-calc-inmem">0.00 MB</b></div>
+                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated OnDisk Size:</span></div><div style="color: #4ec9b0; text-align: right;"><b id="tex-calc-ondisk">0.00 MB</b></div>
+                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated Count:</span></div><div style="color: #4ec9b0; text-align: right;"><b id="tex-calc-count">0</b></div>
             </div>
         </div>
         """
 
         filtered_stats = f"""
-        <div class="analytics-card" style="flex: 1; min-width: 250px; background: rgba(59, 130, 246, 0.05); padding: 15px; border-radius: 6px; border: 1px solid var(--accent-color); text-align: center;">
+        <div class="analytics-card" style="flex: 1; min-width: 250px; background: rgba(59, 130, 246, 0.08); padding: 15px; border-radius: 6px; border: 1px solid var(--accent-color); text-align: center;">
             <h4 style="margin: 0 0 10px 0; color: var(--accent-color); font-size: 0.8em; text-transform: uppercase;">Filtered Statistics</h4>
-            <div style="display: grid; grid-template-columns: 1fr; gap: 5px; font-size: 1.1em; text-align: left;">
-                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">InMem:</span> <b id="tex-filtered-inmem" style="color: var(--accent-color);">0.00 MB</b></div>
-                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">OnDisk:</span> <b id="tex-filtered-ondisk" style="color: var(--accent-color);">0.00 MB</b></div>
-                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Count:</span> <b id="tex-filtered-count" style="color: var(--accent-color);">0</b></div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.85em; text-align: left; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Filtered InMem (Cooked) Size:</span></div><div style="color: var(--accent-color); text-align: right;"><b id="tex-filtered-inmem">0.00 MB</b></div>
+                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Filtered OnDisk Size:</span></div><div style="color: var(--accent-color); text-align: right;"><b id="tex-filtered-ondisk">0.00 MB</b></div>
+                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Filtered Count:</span></div><div style="color: var(--accent-color); text-align: right;"><b id="tex-filtered-count">0</b></div>
             </div>
         </div>
         """
@@ -285,6 +296,7 @@ class TextureStatsTab(ReportTab):
         <div class="analytics-wrapper" style="background: var(--row-even); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color);">
             <div class="analytics-row" style="display: flex; gap: 20px; flex-wrap: wrap;">
                 {overall_stats}
+                {calculated_stats}
                 {filtered_stats}
                 {distribution_stats}
             </div>
@@ -303,9 +315,9 @@ class TextureStatsTab(ReportTab):
         ]
         if has_bias: headers.append(("Authored Bias", ""))
         headers.extend([
-            ("On Disk<br>(Cooked)<br>Width", "numeric"), 
-            ("On Disk<br>(Cooked)<br>Height", "numeric"), 
-            ("On Disk<br>(Cooked)<br>Size", "numeric"), 
+            ("On Disk<br>Width", "numeric"), 
+            ("On Disk<br>Height", "numeric"), 
+            ("On Disk<br>Size", "numeric"), 
             ("Format", ""), ("Group", ""), ("Name", ""), 
             ("Streaming", ""), ("UnknownRef", ""), ("VT", ""), 
             ("Usage", "numeric"), ("Mips", "numeric"), ("Uncompressed", "")
@@ -523,67 +535,77 @@ class TextureStatsTab(ReportTab):
                 return mb.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' MB';
             }
             
-            function applyTextureFilters() {{
-                 const table = document.getElementById('tbl-""" + self.id + """');
-                 if(!table) return;
-                 const rows = table.querySelectorAll('tbody tr');
-                 
-                 let totalInMem = 0;
-                 let totalOnDisk = 0;
-                 let visibleCount = 0;
-
-                 rows.forEach(row => {{
-                     let visible = true;
-                     const getCell = (c) => row.children[c] ? row.children[c].innerText.trim() : "";
-                     
-                     for (const [col, requiredVals] of Object.entries(textureFilters)) {{
-                         if (requiredVals.length > 0) {{
-                             const cellText = getCell(col);
-                             if (!requiredVals.includes(cellText)) {{
-                                 visible = false;
-                                 break;
-                             }}
-                         }}
-                     }}
-                     
-                     // Combined with search term manually to get correct totals
-                     const searchInput = document.querySelector('#""" + self.id + """ input');
-                     const searchTerm = searchInput ? searchInput.value.toLowerCase() : "";
-                     if (visible && searchTerm) {{
-                         if (!row.innerText.toLowerCase().includes(searchTerm)) {{
-                             visible = false;
-                         }}
-                     }}
-
-                      // Special Filters: Size Mismatch
-                      if (visible && textureSpecialFilters['size-mismatch']) {{
-                          const ramMB = parseSizeToMB(getCell(IDX_RAM_SIZE));
-                          const diskMB = parseSizeToMB(getCell(IDX_DISK_SIZE));
-                          const ramW = parseInt(getCell(IDX_RAM_W)) || 0;
-                          const diskW = parseInt(getCell(IDX_DISK_W)) || 0;
-                          
-                          // Mismatch if either sizes (MB) or dimensions (Width) differ
-                          if (Math.abs(ramMB - diskMB) < 0.01 && ramW === diskW) {{
+             function applyTextureFilters() {
+                  const table = document.getElementById('tbl-""" + self.id + """');
+                  if(!table) return;
+                  const rows = table.querySelectorAll('tbody tr');
+                  
+                  let calcInMem = 0, calcOnDisk = 0, calcCount = 0;
+                  let filtInMem = 0, filtOnDisk = 0, filtCount = 0;
+ 
+                  rows.forEach(row => {
+                      let visible = true;
+                      const getCell = (c) => row.children[c] ? row.children[c].innerText.trim() : "";
+                      
+                      const ramSzMB = parseSizeToMB(getCell(IDX_RAM_SIZE));
+                      const diskSzMB = parseSizeToMB(getCell(IDX_DISK_SIZE));
+                      
+                      calcCount++;
+                      calcInMem += ramSzMB;
+                      calcOnDisk += diskSzMB;
+ 
+                      for (const [col, requiredVals] of Object.entries(textureFilters)) {
+                          if (requiredVals.length > 0) {
+                              const cellText = getCell(col);
+                              if (!requiredVals.includes(cellText)) {
+                                  visible = false;
+                                  break;
+                              }
+                          }
+                      }
+                      
+                      // Combined with search term manually to get correct totals
+                      const searchInput = document.querySelector('#""" + self.id + """ input');
+                      const searchTerm = searchInput ? searchInput.value.toLowerCase() : "";
+                      if (visible && searchTerm) {
+                          if (!row.innerText.toLowerCase().includes(searchTerm)) {
                               visible = false;
-                          }}
-                      }}
-
-                     row.style.display = visible ? '' : 'none';
-                     
-                     if (visible) {{
-                         visibleCount++;
-                         // Update counter cell (first column)
-                         row.children[0].innerText = visibleCount;
-                         
-                         totalInMem += parseSizeToMB(getCell(IDX_RAM_SIZE));
-                         totalOnDisk += parseSizeToMB(getCell(IDX_DISK_SIZE));
-                     }}
-                 }});
-
-                 document.getElementById('tex-filtered-inmem').innerText = formatMB(totalInMem);
-                 document.getElementById('tex-filtered-ondisk').innerText = formatMB(totalOnDisk);
-                 document.getElementById('tex-filtered-count').innerText = visibleCount;
-            }}
+                          }
+                      }
+ 
+                       // Special Filters: Size Mismatch
+                       if (visible && textureSpecialFilters['size-mismatch']) {
+                           const ramMB = ramSzMB;
+                           const diskMB = diskSzMB;
+                           const ramW = parseInt(getCell(IDX_RAM_W)) || 0;
+                           const diskW = parseInt(getCell(IDX_DISK_W)) || 0;
+                           
+                           // Mismatch if either sizes (MB) or dimensions (Width) differ
+                           if (Math.abs(ramMB - diskMB) < 0.01 && ramW === diskW) {
+                               visible = false;
+                           }
+                       }
+ 
+                      row.style.display = visible ? '' : 'none';
+                      
+                      if (visible) {
+                          filtCount++;
+                          // Update counter cell (first column)
+                          row.children[0].innerText = filtCount;
+                          
+                          filtInMem += ramSzMB;
+                          filtOnDisk += diskSzMB;
+                      }
+                  });
+ 
+                  document.getElementById('tex-calc-inmem').innerText = formatMB(calcInMem);
+                  document.getElementById('tex-calc-ondisk').innerText = formatMB(calcOnDisk);
+                  document.getElementById('tex-calc-count').innerText = calcCount;
+ 
+                  document.getElementById('tex-filtered-inmem').innerText = formatMB(filtInMem);
+                  document.getElementById('tex-filtered-ondisk').innerText = formatMB(filtOnDisk);
+                  document.getElementById('tex-filtered-count').innerText = filtCount;
+             }
 
             // Add event listener for table sorting to refresh counters
             document.addEventListener('DOMContentLoaded', () => {

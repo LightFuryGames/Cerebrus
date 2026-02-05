@@ -131,19 +131,21 @@ class ParticleSystemsTab(ReportTab):
             
             metrics = [
                 ("Size", data.get("Size", 0)),
-                ("System", data.get("System Size", 0)),
-                ("Module", data.get("Module Size", 0)),
-                ("Comp", data.get("Component Size", 0)),
-                ("Count", data.get("ComponentCount", 0)),
-                ("ResSize", data.get("ComponentResourceSize", 0)),
-                ("TrueRes", data.get("ComponentTrueResourceSize", 0)),
+                ("System Size", data.get("System Size", 0)),
+                ("Module Size", data.get("Module Size", 0)),
+                ("Component Size", data.get("Component Size", 0)),
+                ("ComponentCount", data.get("ComponentCount", 0)),
+                ("ComponentResourceSize", data.get("ComponentResourceSize", 0)),
+                ("ComponentTrueResourceSize", data.get("ComponentTrueResourceSize", 0)),
             ]
             
             html = f'<div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 4px 10px; font-size: 0.85em; text-align: left; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">'
             for label, val in metrics:
-                display_val = f"<b>{format_bytes(val)}</b>" if label != "Count" else f"<b>{int(val)}</b>"
+                display_val = f"<b>{format_bytes(val)}</b>" if label != "ComponentCount" else f"<b>{int(val)}</b>"
                 # Add ID for filtered fields to update via JS
-                id_attr = f' id="filt-{label.lower()}-{self.id}"' if prefix == "Filtered" else ""
+                # Convert label to lowercase and remove spaces for ID
+                id_label = label.lower().replace(" ", "")
+                id_attr = f' id="filt-{id_label}-{self.id}"' if prefix == "Filtered" else ""
                 html += f'<div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">{prefix} {label}:</span></div>'
                 html += f'<div{id_attr} style="color: {color}; text-align: right;">{display_val}</div>'
             html += "</div>"
@@ -215,24 +217,24 @@ class ParticleSystemsTab(ReportTab):
                     
                     let sums = {{
                         size: 0,
-                        system: 0,
-                        module: 0,
-                        comp: 0,
-                        count: 0,
-                        ressize: 0,
-                        trueres: 0
+                        systemsize: 0,
+                        modulesize: 0,
+                        componentsize: 0,
+                        componentcount: 0,
+                        componentresourcesize: 0,
+                        componenttrueresourcesize: 0
                     }};
                     
                     rows.forEach(row => {{
                         if (row.style.display !== 'none' && !row.classList.contains('total-row')) {{
                             itemsVisible++;
                             sums.size += parseFloat(row.cells[2].getAttribute('data-val')) || 0;
-                            sums.system += parseFloat(row.cells[3].getAttribute('data-val')) || 0;
-                            sums.module += parseFloat(row.cells[4].getAttribute('data-val')) || 0;
-                            sums.comp += parseFloat(row.cells[5].getAttribute('data-val')) || 0;
-                            sums.count += parseInt(row.cells[6].getAttribute('data-val')) || 0;
-                            sums.ressize += parseFloat(row.cells[7].getAttribute('data-val')) || 0;
-                            sums.trueres += parseFloat(row.cells[8].getAttribute('data-val')) || 0;
+                            sums.systemsize += parseFloat(row.cells[3].getAttribute('data-val')) || 0;
+                            sums.modulesize += parseFloat(row.cells[4].getAttribute('data-val')) || 0;
+                            sums.componentsize += parseFloat(row.cells[5].getAttribute('data-val')) || 0;
+                            sums.componentcount += parseInt(row.cells[6].getAttribute('data-val')) || 0;
+                            sums.componentresourcesize += parseFloat(row.cells[7].getAttribute('data-val')) || 0;
+                            sums.componenttrueresourcesize += parseFloat(row.cells[8].getAttribute('data-val')) || 0;
                         }}
                     }});
 
@@ -240,12 +242,12 @@ class ParticleSystemsTab(ReportTab):
                     document.getElementById('filt-main-val-{self.id}').innerText = formatParticleSize(sums.size);
                     
                     document.getElementById('filt-size-{self.id}').innerHTML = "<b>" + formatParticleSize(sums.size) + "</b>";
-                    document.getElementById('filt-system-{self.id}').innerHTML = "<b>" + formatParticleSize(sums.system) + "</b>";
-                    document.getElementById('filt-module-{self.id}').innerHTML = "<b>" + formatParticleSize(sums.module) + "</b>";
-                    document.getElementById('filt-comp-{self.id}').innerHTML = "<b>" + formatParticleSize(sums.comp) + "</b>";
-                    document.getElementById('filt-count-{self.id}').innerHTML = "<b>" + sums.count + "</b>";
-                    document.getElementById('filt-ressize-{self.id}').innerHTML = "<b>" + formatParticleSize(sums.ressize) + "</b>";
-                    document.getElementById('filt-trueres-{self.id}').innerHTML = "<b>" + formatParticleSize(sums.trueres) + "</b>";
+                    document.getElementById('filt-systemsize-{self.id}').innerHTML = "<b>" + formatParticleSize(sums.systemsize) + "</b>";
+                    document.getElementById('filt-modulesize-{self.id}').innerHTML = "<b>" + formatParticleSize(sums.modulesize) + "</b>";
+                    document.getElementById('filt-componentsize-{self.id}').innerHTML = "<b>" + formatParticleSize(sums.componentsize) + "</b>";
+                    document.getElementById('filt-componentcount-{self.id}').innerHTML = "<b>" + sums.componentcount + "</b>";
+                    document.getElementById('filt-componentresourcesize-{self.id}').innerHTML = "<b>" + formatParticleSize(sums.componentresourcesize) + "</b>";
+                    document.getElementById('filt-componenttrueresourcesize-{self.id}').innerHTML = "<b>" + formatParticleSize(sums.componenttrueresourcesize) + "</b>";
                 }}
 
                 function filterParticleTable(term) {{

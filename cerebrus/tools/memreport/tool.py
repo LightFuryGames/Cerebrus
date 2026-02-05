@@ -174,6 +174,7 @@ def parse_memreport(file_path: Path) -> Dict[str, Any]:
         RenderTargetPoolTab(),
         ConfigCacheMemoryStatsTab(),
     ]
+    context["tabs"] = tabs
 
     # 1. Read File with Robust Encoding
     content = ""
@@ -298,35 +299,59 @@ def parse_memreport(file_path: Path) -> Dict[str, Any]:
 
 def generate_html_report(context: Dict[str, Any], output_path: Path):
     # Assemble Tabs
-    all_tabs = [
-        DeviceInfoTab(),
-        MemoryStatsTab(),
-        RhiMemoryTab(),
-        RhiResourceMemoryTab(),
-        TextureStatsTab(),
-        ParticleSystemsTab(),
-        LevelLoadingStatsTab(),
-        PersistentActorsStatsTab(),
-        ClassStatsTab(),
-        ObjectSummaryTab(),
-        RenderTargetPoolTab(),
+    all_tabs = context.get("tabs", [])
 
-        DetailedListsTab(),
-        ConfigCacheMemoryStatsTab(),
-    ]
-
-    tab_buttons_html = ""
-    tab_contents_html = ""
-
-    # 1. Render Fixed Tabs
-    for i, tab in enumerate(all_tabs):
-        btns = tab.get_buttons(context)
-        content = tab.render(context, is_active=(i == 0))
+    # Grouping Helper
+    def get_group(t_id, t_name):
+        if t_id in ["device-info", "memory-stats", "level-loading-stats"]: return "Overview"
         
-        tab_buttons_html += btns
-        tab_contents_html += content
+        # RHI Matches
+        if t_id in ["rhi-memory-stats", "rhi-resource-memory", "render-target-pool"]: return "RHI & Rendering"
+        
+        # specified classes move to Objects & Actors
+        requested_classes = ["Level", "SkeletalMesh", "SoundWave", "StaticMesh", "StaticMeshComponent"]
+        is_requested = any(c in t_name for c in requested_classes)
+        
+        merged_grp = "Assets, Objects & Actors"
+        # Assets Matches
+        if t_id in ["texture-stats", "particle-systems"]: return merged_grp
+        if t_id.startswith("list-"):
+            if "Object List" in t_name or "All Objects" in t_name or is_requested: return merged_grp
+            return merged_grp
+            
+        # Objects & Actors Matches
+        if t_id in ["object-summary", "persistent-actors-stats", "class-stats-generic"] or t_id.startswith("class-") or is_requested: return merged_grp
+        
+        if t_id.startswith("config-cache"): return "Config"
+        
+        # Generics / Raw
+        if t_id == "raw-mem-report": return "Raw Data"
+        lower_name = t_name.lower()
+        if "dump" in lower_name or "raw" in lower_name: return "Raw Data"
+        
+        return "Uncategorized"
 
-    # 2. Render Generic Tabs
+    tab_contents_html = ""
+    collected_tabs = [] # {id, name, group}
+
+    # 1. Specialized Tabs
+    for tab in all_tabs:
+        # Render content (inactive by default, JS handles activation)
+        content = tab.render(context, is_active=False)
+        tab_contents_html += content
+        
+        # Collect Definitions
+        if hasattr(tab, 'get_tab_info'):
+            infos = tab.get_tab_info()
+            for info in infos:
+                grp = get_group(info["id"], info["name"])
+                collected_tabs.append({"id": info["id"], "name": info["name"], "group": grp})
+        else:
+             # Fallback if get_tab_info missing (shouldn't happen with base class update)
+             grp = get_group(tab.id, tab.name)
+             collected_tabs.append({"id": tab.id, "name": tab.name, "group": grp})
+
+    # 2. Generic Tabs
     gen_tabs = context.get("generic_tabs", {})
     ordered_cmds = context.get("command_order", [])
     
@@ -338,16 +363,15 @@ def generate_html_report(context: Dict[str, Any], output_path: Path):
             
             # Render
             t_content = tab.render(context)
-            t_btn = f'<button class="tab-btn" onclick="openTab(event, \'{tab.id}\')">{cmd}</button>'
-            
-            tab_buttons_html += t_btn
             tab_contents_html += t_content
+            
+            grp = get_group(tab.id, tab.command_name)
+            collected_tabs.append({"id": tab.id, "name": tab.command_name, "group": grp})
 
-    # 3. Render Raw Mem Report Tab
+    # 3. Raw Mem Report Tab
     import html
     raw_content_escaped = html.escape(context.get("raw_memreport", "No Raw Data"))
     raw_tab_id = "raw-mem-report"
-    tab_buttons_html += f'<button class="tab-btn" onclick="openTab(event, \'{raw_tab_id}\')">Raw Mem Report</button>'
     tab_contents_html += f"""
     <div id="{raw_tab_id}" class="tab-content">
         <h3>Raw Mem Report</h3>
@@ -355,6 +379,165 @@ def generate_html_report(context: Dict[str, Any], output_path: Path):
             <pre style="background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 8px; overflow-x: auto; font-family: monospace; font-size: 12px;">{raw_content_escaped}</pre>
         </div>
     </div>
+    """
+    collected_tabs.append({"id": raw_tab_id, "name": "Raw Mem Report", "group": "Raw Data"})
+
+    # Build Grouped Sidebar/Nav
+    # Combine Assets and Objects/Actors to save vertical space
+    group_order = ["Overview", "Config", "Assets, Objects & Actors", "RHI & Rendering", "Raw Data", "Uncategorized"]
+    final_groups = {k: [] for k in group_order}
+    
+    # Bucket tabs
+    for t in collected_tabs:
+        g = t["group"]
+        if g not in final_groups: final_groups[g] = [] # Handle unknown groups safely
+        final_groups[g].append(t)
+        
+    tab_buttons_html = """
+    <div class="tabs-grid">
+    <style>
+        .tabs-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            width: 100%;
+            margin-bottom: 0px;
+        }
+        .tab-group { 
+            display: flex;
+            flex-direction: row;
+            align-items: stretch;
+            flex-wrap: wrap;
+            padding: 4px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        body.light-mode .tab-group {
+            background: #ffffff;
+            border-color: #cbd5e1;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        /* Pyramid / Hopskip Logic via Flex Basis */
+        .tab-group.size-lg { flex: 1 1 100%; }
+        .tab-group.size-md { flex: 1 1 calc(50% - 6px); }
+        .tab-group.size-sm { flex: 1 1 calc(33.33% - 8px); }
+        
+        .tab-group:hover {
+            border-color: var(--accent-color);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+        }
+
+        .group-title { 
+            font-size: 10px; 
+            text-transform: uppercase; 
+            letter-spacing: 1.2px; 
+            color: var(--text-muted);
+            font-weight: 800;
+            margin: 4px 12px 4px 8px;
+            padding-right: 12px;
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+        }
+        
+        .group-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            flex: 1;
+            padding: 4px;
+        }
+
+        .tab-btn { 
+            margin: 0 !important; 
+            font-size: 12px !important;
+            padding: 6px 14px !important;
+            border-radius: 6px !important;
+            border: 1px solid transparent !important;
+            background: transparent !important;
+            color: var(--text-color) !important;
+            opacity: 0.8 !important;
+            font-weight: 500 !important;
+            transition: all 0.2s ease !important;
+        }
+
+        .tab-btn:hover {
+            opacity: 1 !important;
+            background: rgba(255, 255, 255, 0.08) !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
+        }
+
+        body.light-mode .tab-btn:hover {
+            background: #f1f5f9 !important;
+            border-color: #e2e8f0 !important;
+        }
+
+        .tab-btn.active {
+            opacity: 1 !important;
+            background: var(--accent-color) !important;
+            color: white !important;
+            border-color: var(--accent-color) !important;
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.4) !important;
+            border-bottom: 2px solid var(--accent-color) !important;
+        }
+        
+        /* Specific adjustments for Assets row which can be very busy */
+        .tab-group.size-lg .tab-btn {
+            font-size: 11px !important;
+            padding: 5px 10px !important;
+        }
+    </style>
+    """
+    
+    first_tab_id = None
+    
+    # Identify non-empty groups and their tab counts
+    active_groups = []
+    for g_name in group_order:
+        tabs = final_groups.get(g_name, [])
+        if tabs:
+            active_groups.append({"name": g_name, "tabs": tabs, "count": len(tabs)})
+
+    # Sort by group_order to ensure Assets/Objects are at the bottom
+    # We maintain the count but keep the user-defined order
+    if active_groups:
+        for i, g in enumerate(active_groups):
+            # Pyramid: Small items on top, big merged group at the bottom
+            if g["name"] == "Assets, Objects & Actors":
+                size_class = "size-lg"
+            elif i < 2:
+                size_class = "size-md"
+            else:
+                size_class = "size-sm"
+
+            tab_buttons_html += f'<div class="tab-group {size_class}"><div class="group-title">{g["name"]}</div><div class="group-buttons">'
+            for t in g["tabs"]:
+                if not first_tab_id: first_tab_id = t["id"]
+                tab_buttons_html += f'<button class="tab-btn" onclick="openTab(event, \'{t["id"]}\')">{t["name"]}</button>'
+            tab_buttons_html += '</div></div>'
+
+    tab_buttons_html += "</div>" # Close tabs-grid
+
+    # Inject a script to activate the Device Info tab by default
+    tab_buttons_html += """
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Priority 1: Specifically look for device-info
+            let targetBtn = document.querySelector('button[onclick*="device-info"]');
+            
+            // Priority 2: Fallback to the very first tab button if device-info is missing
+            if (!targetBtn) {
+                targetBtn = document.querySelector('.tab-btn');
+            }
+            
+            if (targetBtn) targetBtn.click();
+        });
+    </script>
     """
 
     html = HTML_TEMPLATE.format(

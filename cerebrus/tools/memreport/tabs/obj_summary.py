@@ -77,24 +77,38 @@ class ObjectSummaryTab(ReportTab):
                     Reported Total<br>
                     <span class="unreal-red" style="font-size: 0.85em;">(UNREAL REPORTED)</span>
                 </h4>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9em; text-align: left;">
-                    <div><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Count:</span> <b style="color: #ce9178;">{total_data['count']:,}</b></div>
-                    <div><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Total:</span> <b style="color: #ce9178;">{total_data['total']:.2f} MB</b></div>
-                    <div><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Max:</span> <b style="color: #ce9178;">{total_data['max']:.2f} MB</b></div>
-                    <div><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Res:</span> <b style="color: #ce9178;">{total_data['res']:.2f} MB</b></div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.85em; text-align: left; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                    <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Reported Instance Count:</span></div><div style="color: #ce9178; text-align: right;"><b>{total_data['count']:,}</b></div>
+                    <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Reported NumKB:</span></div><div style="color: #ce9178; text-align: right;"><b>{total_data['total']:.2f} MB</b></div>
+                    <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Reported MaxKB:</span></div><div style="color: #ce9178; text-align: right;"><b>{total_data['max']:.2f} MB</b></div>
+                    <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Reported ResExcKB:</span></div><div style="color: #ce9178; text-align: right;"><b>{total_data['res']:.2f} MB</b></div>
                 </div>
             </div>
             """
 
+        calculated_stats = f"""
+        <div class="analytics-card" style="flex: 1; min-width: 250px; background: var(--header-bg); padding: 15px; border-radius: 6px; border: 1px solid var(--border-color); text-align: center;">
+            <h4 style="margin: 0 0 10px 0; color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated Total</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.85em; text-align: left; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated Instance Count:</span></div><div style="color: #4ec9b0; text-align: right;"><b id="obj-calc-instances">0</b></div>
+                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated NumKB:</span></div><div style="color: #4ec9b0; text-align: right;"><b id="obj-calc-numkb">0.00 MB</b></div>
+                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated MaxKB:</span></div><div style="color: #4ec9b0; text-align: right;"><b id="obj-calc-maxkb">0.00 MB</b></div>
+                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated ResExcKB:</span></div><div style="color: #4ec9b0; text-align: right;"><b id="obj-calc-reskb">0.00 MB</b></div>
+            </div>
+        </div>
+        """
+
         filtered_stats = f"""
-        <div class="analytics-card" style="flex: 1; min-width: 250px; background: rgba(59, 130, 246, 0.05); padding: 15px; border-radius: 6px; border: 1px solid var(--accent-color);">
+        <div class="analytics-card" style="flex: 1; min-width: 250px; background: rgba(59, 130, 246, 0.08); padding: 15px; border-radius: 6px; border: 1px solid var(--accent-color); text-align: center;">
             <h4 style="margin: 0 0 10px 0; color: var(--accent-color); font-size: 0.8em; text-transform: uppercase;">Filtered Statistics</h4>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9em;">
-                <div><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Rows:</span> <b id="obj-filtered-count" style="color: var(--accent-color);">0</b></div>
-                <div><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Instances:</span> <b id="obj-filtered-instances" style="color: var(--accent-color);">0</b></div>
-                <div><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">NumKB:</span> <b id="obj-filtered-numkb" style="color: var(--accent-color);">0.00 MB</b></div>
-                <div><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">MaxKB:</span> <b id="obj-filtered-maxkb" style="color: var(--accent-color);">0.00 MB</b></div>
-                <div><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">ResKB:</span> <b id="obj-filtered-reskb" style="color: var(--accent-color);">0.00 MB</b></div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.85em; text-align: left; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Filtered Instance Count:</span></div><div style="color: var(--accent-color); text-align: right;"><b id="obj-filtered-instances">0</b></div>
+                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Filtered NumKB:</span></div><div style="color: var(--accent-color); text-align: right;"><b id="obj-filtered-numkb">0.00 MB</b></div>
+                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Filtered MaxKB:</span></div><div style="color: var(--accent-color); text-align: right;"><b id="obj-filtered-maxkb">0.00 MB</b></div>
+                <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Filtered ResExcKB:</span></div><div style="color: var(--accent-color); text-align: right;"><b id="obj-filtered-reskb">0.00 MB</b></div>
+            </div>
+            <div style="margin-top: 5px; font-size: 0.8em; color: var(--text-muted); border-top: 1px solid rgba(255,255,255,0.05); padding-top: 5px;">
+                Classes Visible: <b id="obj-filtered-count" style="color: var(--accent-color);">0</b>
             </div>
         </div>
         """
@@ -126,6 +140,7 @@ class ObjectSummaryTab(ReportTab):
             <div class="analytics-wrapper" style="background: var(--row-even); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color);">
                 <div class="analytics-row" style="display: flex; gap: 20px; flex-wrap: wrap;">
                     {overall_stats}
+                    {calculated_stats}
                     {filtered_stats}
                 </div>
                 {warning_html}
@@ -156,30 +171,42 @@ class ObjectSummaryTab(ReportTab):
                 function updateObjAggregates() {{
                     const table = document.getElementById('obj-summary-table');
                     const rows = Array.from(table.tBodies[0].rows);
-                    let count = 0;
-                    let totalInstances = 0;
-                    let totalNumKB = 0;
-                    let totalMaxKB = 0;
-                    let totalResKB = 0;
+                    
+                    let calcInstances = 0, calcNumKB = 0, calcMaxKB = 0, calcResKB = 0;
+                    let filtCount = 0, filtInstances = 0, filtNumKB = 0, filtMaxKB = 0, filtResKB = 0;
                     
                     rows.forEach(row => {{
-                        const isVisible = row.style.display !== 'none';
-                        if (isVisible) {{
-                            count++;
-                            const cells = row.cells;
-                            // Index 0 is # (counter), 1 is Class, 2 is Instance Count, 3 is NumKB...
-                            totalInstances += parseInt(cells[2].innerText.replace(/,/g, '')) || 0;
-                            totalNumKB += parseObjSize(cells[3].innerText);
-                            totalMaxKB += parseObjSize(cells[4].innerText);
-                            totalResKB += parseObjSize(cells[5].innerText);
+                        const cells = row.cells;
+                        // Index 0 is # (counter), 1 is Class, 2 is Instance Count, 3 is NumKB...
+                        const inst = parseInt(cells[2].innerText.replace(/,/g, '')) || 0;
+                        const nkb = parseObjSize(cells[3].innerText);
+                        const mkb = parseObjSize(cells[4].innerText);
+                        const rkb = parseObjSize(cells[5].innerText);
+
+                        calcInstances += inst;
+                        calcNumKB += nkb;
+                        calcMaxKB += mkb;
+                        calcResKB += rkb;
+
+                        if (row.style.display !== 'none') {{
+                            filtCount++;
+                            filtInstances += inst;
+                            filtNumKB += nkb;
+                            filtMaxKB += mkb;
+                            filtResKB += rkb;
                         }}
                     }});
 
-                    document.getElementById('obj-filtered-count').innerText = count;
-                    document.getElementById('obj-filtered-instances').innerText = totalInstances.toLocaleString();
-                    document.getElementById('obj-filtered-numkb').innerText = totalNumKB.toFixed(2) + " MB";
-                    document.getElementById('obj-filtered-maxkb').innerText = totalMaxKB.toFixed(2) + " MB";
-                    document.getElementById('obj-filtered-reskb').innerText = totalResKB.toFixed(2) + " MB";
+                    document.getElementById('obj-calc-instances').innerText = calcInstances.toLocaleString();
+                    document.getElementById('obj-calc-numkb').innerText = calcNumKB.toFixed(2) + " MB";
+                    document.getElementById('obj-calc-maxkb').innerText = calcMaxKB.toFixed(2) + " MB";
+                    document.getElementById('obj-calc-reskb').innerText = calcResKB.toFixed(2) + " MB";
+
+                    document.getElementById('obj-filtered-count').innerText = filtCount;
+                    document.getElementById('obj-filtered-instances').innerText = filtInstances.toLocaleString();
+                    document.getElementById('obj-filtered-numkb').innerText = filtNumKB.toFixed(2) + " MB";
+                    document.getElementById('obj-filtered-maxkb').innerText = filtMaxKB.toFixed(2) + " MB";
+                    document.getElementById('obj-filtered-reskb').innerText = filtResKB.toFixed(2) + " MB";
                 }}
 
                 function filterObjTable(term) {{

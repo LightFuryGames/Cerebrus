@@ -34,6 +34,7 @@ class ClassStatsTab(ReportTab):
         self.current_class: Optional[str] = None
         self.current_sort: Optional[str] = None
         self.parsing_summary = False
+        self.detected_classes = set()
 
     def should_handle(self, line: str) -> bool:
         return line.startswith('MemReport: Begin command "obj list class=')
@@ -49,6 +50,7 @@ class ClassStatsTab(ReportTab):
                 sort_switch = match.group(2)
                 
                 self.current_class = cls_name
+                self.detected_classes.add(cls_name)
                 self.parsing_summary = False
                 
                 if sort_switch == "-resourcesizesort":
@@ -133,6 +135,12 @@ class ClassStatsTab(ReportTab):
             buttons_html += f'<button class="tab-btn" onclick="openTab(event, \'{tab_id}\')">{cls_name} Memory Stats</button>'
         return buttons_html
 
+    def get_tab_info(self) -> List[Dict[str, str]]:
+        tabs = []
+        for cls_name in sorted(list(self.detected_classes)):
+            tabs.append({"id": f"class-{cls_name}", "name": f"{cls_name} Memory Statistics"})
+        return tabs
+
     def render(self, context: Dict[str, Any], is_active: bool = False) -> str:
         html_out = ""
         class_stats = context.get("class_stats", {})
@@ -194,23 +202,35 @@ class ClassStatsTab(ReportTab):
                         Reported Total<br>
                         <span class="unreal-red" style="font-size: 0.85em;">(UNREAL REPORTED)</span>
                     </h4>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9em; text-align: left;">
-                        <div><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Count:</span> <b style="color: #ce9178;">{total_data['count']:,}</b></div>
-                        <div><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Total:</span> <b style="color: #ce9178;">{total_data['total']:.2f} MB</b></div>
-                        <div><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Max:</span> <b style="color: #ce9178;">{total_data['max']:.2f} MB</b></div>
-                        <div><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Res:</span> <b style="color: #ce9178;">{total_data['res']:.2f} MB</b></div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.85em; text-align: left; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                        <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Reported Count:</span></div><div style="color: #ce9178; text-align: right;"><b>{total_data['count']:,}</b></div>
+                        <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Reported NumKB:</span></div><div style="color: #ce9178; text-align: right;"><b>{total_data['total']:.2f} MB</b></div>
+                        <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Reported MaxKB:</span></div><div style="color: #ce9178; text-align: right;"><b>{total_data['max']:.2f} MB</b></div>
+                        <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Reported ResExcKB:</span></div><div style="color: #ce9178; text-align: right;"><b>{total_data['res']:.2f} MB</b></div>
                     </div>
                 </div>
                 """
+
+            calculated_total_card = f"""
+            <div class="analytics-card" style="flex: 1; min-width: 250px; background: var(--header-bg); padding: 15px; border-radius: 6px; border: 1px solid var(--border-color); text-align: center;">
+                <h4 style="margin: 0 0 10px 0; color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated Total</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.85em; text-align: left; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                    <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated Count:</span></div><div style="color: #4ec9b0; text-align: right;"><b id="calc-count-{tab_id}">0</b></div>
+                    <div id="calc-box-numkb-{tab_id}"><div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated NumKB:</span></div></div><div style="color: #4ec9b0; text-align: right;"><b id="calc-numkb-{tab_id}">0.00 MB</b></div>
+                    <div id="calc-box-maxkb-{tab_id}"><div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated MaxKB:</span></div></div><div style="color: #4ec9b0; text-align: right;"><b id="calc-maxkb-{tab_id}">0.00 MB</b></div>
+                    <div id="calc-box-reskb-{tab_id}"><div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated ResExcKB:</span></div></div><div style="color: #4ec9b0; text-align: right;"><b id="calc-reskb-{tab_id}">0.00 MB</b></div>
+                </div>
+            </div>
+            """
             
             filtered_stats_card = f"""
-            <div class="analytics-card" title-id="{tab_id}" style="flex: 1; min-width: 250px; background: rgba(59, 130, 246, 0.05); padding: 15px; border-radius: 6px; border: 1px solid var(--accent-color); text-align: center;">
+            <div class="analytics-card" title-id="{tab_id}" style="flex: 1; min-width: 250px; background: rgba(59, 130, 246, 0.08); padding: 15px; border-radius: 6px; border: 1px solid var(--accent-color); text-align: center;">
                 <h4 style="margin: 0 0 10px 0; color: var(--accent-color); font-size: 0.8em; text-transform: uppercase;">Filtered Statistics</h4>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9em; text-align: left;">
-                    <div><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Count:</span> <b id="filt-count-{tab_id}" style="color: var(--accent-color);">0</b></div>
-                    <div id="filt-box-numkb-{tab_id}"><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Total:</span> <b id="filt-numkb-{tab_id}" style="color: var(--accent-color);">0.00 MB</b></div>
-                    <div id="filt-box-maxkb-{tab_id}"><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Max:</span> <b id="filt-maxkb-{tab_id}" style="color: var(--accent-color);">0.00 MB</b></div>
-                    <div id="filt-box-reskb-{tab_id}"><span style="color: var(--text-muted); font-size: 0.85em; text-transform: uppercase;">Res:</span> <b id="filt-reskb-{tab_id}" style="color: var(--accent-color);">0.00 MB</b></div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.85em; text-align: left; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                    <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Filtered Count:</span></div><div style="color: var(--accent-color); text-align: right;"><b id="filt-count-{tab_id}">0</b></div>
+                    <div id="filt-box-numkb-{tab_id}"><div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Filtered NumKB:</span></div></div><div style="color: var(--accent-color); text-align: right;"><b id="filt-numkb-{tab_id}">0.00 MB</b></div>
+                    <div id="filt-box-maxkb-{tab_id}"><div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Filtered MaxKB:</span></div></div><div style="color: var(--accent-color); text-align: right;"><b id="filt-maxkb-{tab_id}">0.00 MB</b></div>
+                    <div id="filt-box-reskb-{tab_id}"><div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Filtered ResExcKB:</span></div></div><div style="color: var(--accent-color); text-align: right;"><b id="filt-reskb-{tab_id}">0.00 MB</b></div>
                 </div>
             </div>
             """
@@ -219,6 +239,7 @@ class ClassStatsTab(ReportTab):
             <div class="analytics-wrapper" style="background: var(--row-even); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color);">
                 <div class="analytics-row" style="display: flex; gap: 20px; flex-wrap: wrap;">
                     {reported_total_card}
+                    {calculated_total_card}
                     {filtered_stats_card}
                 </div>
                 {warning_html}
@@ -246,9 +267,9 @@ class ClassStatsTab(ReportTab):
                 idx_reskb = -1
                 for i, h in enumerate(v_headers):
                     h_lower = h.lower()
-                    if "numkb" in h_lower or "size" in h_lower: idx_numkb = i + 1
-                    elif "maxkb" in h_lower: idx_maxkb = i + 1
-                    elif "res" in h_lower: idx_reskb = i + 1
+                    if ("numkb" in h_lower or "size" in h_lower) and idx_numkb == -1: idx_numkb = i
+                    elif "maxkb" in h_lower and idx_maxkb == -1: idx_maxkb = i
+                    elif "res" in h_lower and idx_reskb == -1: idx_reskb = i
                 
                 # Check for counter/index column added by template? 
                 # (Actually ClassStatsTab headers are raw from file, but template might auto-inject one if not present)
@@ -329,34 +350,53 @@ class ClassStatsTab(ReportTab):
                 const idxResKB = parseInt(activeSub.getAttribute('data-idx-reskb'));
 
                 const rows = Array.from(table.tBodies[0].rows);
-                let count = 0;
-                let sumNum = 0, sumMax = 0, sumRes = 0;
+                let calcCount = 0, filtCount = 0;
+                let calcSumNum = 0, filtSumNum = 0;
+                let calcSumMax = 0, filtSumMax = 0;
+                let calcSumRes = 0, filtSumRes = 0;
 
                 rows.forEach(row => {
-                    if (row.style.display !== 'none') {
-                        count++;
-                        if (idxNumKB !== -1 && row.cells[idxNumKB]) sumNum += parseClassSize(row.cells[idxNumKB].innerText);
-                        if (idxMaxKB !== -1 && row.cells[idxMaxKB]) sumMax += parseClassSize(row.cells[idxMaxKB].innerText);
-                        if (idxResKB !== -1 && row.cells[idxResKB]) sumRes += parseClassSize(row.cells[idxResKB].innerText);
+                    const isVisible = row.style.display !== 'none';
+                    calcCount++;
+                    if (idxNumKB !== -1 && row.cells[idxNumKB]) calcSumNum += parseClassSize(row.cells[idxNumKB].innerText);
+                    if (idxMaxKB !== -1 && row.cells[idxMaxKB]) calcSumMax += parseClassSize(row.cells[idxMaxKB].innerText);
+                    if (idxResKB !== -1 && row.cells[idxResKB]) calcSumRes += parseClassSize(row.cells[idxResKB].innerText);
+                    
+                    if (isVisible) {
+                        filtCount++;
+                        if (idxNumKB !== -1 && row.cells[idxNumKB]) filtSumNum += parseClassSize(row.cells[idxNumKB].innerText);
+                        if (idxMaxKB !== -1 && row.cells[idxMaxKB]) filtSumMax += parseClassSize(row.cells[idxMaxKB].innerText);
+                        if (idxResKB !== -1 && row.cells[idxResKB]) filtSumRes += parseClassSize(row.cells[idxResKB].innerText);
                     }
                 });
 
-                document.getElementById('filt-count-' + tabId).innerText = count;
-                
-                const setVal = (id, boxId, val, idx) => {
+                const setDisplay = (id, val) => {
                     const el = document.getElementById(id);
-                    const box = document.getElementById(boxId);
-                    if (idx === -1) {
-                        if (box) box.style.display = 'none';
-                    } else {
-                        if (box) box.style.display = '';
-                        if (el) el.innerText = val.toFixed(2) + " MB";
-                    }
+                    if (el) el.innerText = val.toFixed(2) + " MB";
                 };
 
-                setVal('filt-numkb-' + tabId, 'filt-box-numkb-' + tabId, sumNum, idxNumKB);
-                setVal('filt-maxkb-' + tabId, 'filt-box-maxkb-' + tabId, sumMax, idxMaxKB);
-                setVal('filt-reskb-' + tabId, 'filt-box-reskb-' + tabId, sumRes, idxResKB);
+                const toggleBox = (id, show) => {
+                    const el = document.getElementById(id);
+                    if (el) el.style.display = show ? 'contents' : 'none';
+                };
+
+                document.getElementById('calc-count-' + tabId).innerText = calcCount;
+                setDisplay('calc-numkb-' + tabId, calcSumNum);
+                setDisplay('calc-maxkb-' + tabId, calcSumMax);
+                setDisplay('calc-reskb-' + tabId, calcSumRes);
+                
+                toggleBox('calc-box-numkb-' + tabId, idxNumKB !== -1);
+                toggleBox('calc-box-maxkb-' + tabId, idxMaxKB !== -1);
+                toggleBox('calc-box-reskb-' + tabId, idxResKB !== -1);
+
+                document.getElementById('filt-count-' + tabId).innerText = filtCount;
+                setDisplay('filt-numkb-' + tabId, filtSumNum);
+                setDisplay('filt-maxkb-' + tabId, filtSumMax);
+                setDisplay('filt-reskb-' + tabId, filtSumRes);
+                
+                toggleBox('filt-box-numkb-' + tabId, idxNumKB !== -1);
+                toggleBox('filt-box-maxkb-' + tabId, idxMaxKB !== -1);
+                toggleBox('filt-box-reskb-' + tabId, idxResKB !== -1);
             }
 
             function filterClassTable(tabId, term) {

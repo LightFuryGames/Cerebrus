@@ -1,5 +1,5 @@
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from ..utils import format_memory_size, try_format_cell_value
 from . import ReportTab
@@ -139,6 +139,15 @@ class DetailedListsTab(ReportTab):
             buttons += f'<button class="tab-btn" onclick="openTab(event, \'{tab_id}\')">{display_name}</button>'
         return buttons
 
+    def get_tab_info(self) -> List[Dict[str, str]]:
+        tabs = []
+        sorted_classes = sorted(self.data_store.keys())
+        for class_name in sorted_classes:
+            tab_id = f"list-{class_name}"
+            display_name = f"{class_name} Memory Stats" if class_name != "All Objects" else "Object List"
+            tabs.append({"id": tab_id, "name": display_name})
+        return tabs
+
     def render(self, context: Dict[str, Any], is_active: bool = False) -> str:
         html = ""
         # Sort classes for consistent rendering
@@ -175,9 +184,9 @@ class DetailedListsTab(ReportTab):
                 
                 for i, h in enumerate(headers):
                     h_lower = h.lower()
-                    if "numkb" in h_lower or "size" in h_lower: idx_numkb = i + 1 # +1 for injected counter
-                    elif "maxkb" in h_lower: idx_maxkb = i + 1
-                    elif "reskb" in h_lower or "resident" in h_lower: idx_reskb = i + 1
+                    if ("numkb" in h_lower or "size" in h_lower) and idx_numkb == -1: idx_numkb = i + 1 # +1 for injected counter
+                    elif "maxkb" in h_lower and idx_maxkb == -1: idx_maxkb = i + 1
+                    elif "res" in h_lower and idx_reskb == -1: idx_reskb = i + 1
 
                 tbl_head = "<tr>"
                 for i, h in enumerate(headers):
@@ -204,25 +213,40 @@ class DetailedListsTab(ReportTab):
                 reported_total_html = ""
                 if total_data:
                     reported_total_html = f"""
-                    <div class="analytics-card" style="flex: 1; min-width: 250px; background: var(--header-bg); padding: 15px; border-radius: 6px; border: 1px solid var(--border-color);">
-                        <h4 style="margin: 0 0 10px 0; color: var(--accent-color); font-size: 0.8em; text-transform: uppercase;">Reported Total</h4>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9em;">
-                            <div><span style="color: var(--text-muted);">Count:</span> <b>{total_data['count']}</b></div>
-                            <div><span style="color: var(--text-muted);">Total:</span> <b>{total_data['total']:.2f} MB</b></div>
-                            <div><span style="color: var(--text-muted);">Max:</span> <b>{total_data['max']:.2f} MB</b></div>
-                            <div><span style="color: var(--text-muted);">Res:</span> <b>{total_data['res']:.2f} MB</b></div>
+                    <div class="analytics-card" style="flex: 1; min-width: 250px; background: var(--header-bg); padding: 15px; border-radius: 6px; border: 1px solid var(--border-color); text-align: center;">
+                        <h4 style="margin: 0 0 10px 0; color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">
+                            Reported Total<br>
+                            <span class="unreal-red" style="font-size: 0.85em;">(UNREAL REPORTED)</span>
+                        </h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.85em; text-align: left; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                            <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Reported Count:</span></div><div style="color: #ce9178; text-align: right;"><b>{total_data['count']}</b></div>
+                            <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Reported NumKB:</span></div><div style="color: #ce9178; text-align: right;"><b>{total_data['total']:.2f} MB</b></div>
+                            <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Reported MaxKB:</span></div><div style="color: #ce9178; text-align: right;"><b>{total_data['max']:.2f} MB</b></div>
+                            <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Reported ResExcKB:</span></div><div style="color: #ce9178; text-align: right;"><b>{total_data['res']:.2f} MB</b></div>
                         </div>
                     </div>
                     """
                 
+                calculated_stats_html = f"""
+                <div class="analytics-card" style="flex: 1; min-width: 250px; background: var(--header-bg); padding: 15px; border-radius: 6px; border: 1px solid var(--border-color); text-align: center;">
+                    <h4 style="margin: 0 0 10px 0; color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated Total</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.85em; text-align: left; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                        <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated Count:</span></div><div style="color: #4ec9b0; text-align: right;"><b id="calc-count-{vid}">0</b></div>
+                        <div id="calc-box-numkb-{vid}"><div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated NumKB:</span></div></div><div style="color: #4ec9b0; text-align: right;"><b id="calc-numkb-{vid}">0.00 MB</b></div>
+                        <div id="calc-box-maxkb-{vid}"><div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated MaxKB:</span></div></div><div style="color: #4ec9b0; text-align: right;"><b id="calc-maxkb-{vid}">0.00 MB</b></div>
+                        <div id="calc-box-reskb-{vid}"><div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated ResExcKB:</span></div></div><div style="color: #4ec9b0; text-align: right;"><b id="calc-reskb-{vid}">0.00 MB</b></div>
+                    </div>
+                </div>
+                """
+
                 filtered_stats_html = f"""
-                <div class="analytics-card" style="flex: 1; min-width: 250px; background: rgba(59, 130, 246, 0.05); padding: 15px; border-radius: 6px; border: 1px solid var(--accent-color);">
+                <div class="analytics-card" style="flex: 1; min-width: 250px; background: rgba(59, 130, 246, 0.08); padding: 15px; border-radius: 6px; border: 1px solid var(--accent-color); text-align: center;">
                     <h4 style="margin: 0 0 10px 0; color: var(--accent-color); font-size: 0.8em; text-transform: uppercase;">Filtered Statistics</h4>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9em;">
-                        <div><span style="color: var(--text-muted);">Visible Count:</span> <b id="filt-count-{vid}">0</b></div>
-                        <div id="filt-box-numkb-{vid}"><span style="color: var(--text-muted);">Total Size:</span> <b id="filt-numkb-{vid}">0.00 MB</b></div>
-                        <div id="filt-box-maxkb-{vid}"><span style="color: var(--text-muted);">Total Max:</span> <b id="filt-maxkb-{vid}">0.00 MB</b></div>
-                        <div id="filt-box-reskb-{vid}"><span style="color: var(--text-muted);">Total Res:</span> <b id="filt-reskb-{vid}">0.00 MB</b></div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.85em; text-align: left; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                        <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Filtered Count:</span></div><div style="color: var(--accent-color); text-align: right;"><b id="filt-count-{vid}">0</b></div>
+                        <div id="filt-box-numkb-{vid}"><div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Filtered NumKB:</span></div></div><div style="color: var(--accent-color); text-align: right;"><b id="filt-numkb-{vid}">0.00 MB</b></div>
+                        <div id="filt-box-maxkb-{vid}"><div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Filtered MaxKB:</span></div></div><div style="color: var(--accent-color); text-align: right;"><b id="filt-maxkb-{vid}">0.00 MB</b></div>
+                        <div id="filt-box-reskb-{vid}"><div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Filtered ResExcKB:</span></div></div><div style="color: var(--accent-color); text-align: right;"><b id="filt-reskb-{vid}">0.00 MB</b></div>
                     </div>
                 </div>
                 """
@@ -233,6 +257,7 @@ class DetailedListsTab(ReportTab):
                     
                     <div class="analytics-row" style="display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;">
                         {reported_total_html}
+                        {calculated_stats_html}
                         {filtered_stats_html}
                     </div>
 
@@ -283,23 +308,30 @@ class DetailedListsTab(ReportTab):
                 const idxResKB = parseInt(viewDiv.getAttribute('data-idx-reskb'));
 
                 const rows = Array.from(table.tBodies[0].rows);
-                let count = 0;
-                let sumNum = 0, sumMax = 0, sumRes = 0;
+                let calcCount = 0, filtCount = 0;
+                let sumCalcNum = 0, sumCalcMax = 0, sumCalcRes = 0;
+                let sumFiltNum = 0, sumFiltMax = 0, sumFiltRes = 0;
 
                 rows.forEach(row => {
-                    if (row.style.display !== 'none') {
-                        count++;
-                        if (idxNumKB !== -1 && row.cells[idxNumKB]) sumNum += parseDetailedSize(row.cells[idxNumKB].innerText);
-                        if (idxMaxKB !== -1 && row.cells[idxMaxKB]) sumMax += parseDetailedSize(row.cells[idxMaxKB].innerText);
-                        if (idxResKB !== -1 && row.cells[idxResKB]) sumRes += parseDetailedSize(row.cells[idxResKB].innerText);
+                    const cells = row.cells;
+                    const isVisible = row.style.display !== 'none';
+                    
+                    calcCount++;
+                    if (idxNumKB !== -1 && cells[idxNumKB]) sumCalcNum += parseDetailedSize(cells[idxNumKB].innerText);
+                    if (idxMaxKB !== -1 && cells[idxMaxKB]) sumCalcMax += parseDetailedSize(cells[idxMaxKB].innerText);
+                    if (idxResKB !== -1 && cells[idxResKB]) sumCalcRes += parseDetailedSize(cells[idxResKB].innerText);
+
+                    if (isVisible) {
+                        filtCount++;
+                        if (idxNumKB !== -1 && cells[idxNumKB]) sumFiltNum += parseDetailedSize(cells[idxNumKB].innerText);
+                        if (idxMaxKB !== -1 && cells[idxMaxKB]) sumFiltMax += parseDetailedSize(cells[idxMaxKB].innerText);
+                        if (idxResKB !== -1 && cells[idxResKB]) sumFiltRes += parseDetailedSize(cells[idxResKB].innerText);
                     }
                 });
 
-                document.getElementById('filt-count-' + vid).innerText = count;
-                
-                const setVal = (id, boxId, val, idx) => {
-                    const el = document.getElementById(id);
-                    const box = document.getElementById(boxId);
+                const setVal = (prefix, idSuffix, boxSuffix, val, idx) => {
+                    const el = document.getElementById(prefix + idSuffix);
+                    const box = document.getElementById(prefix + boxSuffix);
                     if (idx === -1) {
                         if (box) box.style.display = 'none';
                     } else {
@@ -308,9 +340,15 @@ class DetailedListsTab(ReportTab):
                     }
                 };
 
-                setVal('filt-numkb-' + vid, 'filt-box-numkb-' + vid, sumNum, idxNumKB);
-                setVal('filt-maxkb-' + vid, 'filt-box-maxkb-' + vid, sumMax, idxMaxKB);
-                setVal('filt-reskb-' + vid, 'filt-box-reskb-' + vid, sumRes, idxResKB);
+                document.getElementById('calc-count-' + vid).innerText = calcCount;
+                setVal('calc-', 'numkb-' + vid, 'box-numkb-' + vid, sumCalcNum, idxNumKB);
+                setVal('calc-', 'maxkb-' + vid, 'box-maxkb-' + vid, sumCalcMax, idxMaxKB);
+                setVal('calc-', 'reskb-' + vid, 'box-reskb-' + vid, sumCalcRes, idxResKB);
+
+                document.getElementById('filt-count-' + vid).innerText = filtCount;
+                setVal('filt-', 'numkb-' + vid, 'box-numkb-' + vid, sumFiltNum, idxNumKB);
+                setVal('filt-', 'maxkb-' + vid, 'box-maxkb-' + vid, sumFiltMax, idxMaxKB);
+                setVal('filt-', 'reskb-' + vid, 'box-reskb-' + vid, sumFiltRes, idxResKB);
             }
 
             function filterDetailedTable(vid, term) {

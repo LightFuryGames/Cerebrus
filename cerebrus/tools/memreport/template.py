@@ -2,7 +2,7 @@
 HTML Template for MemReport
 """
 
-HTML_TEMPLATE = """<!DOCTYPE html>
+HTML_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -585,15 +585,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             }}
 
             tabBtns = document.getElementsByClassName("tab-btn");
-            // Only top level buttons - filter by parent?
-            // "tab-btn" class is used for sub-tabs too. 
-            // We need to distinguish strictly top level by ID or parent.
-            const tabsContainer = document.getElementById("tabs");
-            const mainBtns = Array.from(document.getElementsByClassName("tab-btn"))
-                                  .filter(btn => btn.parentElement === tabsContainer);
-                                  
-            for (i = 0; i < mainBtns.length; i++) {{
-                mainBtns[i].className = mainBtns[i].className.replace(" active", "");
+            for (i = 0; i < tabBtns.length; i++) {{
+                tabBtns[i].classList.remove("active");
             }}
 
             document.getElementById(tabName).style.display = "block";
@@ -602,7 +595,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             void document.getElementById(tabName).offsetWidth;
             document.getElementById(tabName).classList.add("active");
             
-            evt.currentTarget.className += " active";
+            evt.currentTarget.classList.add("active");
         }}
         
         function openSubTab(evt, viewId, parentId) {{
