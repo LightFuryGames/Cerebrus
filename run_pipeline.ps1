@@ -37,6 +37,33 @@ else {
     Write-Log "Warning: Virtual environment not found at $VenvPath. Running with system python."
 }
 
+# 0. Run Pre-flight Checks (Linting mainly, as pytest is run in step 1)
+Write-Log "Step 0: Running Linting (Pre-flight)..."
+try {
+    $LintScript = Join-Path $PSScriptRoot "scripts\run_lint.ps1"
+    if (Test-Path $LintScript) {
+        Write-Log "Executing run_lint.ps1..."
+        $LintProcess = Start-Process -FilePath "powershell" -ArgumentList "-File `"$LintScript`"" -PassThru -Wait -NoNewWindow
+        
+        if ($LintProcess.ExitCode -eq 0) {
+            Write-Log "Linting Passed."
+            Write-Host "Linting Passed!" -ForegroundColor Green
+        }
+        else {
+            throw "Linting failed with exit code $($LintProcess.ExitCode)."
+        }
+    }
+    else {
+        throw "run_lint.ps1 script not found at $LintScript"
+    }
+}
+catch {
+    Write-Log "Pipeline Failed at Linting Step."
+    Write-Log $_
+    Write-Host "Linting Failed! Check $LogFile for details." -ForegroundColor Red
+    exit 1
+}
+
 # 1. Run Unit Tests
 Write-Log "Step 1: Running Unit Tests..."
 try {

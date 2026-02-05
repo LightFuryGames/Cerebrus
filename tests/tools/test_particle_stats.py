@@ -14,8 +14,16 @@ def tab() -> ParticleSystemsTab:
 
 
 def test_should_handle_particle_command(tab: ParticleSystemsTab) -> None:
-    assert tab.should_handle('MemReport: Begin command "listparticlesystems -alphasort"') is True
-    assert tab.should_handle('  MemReport: Begin command "listparticlesystems -alphasort"  ') is True
+    assert (
+        tab.should_handle('MemReport: Begin command "listparticlesystems -alphasort"')
+        is True
+    )
+    assert (
+        tab.should_handle(
+            '  MemReport: Begin command "listparticlesystems -alphasort"  '
+        )
+        is True
+    )
     assert tab.should_handle('MemReport: Begin command "DumpParticleMem"') is False
 
 
@@ -38,7 +46,9 @@ def test_parse_particle_stats(tab: ParticleSystemsTab) -> None:
 
     # Check first particle system
     ps1 = stats[0]
-    assert ps1["Name"] == "/Game/VFX/Water/Particles/PS_Water_Splashes.PS_Water_Splashes"
+    assert (
+        ps1["Name"] == "/Game/VFX/Water/Particles/PS_Water_Splashes.PS_Water_Splashes"
+    )
     assert ps1["Size"] == 122658
     assert ps1["ComponentCount"] == 6
 
