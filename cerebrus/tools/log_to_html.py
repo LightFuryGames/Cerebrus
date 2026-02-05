@@ -24,29 +24,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{title}</title>
     <style>
-        :root {{
-            --bg-color: #1e1e2e;
-            --container-bg: rgba(255, 255, 255, 0.05);
-            --text-color: #e0e0e0;
-            --text-muted: #a0a0b0;
-            --accent-color: #7dd3fc;
-            --border-color: rgba(125, 211, 252, 0.2);
-            --header-bg: rgba(255, 255, 255, 0.08);
-            --log-bg: rgba(0, 0, 0, 0.4);
-            --transition-speed: 0.3s;
-        }}
-
-        body.light-mode {{
-            --bg-color: #f8fafc;
-            --container-bg: #ffffff;
-            --text-color: #0f172a;
-            --text-muted: #475569;
-            --accent-color: #2563eb;
-            --border-color: #cbd5e1;
-            --header-bg: #f1f5f9;
-            --log-bg: #ffffff;
-        }}
-
         * {{
             margin: 0;
             padding: 0;
@@ -55,38 +32,36 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         
         body {{
             font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-            background: var(--bg-color);
-            color: var(--text-color);
+            background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
+            color: #e0e0e0;
             padding: 20px;
             min-height: 100vh;
-            transition: background-color var(--transition-speed), color var(--transition-speed);
         }}
         
         .container {{
             max-width: 1400px;
             margin: 0 auto;
-            background: var(--container-bg);
+            background: rgba(255, 255, 255, 0.05);
             backdrop-filter: blur(10px);
             border-radius: 12px;
             padding: 30px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            position: relative;
         }}
         
         h1 {{
-            color: var(--accent-color);
+            color: #7dd3fc;
             margin-bottom: 25px;
             font-size: 28px;
             font-weight: 600;
             text-align: center;
+            text-shadow: 0 0 10px rgba(125, 211, 252, 0.3);
         }}
         
         .controls-container {{
-            background: var(--header-bg);
+            background: rgba(255, 255, 255, 0.08);
             padding: 20px;
             border-radius: 8px;
             margin-bottom: 25px;
-            border: 1px solid var(--border-color);
         }}
 
         .search-container {{
@@ -97,7 +72,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }}
         
         .search-label {{
-            color: var(--text-muted);
+            color: #a0a0b0;
             font-size: 14px;
             font-weight: 500;
             min-width: 80px;
@@ -106,10 +81,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         #searchInput {{
             flex: 1;
             padding: 12px 16px;
-            border: 2px solid var(--border-color);
+            border: 2px solid rgba(125, 211, 252, 0.3);
             border-radius: 6px;
-            background: rgba(var(--bg-color), 0.1);
-            color: var(--text-color);
+            background: rgba(255, 255, 255, 0.1);
+            color: #e0e0e0;
             font-size: 14px;
             font-family: inherit;
             transition: all 0.3s ease;
@@ -117,7 +92,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         
         #searchInput:focus {{
             outline: none;
-            border-color: var(--accent-color);
+            border-color: #7dd3fc;
+            background: rgba(255, 255, 255, 0.15);
             box-shadow: 0 0 20px rgba(125, 211, 252, 0.2);
         }}
         
@@ -130,26 +106,25 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         
         .filter-btn {{
             padding: 8px 16px;
-            border: 1px solid var(--border-color);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 20px;
-            background: var(--header-bg);
-            color: var(--text-muted);
+            background: rgba(255, 255, 255, 0.05);
+            color: #a0a0b0;
             cursor: pointer;
             font-size: 13px;
             transition: all 0.2s ease;
         }}
         
         .filter-btn:hover {{
-            background: var(--accent-color);
-            color: white;
+            background: rgba(255, 255, 255, 0.15);
             transform: translateY(-1px);
         }}
         
         .filter-btn.active {{
-            background: var(--accent-color);
-            border-color: var(--accent-color);
+            background: rgba(125, 211, 252, 0.2);
+            border-color: #7dd3fc;
             color: #fff;
-            box-shadow: 0 0 10px rgba(125, 211, 252, 0.2);
+            box-shadow: 0 0 10px rgba(125, 211, 252, 0.1);
         }}
         
         /* Button specific colors when active */
@@ -176,20 +151,19 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             justify-content: space-between;
             margin-bottom: 15px;
             padding: 12px;
-            background: var(--header-bg);
+            background: rgba(255, 255, 255, 0.05);
             border-radius: 6px;
             font-size: 13px;
-            color: var(--text-muted);
-            border: 1px solid var(--border-color);
+            color: #a0a0b0;
         }}
         
         .log-container {{
-            background: var(--log-bg);
+            background: rgba(0, 0, 0, 0.4);
             border-radius: 8px;
             padding: 20px;
-            max-height: 800px;
+            max-height: 600px;
             overflow-y: auto;
-            border: 1px solid var(--border-color);
+            border: 1px solid rgba(125, 211, 252, 0.2);
         }}
         
         .log-container::-webkit-scrollbar {{
@@ -234,49 +208,18 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }}
         
         /* Log level specific colors */
-        .log-error {{ color: #e11d48; border-left-color: #e11d48; font-weight: 500; }}
-        .log-warning {{ color: #d97706; border-left-color: #f59e0b; font-weight: 500; }}
-        .log-cmd, .log-success {{ color: #16a34a; border-left-color: #22c55e; }}
-        .log-config {{ color: #2563eb; border-left-color: #3b82f6; }}
-        .log-logtemp {{ color: #9333ea; border-left-color: #a855f7; }}
-        .log-info {{ color: var(--text-color); border-left-color: var(--border-color); }}
-
-        body.light-mode .log-error {{ color: #9f1239; background: #fff1f2; }}
-        body.light-mode .log-warning {{ color: #92400e; background: #fffbeb; }}
-        body.light-mode .log-cmd, body.light-mode .log-success {{ color: #15803d; background: #f0fdf4; }}
-        body.light-mode .log-config {{ color: #1e40af; background: #eff6ff; }}
-        body.light-mode .log-logtemp {{ color: #6b21a8; background: #faf5ff; }}
+        .log-error {{ color: #FF0000; border-left-color: #FF0000; }}
+        .log-warning {{ color: #FFA500; border-left-color: #FFA500; }}
+        .log-cmd, .log-success {{ color: #00FF00; border-left-color: #00FF00; }}
+        .log-config {{ color: #6495ED; border-left-color: #6495ED; }}
+        .log-logtemp {{ color: #FF00FF; border-left-color: #FF00FF; }}
+        .log-info {{ color: #e0e0e0; border-left-color: #4b5563; }}
         
         .no-results {{
             text-align: center;
             padding: 40px;
-            color: var(--text-muted);
+            color: #a0a0b0;
             font-size: 16px;
-        }}
-
-        .theme-toggle {{
-            position: absolute;
-            top: 25px;
-            right: 30px;
-            background: var(--header-bg);
-            border: 1px solid var(--border-color);
-            color: var(--text-color);
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            transition: all 0.3s ease;
-            z-index: 1000;
-        }}
-
-        .theme-toggle:hover {{
-            transform: scale(1.1);
-            border-color: var(--accent-color);
         }}
         
         mark {{
@@ -289,9 +232,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 </head>
 <body>
     <div class="container">
-        <button class="theme-toggle" id="theme-toggle" title="Toggle Light/Dark Mode">
-            <span id="theme-icon">🌙</span>
-        </button>
         <h1>{title}</h1>
         
         <div class="controls-container">
@@ -327,69 +267,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     </div>
     
     <script>
-        // Theme Toggle Logic
-        const themeToggle = document.getElementById('theme-toggle');
-        const themeIcon = document.getElementById('theme-icon');
-        const body = document.body;
-
-        function updateThemeIcon() {{
-            if (body.classList.contains('light-mode')) {{
-                themeIcon.innerText = '☀️';
-            }} else {{
-                themeIcon.innerText = '🌙';
-            }}
-        }}
-
-        // Auto-detect theme (Preference > OS > Default Dark)
-        const savedTheme = localStorage.getItem('theme');
-        const osPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        
-        if (savedTheme === 'light' || (!savedTheme && !osPrefersDark)) {{
-            body.classList.add('light-mode');
-            updateThemeIcon();
-        }}
-
-        themeToggle.addEventListener('click', () => {{
-            body.classList.toggle('light-mode');
-            const isLight = body.classList.contains('light-mode');
-            localStorage.setItem('theme', isLight ? 'light' : 'dark');
-            updateThemeIcon();
-        }});
-
-        // Move to Top Button
-        const scrollBtn = document.createElement("button");
-        scrollBtn.innerHTML = "↑";
-        scrollBtn.id = "scrollTopBtn";
-        scrollBtn.style.cssText = `
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            display: none;
-            background-color: var(--accent-color);
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            font-size: 24px;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            z-index: 1000;
-            transition: opacity 0.3s, transform 0.2s;
-        `;
-        scrollBtn.onmouseover = () => scrollBtn.style.transform = "scale(1.1)";
-        scrollBtn.onmouseout = () => scrollBtn.style.transform = "scale(1)";
-        scrollBtn.onclick = () => window.scrollTo({{top: 0, behavior: 'smooth'}});
-        document.body.appendChild(scrollBtn);
-
-        window.onscroll = () => {{
-            if (document.body.scrollTop > 200 || document.documentElement.scrollTop > 200) {{
-                scrollBtn.style.display = "block";
-            }} else {{
-                scrollBtn.style.display = "none";
-            }}
-        }};
-
         const searchInput = document.getElementById('searchInput');
         const logLines = document.querySelectorAll('.log-line');
         const visibleLinesSpan = document.getElementById('visibleLines');

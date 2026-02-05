@@ -1,0 +1,10 @@
+LogTemp: This is a temp log
+Cmd: This is a command
+Error: This is an error
+Warning: This is a warning
+LogConfig: This is a config line
+This line has a cvar in it
+This line mentions a .ini file
+Cmd: This command mentions a .ini file
+LogTemp: This temp log mentions a .ini file
+Success: Operation completed

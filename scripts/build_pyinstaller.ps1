@@ -12,21 +12,12 @@ function Write-Section($text) {
 }
 
 $repoRoot = Split-Path $PSScriptRoot -Parent
-$version = $TagVersion.TrimStart('v').TrimStart('.')
-if (-not $version -or $version -eq "0.0.0") {
-    # Try to get version from git
-    $gitVersion = git describe --tags --always --dirty 2>$null
-    if ($gitVersion) {
-        $version = $gitVersion.TrimStart('v').TrimStart('.')
-        Write-Host "Detected version from git: $version" -ForegroundColor Green
-    }
-    else {
-        $version = "0.0.0"
-    }
+$version = $TagVersion.TrimStart('v')
+if (-not $version) {
+    $version = "0.0.0"
 }
-$displayVersion = "v.$version"
 
-Write-Section "Building Cerebrus $displayVersion"
+Write-Section "Building Cerebrus v$version"
 Write-Host "Output Directory: $OutputDir"
 
 # Install PyInstaller if not already available
@@ -44,23 +35,10 @@ try {
         Remove-Item -Path "dist" -Recurse -Force  
     }
     
-    # Freeze version for the app to pick up
-    Write-Section "Freezing version to cerebrus/_frozen_version.py"
-    $frozenVerPath = Join-Path $repoRoot "cerebrus\_frozen_version.py"
-    Set-Content -Path $frozenVerPath -Value "__version__ = `"$version`"" -Encoding UTF8
-
-    try {
-        # Run PyInstaller
-        Write-Section "Running PyInstaller"
-        $env:CEREBRUS_BUILD_VERSION = $version
-        $specFile = Join-Path $PSScriptRoot "cerebrus.spec"
-        python -m PyInstaller $specFile --clean --noconfirm
-    }
-    finally {
-        if (Test-Path $frozenVerPath) {
-            Remove-Item $frozenVerPath
-        }
-    }
+    # Run PyInstaller
+    Write-Section "Running PyInstaller"
+    $specFile = Join-Path $PSScriptRoot "cerebrus.spec"
+    python -m PyInstaller $specFile --clean --noconfirm
     
     # Verify build output
     $distFolder = Join-Path $repoRoot "dist\Cerebrus"
@@ -80,7 +58,7 @@ try {
     
     # Create ZIP archive
     Write-Section "Creating ZIP archive"
-    $zipName = "Cerebrus-$displayVersion-win64.zip"
+    $zipName = "Cerebrus-$version-win64.zip"
     $zipPath = Join-Path $OutputDir $zipName
     
     if (Test-Path $zipPath) {
@@ -127,13 +105,13 @@ try {
             Write-Host "Using Inno Setup: $iscc"
             
             # Set version environment variable for Inno Setup
-            $env:CEREBRUS_VERSION = $displayVersion
+            $env:CEREBRUS_VERSION = $version
             
             # Run Inno Setup compiler
             $issFile = Join-Path $PSScriptRoot "cerebrus.iss"
             & $iscc $issFile
             
-            $installerName = "Cerebrus-$displayVersion-Setup.exe"
+            $installerName = "Cerebrus-$version-Setup.exe"
             $installerPath = Join-Path $OutputDir $installerName
             
             if (Test-Path $installerPath) {
@@ -148,7 +126,7 @@ try {
     
     Write-Section "Build Complete!"
     Write-Host "`nArtifacts created:" -ForegroundColor Cyan
-    Get-ChildItem $OutputDir -Filter "Cerebrus-$displayVersion*" | ForEach-Object {
+    Get-ChildItem $OutputDir -Filter "Cerebrus-$version*" | ForEach-Object {
         Write-Host "  [+] $($_.Name) ($([Math]::Round($_.Length / 1MB, 2)) MB)" -ForegroundColor Green
     }
     

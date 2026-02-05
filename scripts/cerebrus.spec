@@ -3,8 +3,6 @@
 
 from pathlib import Path
 import sys
-import os
-from PyInstaller.utils.hooks import collect_data_files
 
 # Get the root directory
 spec_path = Path(SPECPATH).resolve()
@@ -25,10 +23,6 @@ if resources_dir.exists():
     for resource_file in resources_dir.iterdir():
         if resource_file.is_file() and not resource_file.name.endswith('~'):
             datas.append((str(resource_file), 'cerebrus/resources'))
-            
-# Collect AWS data files (essential for boto3/botocore to work in frozen app)
-datas += collect_data_files('boto3')
-datas += collect_data_files('botocore')
 
 # Add Binaries folder if it exists
 binaries = []
@@ -49,9 +43,6 @@ hiddenimports = [
     'pywintypes',
     'yaml',
     'requests',
-    'boto3',
-    'botocore',
-    'botocore.exceptions',
 ]
 
 a = Analysis(
@@ -70,44 +61,22 @@ a = Analysis(
 
 pyz = PYZ(a.pure)
 
-# Get version
-version = os.environ.get('CEREBRUS_BUILD_VERSION')
-if not version:
-    # Get version from cerebrus module
-    version_file = cerebrus_dir / '_version.py'
-    version = '0.0.0'
-    if version_file.exists():
-        version_content = version_file.read_text()
-        for line in version_content.split('\n'):
-            if line.startswith('__version__'):
-                # Avoid capturing function calls like get_version()
-                val = line.split('=')[1].strip()
-                if not val.endswith(')'):
-                    version = val.strip('"').strip("'")
-                break
-
-# Sanitize version for Windows version info (needs 4-part integer tuple)
-# This handles cases like '1.2.3', '.1.2.3', 'v1.2.3', '1.2.3-beta'
-clean_version = version.lstrip('v.')
-parts = clean_version.split('.')
-version_tuple_parts = []
-for i in range(4):
-    if i < len(parts):
-        # Keep only digits
-        p = "".join(filter(str.isdigit, parts[i]))
-        version_tuple_parts.append(p if p else "0")
-    else:
-        version_tuple_parts.append("0")
-
-version_tuple = ", ".join(version_tuple_parts)
+# Get version from cerebrus module
+version_file = cerebrus_dir / '_version.py'
+version = '0.0.0'
+if version_file.exists():
+    version_content = version_file.read_text()
+    for line in version_content.split('\n'):
+        if line.startswith('__version__'):
+            version = line.split('=')[1].strip().strip('"').strip("'")
+            break
 
 # Version info for Windows executable
-display_version = f"v.{clean_version}"
 version_info_content = (
     f'VSVersionInfo(\n'
     f'  ffi=FixedFileInfo(\n'
-    f'    filevers=({version_tuple}),\n'
-    f'    prodvers=({version_tuple}),\n'
+    f'    filevers=({version.replace(".", ", ")}, 0),\n'
+    f'    prodvers=({version.replace(".", ", ")}, 0),\n'
     f'    mask=0x3f,\n'
     f'    flags=0x0,\n'
     f'    OS=0x40004,\n'
@@ -122,12 +91,12 @@ version_info_content = (
     f'        u\'040904B0\',\n'
     f'        [StringStruct(u\'CompanyName\', u\'LeagueX Gaming Private Limited\'),\n'
     f'        StringStruct(u\'FileDescription\', u\'Cerebrus - Unreal Engine Android Profiling Tool\'),\n'
-    f'        StringStruct(u\'FileVersion\', u\'{display_version}\'),\n'
+    f'        StringStruct(u\'FileVersion\', u\'{version}\'),\n'
     f'        StringStruct(u\'InternalName\', u\'Cerebrus\'),\n'
     f'        StringStruct(u\'LegalCopyright\', u\'© 2025 LeagueX Gaming Private Limited. All rights reserved.\'),\n'
     f'        StringStruct(u\'OriginalFilename\', u\'Cerebrus.exe\'),\n'
     f'        StringStruct(u\'ProductName\', u\'Cerebrus\'),\n'
-    f'        StringStruct(u\'ProductVersion\', u\'{display_version}\')])\n'
+    f'        StringStruct(u\'ProductVersion\', u\'{version}\')])\n'
     f'      ]), \n'
     f'    VarFileInfo([VarStruct(u\'Translation\', [1033, 1200])])\n'
     f'  ]\n'

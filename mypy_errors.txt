@@ -1,0 +1,26 @@
+﻿cerebrus\__init__.py:3: error: Need type annotation for "__all__" (hint: "__all__: list[<type>] = ...")  [var-annotated]
+cerebrus\config\models.py:22: error: Argument 1 to "Path" has incompatible type "object"; expected "str | PathLike[str]"  [arg-type]
+cerebrus\config\models.py:23: error: No overload variant of "int" matches argument type "object"  [call-overload]
+cerebrus\config\models.py:23: note: Possible overload variants:
+cerebrus\config\models.py:23: note:     def int(str | Buffer | SupportsInt | SupportsIndex | SupportsTrunc = ..., /) -> int
+cerebrus\config\models.py:23: note:     def int(str | bytes | bytearray, /, base: SupportsIndex) -> int
+cerebrus\config\models.py:48: error: Argument 1 to "Path" has incompatible type "object"; expected "str | PathLike[str]"  [arg-type]
+cerebrus\config\models.py:66: error: No overload variant of "int" matches argument type "object"  [call-overload]
+cerebrus\config\models.py:66: note: Possible overload variants:
+cerebrus\config\models.py:66: note:     def int(str | Buffer | SupportsInt | SupportsIndex | SupportsTrunc = ..., /) -> int
+cerebrus\config\models.py:66: note:     def int(str | bytes | bytearray, /, base: SupportsIndex) -> int
+cerebrus\config\models.py:67: error: No overload variant of "dict" matches argument type "object"  [call-overload]
+cerebrus\config\models.py:67: note: Possible overload variants:
+cerebrus\config\models.py:67: note:     def [_KT, _VT] dict(self) -> dict[_KT, _VT]
+cerebrus\config\models.py:67: note:     def [_KT, _VT] dict(self, **kwargs: _VT) -> dict[str, _VT]
+cerebrus\config\models.py:67: note:     def [_KT, _VT] dict(self, SupportsKeysAndGetItem[_KT, _VT], /) -> dict[_KT, _VT]
+cerebrus\config\models.py:67: note:     def [_KT, _VT] dict(self, SupportsKeysAndGetItem[str, _VT], /, **kwargs: _VT) -> dict[str, _VT]
+cerebrus\config\models.py:67: note:     def [_KT, _VT] dict(self, Iterable[tuple[_KT, _VT]], /) -> dict[_KT, _VT]
+cerebrus\config\models.py:67: note:     def [_KT, _VT] dict(self, Iterable[tuple[str, _VT]], /, **kwargs: _VT) -> dict[str, _VT]
+cerebrus\config\models.py:67: note:     def [_KT, _VT] dict(self, Iterable[list[str]], /) -> dict[str, str]
+cerebrus\config\models.py:67: note:     def [_KT, _VT] dict(self, Iterable[list[bytes]], /) -> dict[bytes, bytes]
+cerebrus\core\profile.py:64: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+cerebrus\core\profile.py:65: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+cerebrus\core\profile.py:120: error: Module has no attribute "_MEIPASS"  [attr-defined]
+cerebrus\core\setup.py:48: error: Module has no attribute "_MEIPASS"  [attr-defined]
+Found 8 errors in 4 files (checked 24 source files)

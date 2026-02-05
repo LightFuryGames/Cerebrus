@@ -287,20 +287,12 @@ config/profiles/*.local.json
 **/test_profiles/
 
 ###############################################
-# Profiling data, Debug data & captures
+# Profiling data & captures
 ###############################################
 # Raw profiling data – NEVER commit large CSV/PRC/logcat files
 captures/
 */captures/
 **/captures/
-
-DebugInfo/
-*/DebugInfo/
-**/DebugInfo/
-
-TestData/
-*/TestData/
-**/TestData/
 
 # Common profiling output files
 *.csvprofile
@@ -419,5 +411,3 @@ Desktop.ini
 ###############################################
 # END
 ###############################################
-
-cerebrus/_frozen_version.py
