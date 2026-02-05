@@ -16,6 +16,7 @@ from .tabs.level_stats import LevelLoadingStatsTab
 from .tabs.persistent_actors_stats import PersistentActorsStatsTab
 from .tabs.render_target_pool import RenderTargetPoolTab
 from .tabs.config_cache_memory_stats import ConfigCacheMemoryStatsTab
+from .tabs.particle_stats import ParticleSystemsTab
 from .template import HTML_TEMPLATE
 from .utils import format_seconds_to_hms
 
@@ -163,11 +164,12 @@ def parse_memreport(file_path: Path) -> Dict[str, Any]:
         MemoryStatsTab(), 
         RhiMemoryTab(), 
         RhiResourceMemoryTab(), 
-        TextureStatsTab(), 
-        LevelLoadingStatsTab(), 
-        PersistentActorsStatsTab(), 
-        ClassStatsTab(), 
-        DetailedListsTab(), 
+        TextureStatsTab(),
+        ParticleSystemsTab(),
+        LevelLoadingStatsTab(),
+        PersistentActorsStatsTab(),
+        ClassStatsTab(),
+        DetailedListsTab(),
         ObjectSummaryTab(),
         RenderTargetPoolTab(),
         ConfigCacheMemoryStatsTab(),
@@ -302,6 +304,7 @@ def generate_html_report(context: Dict[str, Any], output_path: Path):
         RhiMemoryTab(),
         RhiResourceMemoryTab(),
         TextureStatsTab(),
+        ParticleSystemsTab(),
         LevelLoadingStatsTab(),
         PersistentActorsStatsTab(),
         ClassStatsTab(),

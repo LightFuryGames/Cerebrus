@@ -27,6 +27,15 @@ def format_memory_size(size_kb_val: float) -> str:
     return f"{size_kb_val:.2f} KB"
 
 
+def format_bytes(bytes_val: float) -> str:
+    """Formats raw bytes to KB/MB. 1 KB = 1024 Bytes, 1 MB = 1024 KB."""
+    if bytes_val >= 1024 * 1024:
+        return f"{bytes_val / (1024 * 1024):.2f} MB"
+    if bytes_val >= 1024:
+        return f"{bytes_val / 1024:.2f} KB"
+    return f"{bytes_val:.2f} B"
+
+
 def try_format_cell_value(header: str, value: str) -> str:
     """Attempts to format a cell value based on its header or content."""
     # Check if value is a numeric KB value
