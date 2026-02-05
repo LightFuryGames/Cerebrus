@@ -99,7 +99,8 @@ class GenericTableTab:
                 </div>
              </div>
              """
-            body_html = f'<hr class="section-divider"><h4>Raw Data</h4><div class="table-container"><pre style="background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 8px; overflow-x: auto;">{"\n".join(self.raw_lines)}</pre></div>'
+            raw_content = "\n".join(self.raw_lines)
+            body_html = f'<hr class="section-divider"><h4>Raw Data</h4><div class="table-container"><pre style="background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 8px; overflow-x: auto;">{raw_content}</pre></div>'
         # Case 3: Parsed Rows
         else:
             thead = (

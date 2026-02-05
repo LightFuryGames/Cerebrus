@@ -95,7 +95,15 @@ for i in range(4):
     if i < len(parts):
         # Keep only digits
         p = "".join(filter(str.isdigit, parts[i]))
-        version_tuple_parts.append(p if p else "0")
+        if p:
+            val = int(p)
+            # struct.pack('H') used by PyInstaller often expects short (0-65535) for version parts, 
+            # though 'L' error suggests it might be using Long somewhere. 
+            # Standard VERSIONINFO uses 16-bit integers for the 4 parts (MS/LS).
+            # To be safe, clamp to 0-65535 which is standard for file version parts.
+            version_tuple_parts.append(str(min(val, 65535)))
+        else:
+            version_tuple_parts.append("0")
     else:
         version_tuple_parts.append("0")
 

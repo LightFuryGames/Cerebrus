@@ -14,8 +14,14 @@ def tab() -> RenderTargetPoolTab:
 
 
 def test_should_handle_correct_command(tab: RenderTargetPoolTab) -> None:
-    assert tab.should_handle('MemReport: Begin command "r.DumpRenderTargetPoolMemory"') is True
-    assert tab.should_handle('  MemReport: Begin command "r.DumpRenderTargetPoolMemory"  ') is True
+    assert (
+        tab.should_handle('MemReport: Begin command "r.DumpRenderTargetPoolMemory"')
+        is True
+    )
+    assert (
+        tab.should_handle('  MemReport: Begin command "r.DumpRenderTargetPoolMemory"  ')
+        is True
+    )
     assert tab.should_handle('MemReport: Begin command "something else"') is False
 
 
@@ -84,7 +90,7 @@ def test_parse_complex_dimensions(tab: RenderTargetPoolTab) -> None:
         tab.parse(line, context)
 
     pooled = context["render_target_pool"]["pooled"]
-    
+
     # CascadeShadowMap (Array)
     # The current regex for array size is (?:\s*\[\s*(\d+)\])?
     # 256x 256[  3]
@@ -96,10 +102,10 @@ def test_parse_complex_dimensions(tab: RenderTargetPoolTab) -> None:
     # ReflectionCapture (Cube)
     # The current regex handles cube as part of height if not careful?
     # Match: ^\s*([\d\.]+)MB\s+(\d+)x\s*(\d+)(?:\s*x\s*(\d+))?(?:\s*\[\s*(\d+)\])?\s+(\d+)mip\(s\)\s+(.*)$
-    # "  64cube" -> The \d+ for height might stop at the 'c'? 
+    # "  64cube" -> The \d+ for height might stop at the 'c'?
     # Let's check the regex in render_target_pool.py
     # \d+ for width, \d+ for height.
     # If height is "64cube", \d+ matches "64". The "cube" becomes part of the remainder?
-    # No, the regex says \s*(\d+)mip\(s\). 
+    # No, the regex says \s*(\d+)mip\(s\).
     # Between height and mip(s) there can be optional depth and array size.
     # If "cube" is there, it might break the match if not handled.
