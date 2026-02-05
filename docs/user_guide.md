@@ -30,10 +30,6 @@ The device list shows all connected Android devices.
 - **Refresh**: Click "List Devices" to scan for connected devices.
 - **Selection**: Click on a device row to select it for operations.
 - **Status**: The table shows the device model, serial number, Android version, and if the target package is installed.
-- **Remote Controls**:
-    - **Launch Package**: Launch or resume the target application (supports Launch Package v2.0.0).
-    - **Profiling**: Start/Stop CSV profiling.
-    - **Remote Console**: Send `memreport` or custom console commands (e.g., `stat unit`).
 
 ## File Actions
 Manage files between your PC and the connected Android device.
@@ -48,42 +44,14 @@ Manage files between your PC and the connected Android device.
 - **Move Logs**: Copies logs from `Saved/Logs` on the device to your PC.
 - **Move CSV Data**: Copies profiling data from `Saved/Profiling/CSV` on the device to your PC.
 
-## Configuration Panel & S3 Settings
-The **Configuration Sync** tab allows you to manage remote configuration files stored in AWS S3.
-- **Sync Remote Config**: Downloads the latest `BackendConfig.ini` from your configured S3 bucket and pushes it to the connected device.
-
-### AWS Configuration
-To enable S3 features, go to **Tools -> AWS Configuration** and set:
-1. **S3 Bucket URL**: Base URL of your config bucket.
-2. **Access Key/Secret Key**: Your AWS credentials.
-3. **Region**: Target AWS region (e.g., `ap-south-1`).
-
 ## Report Generation
 Process collected data into readable formats.
 
 ### Bulk Actions (PC to PC)
-- **Recursive Search**: The tool now recursively searches for files in the selected directory.
-- **Generate Perf Report Only**: Runs `PerfreportTool.exe` on CSV files to create visual reports.
-    - **New Metrics**: Reports now include System Metadata, FPS Analysis, and Average FPS.
-- **Generate Memory Report Only**: Converts `.memreport` files into interactive HTML visualizations.
-    - **Visualization**: Provides tree maps and detailed object tracking for memory analysis.
+- **Generate Perf Report Only**: Runs `PerfreportTool.exe` on CSV files.
 - **Generate Colored Logs Only**: Converts text logs to color-coded HTML files.
-- **Generate All**: Performs all enabled operations in sequence.
+- **Generate Perf Report + Colored Logs**: Performs both operations in sequence.
 - **View HTML Logs**: Opens the output folder to view generated HTML logs.
-
-## Tools
-Access additional utilities from the **Tools** menu.
-
-### Advanced Memory Reporting
-Convert raw `.memreport` files into easier-to-read HTML dashboards.
-1. Go to **Tools -> MemReport to HTML**.
-2. Select your input `.memreport` file.
-3. The tool generates an HTML file with tabs for **Device Info**, **Memory Stats**, and **Object Summaries**.
-
-### Auto-Update
-Cerebrus automatically checks for updates on startup.
-- If a new version is available, a prompt will appear.
-- The update is downloaded and installed automatically.
 
 ## Settings
 Customize your experience via the Settings menu.
@@ -94,4 +62,3 @@ Customize your experience via the Settings menu.
 ## Troubleshooting
 - **No Devices Found**: Ensure USB debugging is enabled and ADB is running.
 - **Tool Not Found**: Verify that `PerfreportTool.exe` path is correctly configured in your environment or settings.
-

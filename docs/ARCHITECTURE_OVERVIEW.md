@@ -23,8 +23,6 @@ This document describes the high-level architecture of Cerebrus. All implementat
       - CsvToSVG
       - csvinfo
     - PerfReportTool
-    - MemReport:
-      - Modular generic parsing and HTML visualizer (`cerebrus.tools.memreport`)
 - `cerebrus.config`
   - Loading, validating, and persisting project configuration.
   - Tool-path configuration and per-project overrides.

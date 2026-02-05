@@ -1,0 +1,12 @@
+LogTemp: UTitanDebugMenu: UTitanDebugMenuCheatManager::InitCheatManager, Cheat Manager initialized successfully.
+LogTitanDebugMenu: Warning: Unable to get the cheat manager in UTitanDebugMenuCheatManager::GetAllDebugFunctions
+LogCogEngine: Verbose: CogEngineReplicator_0 | ACogEngineReplicator::BeginPlay |
+LogStadiumLevelSubsystem: UStadiumLoaderSubsystem::CompleteStadiumLoaded Stadium load completed
+LogTemp: UTitanCharacterCustomization::SetParameterOptionValue CustomizationParameters.Name Jersey
+LogTemp: UTitanCharacterCustomization::SetParameterOptionValue CustomizationParameters.OptionValue Panthers
+Cmd: Cog.ToggleInput
+LogCogImGui: Verbose: UCogSubsystem::ToggleInputMode
+LogCommonInput: UCommonInputSubsystem::SetCurrentInputType(): Using Mouse
+LogTitanUI: [UTitanWidgetBase] NativeConstruct from widget Base widget class is called.
+LogTemp: Warning: PlayerProgressTextBlock is invalid
+LogDataTable: Warning: UDataTable::FindRow : 'TitanButtonStyleLookup' requested invalid row 'None' from DataTable '/Game/UI/Shared/DataTable/DT_RichTextAnybodyFontStyles.DT_RichTextAnybodyFontStyles'.

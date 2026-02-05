@@ -106,7 +106,6 @@
             <li><a href="#device-management">Device Management</a></li>
             <li><a href="#remote-profiling">Remote Profiling</a></li>
             <li><a href="#file-actions">File Actions</a></li>
-            <li><a href="#tools">Tools</a></li>
             <li><a href="#report-generation">Report Generation</a></li>
             <li><a href="#settings">Settings</a></li>
         </ol>
@@ -159,8 +158,7 @@
                         <li>Check "Move Logs" to copy log files from the device</li>
                         <li>Check "Move Profiling Data" to copy CSV profiling data</li>
                         <li>Files will be organized in <code>Output Path/DeviceMakeModel/Logs</code> and
-                            <code>Output Path/DeviceMakeModel/CSV</code>
-                        </li>
+                            <code>Output Path/DeviceMakeModel/CSV</code></li>
                     </ul>
                 </li>
             </ol>
@@ -197,8 +195,7 @@
                     project/app.</li>
                 <li><strong>Configure Each Profile</strong> - Set unique package names and output paths for each.</li>
                 <li><strong>Save Profiles</strong> - Use descriptive filenames (e.g., <code>titan_profile.json</code>,
-                    <code>game2_profile.json</code>).
-                </li>
+                    <code>game2_profile.json</code>).</li>
                 <li><strong>Switch Between Profiles</strong> - Use <code>File → Open Profile</code> to load different
                     configurations.</li>
                 <li><strong>Device Auto-Organization</strong> - When you select different devices, Cerebrus
@@ -210,8 +207,7 @@
             <h4>Workflow 5: Analyzing Existing Data</h4>
             <ol>
                 <li><strong>Set Output Path</strong> - Point to a folder that already contains <code>Logs</code> and/or
-                    <code>CSV</code> subdirectories.
-                </li>
+                    <code>CSV</code> subdirectories.</li>
                 <li><strong>Generate Reports</strong> - You can generate performance reports and colored logs even
                     without moving data from a device.</li>
                 <li><strong>No Device Required</strong> - This workflow works entirely offline with existing data.</li>
@@ -231,24 +227,14 @@
             - <strong>Selection</strong>: Click on a device row to select it for operations.
             - <strong>Status</strong>: The table shows the device model, serial number, Android version, and if the
             target package is installed.</p>
-        <h2 id="remote-profiling">Remote Profiling & Console</h2>
+        <h2 id="remote-profiling">Remote Profiling</h2>
         <p>Control Unreal Engine profiling directly from Cerebrus.
-            - <strong>Launch Package</strong>: Launches the application (supports Launch Package v2.0.0).
-            - <strong>Start Profiling</strong>: Starts profiling data on selected device.
-            - <strong>Stop Profiling</strong>: Stops profiling data on selected device.
-            - <strong>Remote Console</strong>: Send commands directly to the device.
+            - <strong>Start Profiling</strong>: Starts profiling data on selected device if Package is running actively
+            in foreground.
+            - <strong>Stop Profiling</strong>: Stops profiling data on selected device if Package is running actively in
+            foreground.
+            - <strong>Note</strong>: The application must be running on the selected device for these commands to work.
         </p>
-
-        <h3 id="console-commands">Remote Console Commands</h3>
-        <p>Send standard or custom console commands to the running application.</p>
-        <ul>
-            <li><strong>Memreport</strong>: Sends <code>memreport</code> to generate a standard memory report.</li>
-            <li><strong>Memreport Full</strong>: Sends <code>memreport -full</code> for a comprehensive memory analysis.
-            </li>
-            <li><strong>Custom Command</strong>: Type any command (e.g., <code>stat unit</code>) and press Enter or
-                click Send.</li>
-        </ul>
-
         <h2 id="file-actions">File Actions</h2>
         <p>Manage files between your PC and the connected Android device.</p>
         <h3 id="configuration">Configuration</h3>
@@ -265,46 +251,16 @@
             <li><strong>Move Profiling Data</strong>: Copies profiling data from <code>Saved/Profiling/CSV</code> on the
                 device to your PC.</li>
         </ul>
-
-        <h2 id="tools">Tools</h2>
-        <p>Access additional utilities from the <strong>Tools</strong> menu.</p>
-        <h3 id="aws-configuration">AWS Configuration</h3>
-        <p>Configure AWS credentials for S3 integration.</p>
-        <ul>
-            <li><strong>S3 Bucket URL</strong>: The base URL for your S3 bucket (e.g., for config downloads).</li>
-            <li><strong>Access Key / Secret Key</strong>: Your AWS credentials.</li>
-            <li><strong>Region</strong>: The AWS region for your resources.</li>
-        </ul>
-        <p>These settings are used for resolving remote configurations and other cloud-integrated features.</p>
-
         <h2 id="report-generation">Report Generation</h2>
         <p>Process collected data into readable formats.</p>
         <h3 id="bulk-actions-pc-to-pc">Bulk Actions (PC to PC)</h3>
         <ul>
-            <li><strong>Recursive Search</strong>: Automatically recursively searches for files in the output directory.
-            </li>
-            <li><strong>Generate Perf Report Only</strong>: Runs <code>PerfreportTool.exe</code> on CSV files (includes
-                Avg FPS).</li>
-            <li><strong>Generate Memory Report Only</strong>: Converts <code>.memreport</code> files to interactive HTML
-                visualizations.</li>
+            <li><strong>Generate Perf Report Only</strong>: Runs <code>PerfreportTool.exe</code> on CSV files.</li>
             <li><strong>Generate Colored Logs Only</strong>: Converts text logs to color-coded HTML files.</li>
-            <li><strong>Generate All</strong>: Performs all enabled operations in sequence.</li>
+            <li><strong>Generate Perf Report + Colored Logs</strong>: Performs both operations in sequence.</li>
             <li><strong>View HTML Logs</strong>: Opens the output folder to view generated HTML logs.</li>
         </ul>
-
-        <h2 id="tools">Tools</h2>
-        <p>Access additional utilities from the <strong>Tools</strong> menu.</p>
-
-        <h3 id="advanced-memory-reporting">Advanced Memory Reporting</h3>
-        <p>Use the <strong>MemReport to HTML</strong> tool to visualize memory logs. This generates a dashboard with:
-        </p>
-        <ul>
-            <li>Device Information & Metadata</li>
-            <li>Memory Statistics (Physical, Virtual, Page File)</li>
-            <li>Object Summary Lists</li>
-        </ul>
-
-        <h3 id="aws-configuration">AWS Configuration</h3>
+        <h2 id="settings">Settings</h2>
         <p>Customize your experience via the Settings menu.
             - <strong>Load Theme</strong>: Switch between Dark, Light, or System themes.
             - <strong>Log Colors</strong>: Customize the colors used in the application log window.
