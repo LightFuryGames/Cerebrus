@@ -350,7 +350,9 @@ def _show_about_dialog(state: UIState) -> None:
         dpg.add_text("Cerebrus", color=(120, 200, 255))
 
         # Version
-        display_ver = __version__ if str(__version__).startswith('v') else f"v{__version__}"
+        display_ver = (
+            __version__ if str(__version__).startswith("v") else f"v{__version__}"
+        )
         dpg.add_text(f"Version: {display_ver}")
 
         # Author

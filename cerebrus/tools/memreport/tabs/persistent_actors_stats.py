@@ -1,6 +1,7 @@
 import re
 import uuid
 from typing import Any, Dict, List
+
 from . import ReportTab
 
 
@@ -12,7 +13,10 @@ class PersistentActorsStatsTab(ReportTab):
         self.parsing_actors = False
 
     def should_handle(self, line: str) -> bool:
-        return 'MemReport: Begin command "ListSpawnedActors"' in line or "Listing spawned actors in persistent level:" in line
+        return (
+            'MemReport: Begin command "ListSpawnedActors"' in line
+            or "Listing spawned actors in persistent level:" in line
+        )
 
     def parse(self, line: str, context: Dict[str, Any]) -> None:
         # Ensure context storage exists
@@ -23,7 +27,7 @@ class PersistentActorsStatsTab(ReportTab):
 
         raw_line = line.strip()
 
-        if "MemReport: Begin command \"ListSpawnedActors\"" in raw_line:
+        if 'MemReport: Begin command "ListSpawnedActors"' in raw_line:
             self.parsing_actors = True
             return
 
@@ -45,14 +49,17 @@ class PersistentActorsStatsTab(ReportTab):
             return
 
         # Check for end of section (another command or header)
-        if "MemReport:" in raw_line and "Begin command \"ListSpawnedActors\"" not in raw_line:
+        if (
+            "MemReport:" in raw_line
+            and 'Begin command "ListSpawnedActors"' not in raw_line
+        ):
             self.parsing_actors = False
             return
 
         parts = [p.strip() for p in raw_line.split(",")]
         if len(parts) >= 6:
             try:
-                # NOTE: Unreal MemReport headers say 'TimeUnseen, TimeAlive' but the data 
+                # NOTE: Unreal MemReport headers say 'TimeUnseen, TimeAlive' but the data
                 # actually provides 'TimeAlive, TimeUnseen'. We swap them here for correctness.
                 actor = {
                     "time_alive": float(parts[0]),
@@ -60,7 +67,7 @@ class PersistentActorsStatsTab(ReportTab):
                     "distance": parts[2],
                     "class": parts[3],
                     "name": parts[4],
-                    "owner": parts[5]
+                    "owner": parts[5],
                 }
                 context["persistent_actors"].append(actor)
                 # Sync local actors as well just in case
@@ -72,27 +79,39 @@ class PersistentActorsStatsTab(ReportTab):
         reported_total = context.get("total_persistent_actors", self.total_spawned)
         actors = context.get("persistent_actors", self.actors)
         listed_count = len(actors)
-        
+
         # Calculate unique entities theory
-        all_names = {a['name'] for a in actors}
-        all_owners = {a['owner'] for a in actors}
-        external_owners = {o for o in all_owners if o not in all_names and o.lower() != 'none'}
+        all_names = {a["name"] for a in actors}
+        all_owners = {a["owner"] for a in actors}
+        external_owners = {
+            o for o in all_owners if o not in all_names and o.lower() != "none"
+        }
         actual_total_found = len(all_names) + len(external_owners)
 
         active_cls = " active" if is_active else ""
         safe_id = self.id.replace("-", "_")
-        
+
         # Table Headers (Unseen and Alive are in Seconds since Level Load)
-        headers = ["#", "Class", "Name", "Owner", "Distance", "Time Alive (s)", "Time Unseen (s)", "% Unseen"]
-        
+        headers = [
+            "#",
+            "Class",
+            "Name",
+            "Owner",
+            "Distance",
+            "Time Alive (s)",
+            "Time Unseen (s)",
+            "% Unseen",
+        ]
+
         # 1. Flat List Body
         flat_tbody = ""
         for actor in actors:
-            unseen = actor['time_unseen']
-            alive = actor['time_alive']
+            unseen = actor["time_unseen"]
+            alive = actor["time_alive"]
             pct = (unseen / alive * 100.0) if alive > 0 else 0
-            if pct > 100: pct = 100.0
-            
+            if pct > 100:
+                pct = 100.0
+
             flat_tbody += f"""
             <tr data-unseen="{unseen}" data-alive="{alive}" data-pct="{pct}">
                 <td class="count-cell"></td>
@@ -107,27 +126,28 @@ class PersistentActorsStatsTab(ReportTab):
             """
 
         # 2. Hierarchy View Body
-        name_to_actor = {a['name']: a for a in actors}
-        children_map = {}
+        name_to_actor = {a["name"]: a for a in actors}
+        children_map: Dict[str, List[Dict[str, Any]]] = {}
         roots = []
         for a in actors:
-            owner = a['owner']
+            owner = a["owner"]
             if owner in name_to_actor:
                 children_map.setdefault(owner, []).append(a)
             else:
                 roots.append(a)
 
         def render_tree_node(actor, depth=0):
-            unseen = actor['time_unseen']
-            alive = actor['time_alive']
-            dist = actor['distance']
+            unseen = actor["time_unseen"]
+            alive = actor["time_alive"]
+            dist = actor["distance"]
             pct = (unseen / alive * 100.0) if alive > 0 else 0
-            if pct > 100: pct = 100.0
-            
-            my_children = children_map.get(actor['name'], [])
+            if pct > 100:
+                pct = 100.0
+
+            my_children = children_map.get(actor["name"], [])
             has_children = len(my_children) > 0
             indent = depth * 20
-            
+
             node_html = f"""
             <div class="tree-node-wrapper" {"data-expanded='true'" if has_children else ""}>
                 <div class="tree-row" data-unseen="{unseen}" data-alive="{alive}" data-pct="{pct}">
@@ -145,14 +165,14 @@ class PersistentActorsStatsTab(ReportTab):
             """
             if has_children:
                 node_html += '<div class="tree-children-container">'
-                for child in sorted(my_children, key=lambda x: x['name']):
+                for child in sorted(my_children, key=lambda x: x["name"]):
                     node_html += render_tree_node(child, depth + 1)
-                node_html += '</div>'
-            node_html += '</div>'
+                node_html += "</div>"
+            node_html += "</div>"
             return node_html
 
         tree_html = ""
-        for root in sorted(roots, key=lambda x: (x['owner'], x['name'])):
+        for root in sorted(roots, key=lambda x: (x["owner"], x["name"])):
             tree_html += render_tree_node(root)
 
         # Prepare Warning logic

@@ -1,12 +1,18 @@
 import re
 from typing import Any, Dict, List
-from . import ReportTab
+
 from ..utils import try_format_cell_value
+from . import ReportTab
+
 
 class RhiMemoryTab(ReportTab):
     def __init__(self):
         super().__init__("RHI Memory Stats", "rhi-memory-stats")
-        self.headers = ["RHI resource Category", "STAT Category (STATGROUP_RHI)", "Size"]
+        self.headers = [
+            "RHI resource Category",
+            "STAT Category (STATGROUP_RHI)",
+            "Size",
+        ]
 
     def should_handle(self, line: str) -> bool:
         return 'command "rhi.DumpMemory"' in line
@@ -14,8 +20,12 @@ class RhiMemoryTab(ReportTab):
     def parse(self, line: str, context: Dict[str, Any]) -> None:
         if "rhi_memory_data" not in context:
             context["rhi_memory_data"] = []
-        
-        match = re.search(r"^\s*([\d\.]+\s*[KMGM]?B)\s*-\s*(.*?)\s*-\s*(STAT_.*?)\s*-\s*STATGROUP_RHI", line, re.IGNORECASE)
+
+        match = re.search(
+            r"^\s*([\d\.]+\s*[KMGM]?B)\s*-\s*(.*?)\s*-\s*(STAT_.*?)\s*-\s*STATGROUP_RHI",
+            line,
+            re.IGNORECASE,
+        )
         if match:
             size_raw = match.group(1).strip()
             category = match.group(2).strip()
@@ -24,7 +34,9 @@ class RhiMemoryTab(ReportTab):
             context["rhi_memory_data"].append([category, stat_category, size])
             return
 
-        total_match = re.search(r"^\s*([\d\.]+\s*[KMGM]?B)\s*total", line, re.IGNORECASE)
+        total_match = re.search(
+            r"^\s*([\d\.]+\s*[KMGM]?B)\s*total", line, re.IGNORECASE
+        )
         if total_match:
             size_raw = total_match.group(1).strip()
             context["rhi_memory_total_val"] = try_format_cell_value("Size", size_raw)
@@ -32,16 +44,21 @@ class RhiMemoryTab(ReportTab):
     def render(self, context: Dict[str, Any], is_active: bool = False) -> str:
         data = context.get("rhi_memory_data", [])
         total_val = context.get("rhi_memory_total_val", "")
-        if not data and not total_val: return ""
+        if not data and not total_val:
+            return ""
 
         active_cls = " active" if is_active else ""
-        thead = "<thead><tr>" + "".join([f"<th>{h}</th>" for h in self.headers]) + "</tr></thead>"
+        thead = (
+            "<thead><tr>"
+            + "".join([f"<th>{h}</th>" for h in self.headers])
+            + "</tr></thead>"
+        )
         tbody = "<tbody>"
 
         for row in data:
-            tbody += f"<tr><td>{row[0]}</td><td>{row[1]}</td><td class=\"numeric\">{row[2]}</td></tr>"
+            tbody += f'<tr><td>{row[0]}</td><td>{row[1]}</td><td class="numeric">{row[2]}</td></tr>'
         tbody += "</tbody>"
-        
+
         dashboard_html = ""
         dashboard_html = f"""
         <div class="analytics-wrapper" style="background: var(--row-even); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color);">
@@ -130,6 +147,7 @@ class RhiMemoryTab(ReportTab):
         </div>
         """
 
+
 class RhiResourceMemoryTab(ReportTab):
     def __init__(self):
         super().__init__("RHI Resource Memory Stats", "rhi-resource-memory")
@@ -140,22 +158,38 @@ class RhiResourceMemoryTab(ReportTab):
 
     def parse(self, line: str, context: Dict[str, Any]) -> None:
         if "rhi_resource_memory_data" not in context:
-            context["rhi_resource_memory_data"] = {"metrics": [], "raw_lines": [], "has_large_content": False}
-        
-        match1 = re.search(r"Tracked RHIResources \((\d+) total with info, (\d+) total tracked\)", line, re.IGNORECASE)
+            context["rhi_resource_memory_data"] = {
+                "metrics": [],
+                "raw_lines": [],
+                "has_large_content": False,
+            }
+
+        match1 = re.search(
+            r"Tracked RHIResources \((\d+) total with info, (\d+) total tracked\)",
+            line,
+            re.IGNORECASE,
+        )
         if match1:
-            context["rhi_resource_memory_data"]["metrics"].append(["Tracked RHI Resources", match1.group(1), match1.group(2)])
+            context["rhi_resource_memory_data"]["metrics"].append(
+                ["Tracked RHI Resources", match1.group(1), match1.group(2)]
+            )
             return
 
-        match2 = re.search(r"Total tracked resource size:\s*([\d\.]+\s*[KMGM]?B)", line, re.IGNORECASE)
+        match2 = re.search(
+            r"Total tracked resource size:\s*([\d\.]+\s*[KMGM]?B)", line, re.IGNORECASE
+        )
         if match2:
             size_str = match2.group(1).strip()
             size = try_format_cell_value("Size", size_str)
-            context["rhi_resource_memory_data"]["metrics"].append(["total tracked resource Size", size, size])
+            context["rhi_resource_memory_data"]["metrics"].append(
+                ["total tracked resource Size", size, size]
+            )
             # Store raw MB for threshold check
-            num_val = float(re.search(r"([\d\.]+)", size_str).group(1))
-            if num_val > 0:
-                context["rhi_resource_memory_data"]["has_large_content"] = True
+            m = re.search(r"([\d\.]+)", size_str)
+            if m:
+                num_val = float(m.group(1))
+                if num_val > 0:
+                    context["rhi_resource_memory_data"]["has_large_content"] = True
             return
 
         if "MemReport:" not in line and line.strip():
@@ -166,15 +200,20 @@ class RhiResourceMemoryTab(ReportTab):
         metrics = data.get("metrics", [])
         raw_lines = data.get("raw_lines", [])
         has_large_content = data.get("has_large_content", False)
-        if not metrics and not raw_lines: return ""
+        if not metrics and not raw_lines:
+            return ""
 
         active_cls = " active" if is_active else ""
-        thead = "<thead><tr>" + "".join([f"<th>{h}</th>" for h in self.headers]) + "</tr></thead>"
+        thead = (
+            "<thead><tr>"
+            + "".join([f"<th>{h}</th>" for h in self.headers])
+            + "</tr></thead>"
+        )
         tbody = "<tbody>"
         for row in metrics:
-            tbody += f"<tr><td>{row[0]}</td><td class=\"numeric\">{row[1]}</td><td class=\"numeric\">{row[2]}</td></tr>"
+            tbody += f'<tr><td>{row[0]}</td><td class="numeric">{row[1]}</td><td class="numeric">{row[2]}</td></tr>'
         tbody += "</tbody>"
-        
+
         warning_html = ""
         if has_large_content:
             warning_html = """

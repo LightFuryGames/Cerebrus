@@ -1,22 +1,26 @@
 import re
 from typing import Any, Dict, List, Optional
+
 from . import ReportTab
+
 
 class LevelLoadingStatsTab(ReportTab):
     def __init__(self):
         super().__init__("Level Loading Stats", "level-loading-stats")
         self.parsing = False
-        self.headers = ["Level", "Time to Load", "Streaming Status", "Visibility Status"]
+        self.headers = [
+            "Level",
+            "Time to Load",
+            "Streaming Status",
+            "Visibility Status",
+        ]
 
     def should_handle(self, line: str) -> bool:
         return line.startswith('MemReport: Begin command "LogOutStatLevels"')
 
     def parse(self, line: str, context: Dict[str, Any]) -> None:
         if "level_stats" not in context:
-            context["level_stats"] = {
-                "rows": [],
-                "persistent_count": 0
-            }
+            context["level_stats"] = {"rows": [], "persistent_count": 0}
 
         if line.startswith('MemReport: Begin command "LogOutStatLevels"'):
             self.parsing = True
@@ -34,9 +38,9 @@ class LevelLoadingStatsTab(ReportTab):
         if stripped.startswith("->"):
             is_persistent = True
             level_text = stripped[2:].strip()
-        
+
         match = re.search(r"^(.*?)\s*-\s*([\d\.]+\s*sec)\s+(.*?)\s+(.*?)$", level_text)
-        
+
         if match:
             level = match.group(1).strip()
             time_to_load = match.group(2).strip()
@@ -52,7 +56,9 @@ class LevelLoadingStatsTab(ReportTab):
         if is_persistent:
             context["level_stats"]["persistent_count"] += 1
 
-        context["level_stats"]["rows"].append([level, time_to_load, streaming, visibility])
+        context["level_stats"]["rows"].append(
+            [level, time_to_load, streaming, visibility]
+        )
 
     def get_buttons(self, context: Dict[str, Any]) -> str:
         if "level_stats" in context and context["level_stats"]["rows"]:
@@ -79,13 +85,19 @@ class LevelLoadingStatsTab(ReportTab):
             </div>
             """
 
-        thead = "<thead><tr>" + "".join([f"<th>{h}</th>" for h in self.headers]) + "</tr></thead>"
+        thead = (
+            "<thead><tr>"
+            + "".join([f"<th>{h}</th>" for h in self.headers])
+            + "</tr></thead>"
+        )
         tbody = "<tbody>"
         for row in rows:
             row_style = ""
-            if not row[1]: 
+            if not row[1]:
                 row_style = ' style="background-color: rgba(59, 130, 246, 0.1); font-weight: 600;"'
-            tbody += f"<tr{row_style}>" + "".join([f"<td>{c}</td>" for c in row]) + "</tr>"
+            tbody += (
+                f"<tr{row_style}>" + "".join([f"<td>{c}</td>" for c in row]) + "</tr>"
+            )
         tbody += "</tbody>"
 
         dashboard_html = f"""

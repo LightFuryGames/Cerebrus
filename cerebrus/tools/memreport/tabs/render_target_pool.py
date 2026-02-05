@@ -1,14 +1,20 @@
 import re
 from typing import Any, Dict, List
+
 from ..utils import format_memory_size
 from . import ReportTab
+
 
 class RenderTargetPoolTab(ReportTab):
     def __init__(self):
         super().__init__("Pooled Render Target Stats", "render-target-pool")
 
     def should_handle(self, line: str) -> bool:
-        return line.lower().strip().startswith('memreport: begin command "r.dumprendertargetpoolmemory')
+        return (
+            line.lower()
+            .strip()
+            .startswith('memreport: begin command "r.dumprendertargetpoolmemory')
+        )
 
     def parse(self, line: str, context: Dict[str, Any]) -> None:
         raw_line = line.strip()
@@ -22,16 +28,16 @@ class RenderTargetPoolTab(ReportTab):
                     "pooled_used_mb": 0.0,
                     "pooled_unused_mb": 0.0,
                     "pooled_count": 0,
-                    "deferred_mb": 0.0
+                    "deferred_mb": 0.0,
                 },
-                "parsing_mode": None 
+                "parsing_mode": None,
             }
 
         store = context["render_target_pool"]
 
         if self.should_handle(raw_line):
-           store["parsing_mode"] = None
-           return
+            store["parsing_mode"] = None
+            return
 
         if "Pooled Render Targets:" in raw_line:
             store["parsing_mode"] = "pooled"
@@ -39,10 +45,17 @@ class RenderTargetPoolTab(ReportTab):
         if "Deferred Render Targets:" in raw_line:
             store["parsing_mode"] = "deferred"
             return
-        
+
         # Pooled Summary Line: "60.806MB total, 13.762MB used, 20.695MB unused, 25 render targets"
-        if "MB total," in raw_line and "MB used," in raw_line and "render targets" in raw_line:
-            match = re.search(r"([\d\.]+)MB total,\s*([\d\.]+)MB used,\s*([\d\.]+)MB unused,\s*(\d+)", raw_line)
+        if (
+            "MB total," in raw_line
+            and "MB used," in raw_line
+            and "render targets" in raw_line
+        ):
+            match = re.search(
+                r"([\d\.]+)MB total,\s*([\d\.]+)MB used,\s*([\d\.]+)MB unused,\s*(\d+)",
+                raw_line,
+            )
             if match:
                 store["summary"]["pooled_total_mb"] = float(match.group(1))
                 store["summary"]["pooled_used_mb"] = float(match.group(2))
@@ -54,23 +67,26 @@ class RenderTargetPoolTab(ReportTab):
         if "Deferred total" in raw_line:
             match = re.search(r"([\d\.]+)MB Deferred total", raw_line)
             if match:
-                 store["summary"]["deferred_mb"] = float(match.group(1))
+                store["summary"]["deferred_mb"] = float(match.group(1))
             return
 
         if not store["parsing_mode"]:
             return
 
         # Refined Regex to handle Depth (x 4) and Array Size ([ 1])
-        match = re.search(r"^\s*([\d\.]+)MB\s+(\d+)x\s*(\d+)(?:\s*x\s*(\d+))?(?:\s*\[\s*(\d+)\])?\s+(\d+)mip\(s\)\s+(.*)$", raw_line)
+        match = re.search(
+            r"^\s*([\d\.]+)MB\s+(\d+)x\s*(\d+)(?:\s*x\s*(\d+))?(?:\s*\[\s*(\d+)\])?\s+(\d+)mip\(s\)\s+(.*)$",
+            raw_line,
+        )
         if match:
             size_mb = float(match.group(1))
             width = int(match.group(2))
             height = int(match.group(3))
-            depth = match.group(4) 
-            array_size_str = match.group(5) 
+            depth = match.group(4)
+            array_size_str = match.group(5)
             mips = int(match.group(6))
             remainder = match.group(7)
-            
+
             unused_frames = 0
             if "Unused frames:" in remainder:
                 parts = remainder.rsplit("Unused frames:", 1)
@@ -79,17 +95,17 @@ class RenderTargetPoolTab(ReportTab):
                     unused_frames = int(parts[1].strip())
                 except:
                     pass
-            
+
             fmt = "Unknown"
             name = remainder
             fmt_match = re.search(r"\((PF_[^)]+)\)$", remainder)
             if not fmt_match:
-                 fmt_match = re.search(r"\(([^)]+)\)$", remainder)
-            
+                fmt_match = re.search(r"\(([^)]+)\)$", remainder)
+
             if fmt_match:
                 fmt = fmt_match.group(1)
-                name = remainder[:fmt_match.start()].strip()
-            
+                name = remainder[: fmt_match.start()].strip()
+
             # Logic for Is Array and Array Size
             is_array = "No"
             display_array_size = ""
@@ -98,10 +114,10 @@ class RenderTargetPoolTab(ReportTab):
                 display_array_size = str(val)
                 if val >= 1:
                     is_array = "Yes"
-            
+
             depth_val = int(depth) if depth else 1
             is_volumetric = "Yes" if depth_val > 1 else "No"
-            
+
             entry = {
                 "size_mb": size_mb,
                 "width": width,
@@ -113,36 +129,49 @@ class RenderTargetPoolTab(ReportTab):
                 "mips": mips,
                 "name": name,
                 "format": fmt,
-                "unused_frames": unused_frames
+                "unused_frames": unused_frames,
             }
-            
+
             if store["parsing_mode"] == "pooled":
                 store["pooled"].append(entry)
             else:
                 store["deferred"].append(entry)
 
     def render(self, context: Dict[str, Any], is_active: bool = False) -> str:
-        store = context.get("render_target_pool", {
-            "pooled": [], "deferred": [],
-            "summary": {"pooled_total_mb": 0, "pooled_used_mb": 0, "pooled_unused_mb": 0, "pooled_count": 0, "deferred_mb": 0}
-        })
-        
+        store = context.get(
+            "render_target_pool",
+            {
+                "pooled": [],
+                "deferred": [],
+                "summary": {
+                    "pooled_total_mb": 0,
+                    "pooled_used_mb": 0,
+                    "pooled_unused_mb": 0,
+                    "pooled_count": 0,
+                    "deferred_mb": 0,
+                },
+            },
+        )
+
         summary = store["summary"]
         pooled = store["pooled"]
         deferred = store["deferred"]
-        
+
         display_class = " active" if is_active else ""
         display_style = "block" if is_active else "none"
 
-        calc_pooled_mb = sum(x['size_mb'] for x in pooled)
-        calc_deferred_mb = sum(x['size_mb'] for x in deferred)
+        calc_pooled_mb = sum(x["size_mb"] for x in pooled)
+        calc_deferred_mb = sum(x["size_mb"] for x in deferred)
 
         # Prepare Shared Warning logic (Used in both Pooled and Deferred sections)
-        reported_sum = summary['pooled_used_mb'] + summary['pooled_unused_mb']
-        has_pooled_mismatch = abs(summary['pooled_total_mb'] - reported_sum) > 0.001 and summary['pooled_total_mb'] > 0
-        
+        reported_sum = summary["pooled_used_mb"] + summary["pooled_unused_mb"]
+        has_pooled_mismatch = (
+            abs(summary["pooled_total_mb"] - reported_sum) > 0.001
+            and summary["pooled_total_mb"] > 0
+        )
+
         debug_name_note = f"<b>Note:</b> Render Targets use generic labels rather than unique names. If the same name appears multiple times, each entry represents a <b>separate and unique memory allocation</b> (these are not accidental duplicate records)."
-        
+
         if has_pooled_mismatch:
             mismatch_note = f"<br><b>This discrepancy often occurs due to internal alignment overhead, driver-reserved memory, or hidden base allocations within the pool that aren't categorized as active or inactive.</b>"
             shared_warning = f"""
@@ -165,16 +194,32 @@ class RenderTargetPoolTab(ReportTab):
                 </div>
                 """
 
-        def render_metric_card(title, subtext, total_mb, used_mb, unused_mb, count, prefix, card_type):
-            used_str = f"{used_mb:.3f} MB" if used_mb is not None else "Cannot COMPUTE (See ⚠️)"
-            unused_str = f"{unused_mb:.3f} MB" if unused_mb is not None else "Cannot COMPUTE (See ⚠️)"
-            
-            subtext_html = f'<div style="font-size: 0.65em; color: var(--unreal-red-color, #f43f5e); text-transform: uppercase; margin-bottom: 5px;">{subtext}</div>' if subtext else ""
-            
+        def render_metric_card(
+            title, subtext, total_mb, used_mb, unused_mb, count, prefix, card_type
+        ):
+            used_str = (
+                f"{used_mb:.3f} MB"
+                if used_mb is not None
+                else "Cannot COMPUTE (See ⚠️)"
+            )
+            unused_str = (
+                f"{unused_mb:.3f} MB"
+                if unused_mb is not None
+                else "Cannot COMPUTE (See ⚠️)"
+            )
+
+            subtext_html = (
+                f'<div style="font-size: 0.65em; color: var(--unreal-red-color, #f43f5e); text-transform: uppercase; margin-bottom: 5px;">{subtext}</div>'
+                if subtext
+                else ""
+            )
+
             count_label = "Targets"
             val_color = "var(--accent-color)"
-            card_style = "background: var(--header-bg); border: 1px solid var(--border-color);"
-            
+            card_style = (
+                "background: var(--header-bg); border: 1px solid var(--border-color);"
+            )
+
             if card_type == "reported":
                 count_label = "Render Target Count reported"
                 val_color = "#ce9178"
@@ -202,40 +247,49 @@ class RenderTargetPoolTab(ReportTab):
             </div>
             """
 
-        def render_analytics_row(title, prefix, rep_total, rep_used, rep_unused, rep_count, calc_total, calc_count):
+        def render_analytics_row(
+            title,
+            prefix,
+            rep_total,
+            rep_used,
+            rep_unused,
+            rep_count,
+            calc_total,
+            calc_count,
+        ):
             # Merge into 3 main cards: Reported, Calculated, Filtered
             # Reported
             reported_card = render_metric_card(
-                "Reported Total", 
-                "(UNREAL REPORTED TOTAL)", 
-                rep_total, 
-                rep_used, 
-                rep_unused, 
-                rep_count, 
+                "Reported Total",
+                "(UNREAL REPORTED TOTAL)",
+                rep_total,
+                rep_used,
+                rep_unused,
+                rep_count,
                 f"{prefix}-reported",
-                "reported"
+                "reported",
             )
             # Calculated
             calculated_card = render_metric_card(
-                "Calculated Total", 
-                None, 
-                calc_total, 
-                None, 
-                None, 
-                calc_count, 
+                "Calculated Total",
+                None,
+                calc_total,
+                None,
+                None,
+                calc_count,
                 f"{prefix}-calculated",
-                "calculated"
+                "calculated",
             )
             # Filtered
             filtered_card = render_metric_card(
-                "Filtered Total", 
-                None, 
-                calc_total, 
-                None, 
-                None, 
-                calc_count, 
+                "Filtered Total",
+                None,
+                calc_total,
+                None,
+                None,
+                calc_count,
                 f"{prefix}-filtered",
-                "filtered"
+                "filtered",
             )
 
             return f"""
@@ -254,25 +308,42 @@ class RenderTargetPoolTab(ReportTab):
             """
 
         def render_table(rows, table_id, filtered_id_prefix):
-            headers = ["#", "Width", "Height", "Depth", "Size (MB)", "Is Volumetric", "Is Array", "Array Size", "Debug Name", "Format", "Num Mips", "Unused Frames"]
-            
+            headers = [
+                "#",
+                "Width",
+                "Height",
+                "Depth",
+                "Size (MB)",
+                "Is Volumetric",
+                "Is Array",
+                "Array Size",
+                "Debug Name",
+                "Format",
+                "Num Mips",
+                "Unused Frames",
+            ]
+
             thead = "<tr>" + "".join([f"<th>{h}</th>" for h in headers]) + "</tr>"
             tbody = ""
             for idx, r in enumerate(rows, 1):
                 row_class = ""
                 if r["unused_frames"] > 60:
-                     row_class = 'class="unused-danger"'
+                    row_class = 'class="unused-danger"'
                 elif r["unused_frames"] > 5:
-                     row_class = 'class="unused-warn"'
+                    row_class = 'class="unused-warn"'
 
                 # Yes/No styling matching Texture Stats boolean style (Standard Green/Red)
                 is_array_class = "status-yes" if r["is_array"] == "Yes" else "status-no"
                 is_array_html = f'<span class="{is_array_class}">{r["is_array"]}</span>'
 
-                is_vol_class = "status-yes" if r["is_volumetric"] == "Yes" else "status-no"
-                is_vol_html = f'<span class="{is_vol_class}">{r["is_volumetric"]}</span>'
+                is_vol_class = (
+                    "status-yes" if r["is_volumetric"] == "Yes" else "status-no"
+                )
+                is_vol_html = (
+                    f'<span class="{is_vol_class}">{r["is_volumetric"]}</span>'
+                )
 
-                depth_display = str(r['depth']) if r['depth'] > 1 else ""
+                depth_display = str(r["depth"]) if r["depth"] > 1 else ""
 
                 row_html = f"<tr {row_class} data-size='{r['size_mb']}'>"
                 row_html += f"<td>{idx}</td>"
@@ -289,7 +360,7 @@ class RenderTargetPoolTab(ReportTab):
                 row_html += f"<td>{r['unused_frames']}</td>"
                 row_html += "</tr>"
                 tbody += row_html
-            
+
             return f"""
             <div class="table-container">
                 <table id="{table_id}">
@@ -413,10 +484,17 @@ class RenderTargetPoolTab(ReportTab):
         """
 
         def render_filters(rows, table_id, prefix):
-            unique_formats = sorted(list(set(r["format"] for r in rows if r["format"] != "Unknown")))
-            
-            format_btns = "".join([f'<button class="action-btn filter-btn" data-col="9" data-val="{f}" onclick="toggleRtFilter(this, \'{table_id}\', \'{prefix}\')">{f}</button>' for f in unique_formats])
-            
+            unique_formats = sorted(
+                list(set(r["format"] for r in rows if r["format"] != "Unknown"))
+            )
+
+            format_btns = "".join(
+                [
+                    f'<button class="action-btn filter-btn" data-col="9" data-val="{f}" onclick="toggleRtFilter(this, \'{table_id}\', \'{prefix}\')">{f}</button>'
+                    for f in unique_formats
+                ]
+            )
+
             return f"""
             <div style="background: rgba(0,0,0,0.15); padding: 12px; border-radius: 6px; margin-bottom: 20px; border: 1px solid var(--border-color);">
                 <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.05);">

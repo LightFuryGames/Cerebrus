@@ -4,6 +4,7 @@ from typing import Any, Dict
 from ..utils import try_format_cell_value
 from . import ReportTab
 
+
 class ObjectSummaryTab(ReportTab):
     def __init__(self):
         super().__init__("Object Summary Stats", "object-summary")
@@ -16,19 +17,26 @@ class ObjectSummaryTab(ReportTab):
         if "obj_summary" not in data:
             data["obj_summary"] = {"headers": [], "rows": [], "total": None}
         summary = data["obj_summary"]
-        if not line.strip(): return
-        if "Objects:" in line and "Total:" not in line: return
+        if not line.strip():
+            return
+        if "Objects:" in line and "Total:" not in line:
+            return
 
         if "Objects (Total:" in line:
             # Objects (Total: 1047.81 MB / Max: 1047.81 MB / Res: 864.63 MB | ResDedSys: 864.55 MB / ResDedVid: 0.00 MB / ResUnknown: 0.08 MB)
-            match = re.search(r"(\d+)\s+Objects\s+\(Total:\s+([\d\.]+M?)\s+/\s+Max:\s+([\d\.]+M?)\s+/\s+Res:\s+([\d\.]+M?)\s+\|\s+ResDedSys:\s+([\d\.]+M?)\s+/\s+ResDedVid:\s+([\d\.]+M?)\s+/\s+ResUnknown:\s+([\d\.]+M?)\)", line)
+            match = re.search(
+                r"(\d+)\s+Objects\s+\(Total:\s+([\d\.]+M?)\s+/\s+Max:\s+([\d\.]+M?)\s+/\s+Res:\s+([\d\.]+M?)\s+\|\s+ResDedSys:\s+([\d\.]+M?)\s+/\s+ResDedVid:\s+([\d\.]+M?)\s+/\s+ResUnknown:\s+([\d\.]+M?)\)",
+                line,
+            )
             if match:
                 groups = match.groups()
+
                 def fmt_val(v):
                     v = v.strip()
-                    if v.endswith("M"): return float(v[:-1])
+                    if v.endswith("M"):
+                        return float(v[:-1])
                     return float(v)
-                
+
                 summary["total_data"] = {
                     "count": int(groups[0]),
                     "total": fmt_val(groups[1]),
@@ -36,7 +44,7 @@ class ObjectSummaryTab(ReportTab):
                     "res": fmt_val(groups[3]),
                     "res_ded_sys": fmt_val(groups[4]),
                     "res_ded_vid": fmt_val(groups[5]),
-                    "res_unknown": fmt_val(groups[6])
+                    "res_unknown": fmt_val(groups[6]),
                 }
             return
 
@@ -52,22 +60,47 @@ class ObjectSummaryTab(ReportTab):
                 for i, val in enumerate(cols):
                     header = summary["headers"][i]
                     if i > 0 and re.search(r"\d[a-zA-Z]+$", val):
-                         val = re.sub(r"(\d)([a-zA-Z]+)$", r"\1 \2", val)
+                        val = re.sub(r"(\d)([a-zA-Z]+)$", r"\1 \2", val)
                     formatted_cols.append(try_format_cell_value(header, val))
                 summary["rows"].append(formatted_cols)
 
     def render(self, context: Dict[str, Any], is_active: bool = False) -> str:
-        data = context.get("obj_summary", {"headers": [], "rows": [], "total_data": None})
-        headers, rows, total_data = data["headers"], data["rows"], data.get("total_data")
+        data = context.get(
+            "obj_summary", {"headers": [], "rows": [], "total_data": None}
+        )
+        headers, rows, total_data = (
+            data["headers"],
+            data["rows"],
+            data.get("total_data"),
+        )
         active_cls = " active" if is_active else ""
-        if not rows: return f'<div id="{self.id}" class="tab-content{active_cls}"><div class="loading">No Object Summary Data</div></div>'
+        if not rows:
+            return f'<div id="{self.id}" class="tab-content{active_cls}"><div class="loading">No Object Summary Data</div></div>'
 
         # Headers - index 0 is Class, 1 is Count, 2 is NumKB...
-        head_html = "<tr>" + "".join([f'<th {"class=\'numeric\'" if i>0 else ""}>{h}</th>' for i, h in enumerate(headers)]) + "</tr>"
+        head_html = (
+            "<tr>"
+            + "".join(
+                [
+                    f'<th {"class=\'numeric\'" if i>0 else ""}>{h}</th>'
+                    for i, h in enumerate(headers)
+                ]
+            )
+            + "</tr>"
+        )
 
         rows_html = ""
         for row in rows:
-            rows_html += "<tr>" + "".join([f'<td {"class=\'numeric\'" if i>0 else ""}>{c}</td>' for i, c in enumerate(row)]) + "</tr>"
+            rows_html += (
+                "<tr>"
+                + "".join(
+                    [
+                        f'<td {"class=\'numeric\'" if i>0 else ""}>{c}</td>'
+                        for i, c in enumerate(row)
+                    ]
+                )
+                + "</tr>"
+            )
 
         overall_stats = ""
         if total_data:
@@ -116,7 +149,10 @@ class ObjectSummaryTab(ReportTab):
         # Python-side Count Mismatch check
         warning_html = ""
         if total_data:
-            sum_instances = sum(int(re.sub(r'[^0-9]', '', str(r[1]))) if len(r) > 1 and r[1] else 0 for r in data["rows"])
+            sum_instances = sum(
+                int(re.sub(r"[^0-9]", "", str(r[1]))) if len(r) > 1 and r[1] else 0
+                for r in data["rows"]
+            )
             if sum_instances != total_data["count"]:
                 diff = total_data["count"] - sum_instances
                 warning_html = f"""

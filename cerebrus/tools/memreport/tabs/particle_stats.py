@@ -1,6 +1,7 @@
 from typing import Any, Dict, List
-from . import ReportTab
+
 from ..utils import format_bytes
+from . import ReportTab
 
 
 class ParticleSystemsTab(ReportTab):
@@ -18,8 +19,10 @@ class ParticleSystemsTab(ReportTab):
         ]
 
     def should_handle(self, line: str) -> bool:
-        return line.lower().strip().startswith(
-            'memreport: begin command "listparticlesystems -alphasort"'
+        return (
+            line.lower()
+            .strip()
+            .startswith('memreport: begin command "listparticlesystems -alphasort"')
         )
 
     def parse(self, line: str, context: Dict[str, Any]) -> None:
@@ -127,8 +130,9 @@ class ParticleSystemsTab(ReportTab):
             # If data is from total_row or calc_stats
             is_reported = prefix == "Reported"
             color = "#ce9178" if is_reported else "#4ec9b0"
-            if prefix == "Filtered": color = "var(--accent-color)"
-            
+            if prefix == "Filtered":
+                color = "var(--accent-color)"
+
             metrics = [
                 ("Size", data.get("Size", 0)),
                 ("System Size", data.get("System Size", 0)),
@@ -138,14 +142,20 @@ class ParticleSystemsTab(ReportTab):
                 ("ComponentResourceSize", data.get("ComponentResourceSize", 0)),
                 ("ComponentTrueResourceSize", data.get("ComponentTrueResourceSize", 0)),
             ]
-            
+
             html = f'<div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 4px 10px; font-size: 0.85em; text-align: left; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">'
             for label, val in metrics:
-                display_val = f"<b>{format_bytes(val)}</b>" if label != "ComponentCount" else f"<b>{int(val)}</b>"
+                display_val = (
+                    f"<b>{format_bytes(val)}</b>"
+                    if label != "ComponentCount"
+                    else f"<b>{int(val)}</b>"
+                )
                 # Add ID for filtered fields to update via JS
                 # Convert label to lowercase and remove spaces for ID
                 id_label = label.lower().replace(" ", "")
-                id_attr = f' id="filt-{id_label}-{self.id}"' if prefix == "Filtered" else ""
+                id_attr = (
+                    f' id="filt-{id_label}-{self.id}"' if prefix == "Filtered" else ""
+                )
                 html += f'<div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">{prefix} {label}:</span></div>'
                 html += f'<div{id_attr} style="color: {color}; text-align: right;">{display_val}</div>'
             html += "</div>"
@@ -153,7 +163,9 @@ class ParticleSystemsTab(ReportTab):
 
         reported_grid = render_metrics_grid("Reported", total_row if total_row else {})
         calculated_grid = render_metrics_grid("Calculated", calc_stats)
-        filtered_grid = render_metrics_grid("Filtered", calc_stats) # Initial state is same as calculated
+        filtered_grid = render_metrics_grid(
+            "Filtered", calc_stats
+        )  # Initial state is same as calculated
 
         return f"""
         <div id="{self.id}" class="tab-content" style="display: {display_style};">
@@ -289,5 +301,3 @@ class ParticleSystemsTab(ReportTab):
             </script>
         </div>
         """
-
-

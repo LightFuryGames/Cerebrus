@@ -1,5 +1,6 @@
 import re
 from typing import Any, Dict, List
+
 from ..utils import format_memory_size, try_format_cell_value
 from . import ReportTab
 
@@ -34,7 +35,7 @@ class TextureStatsTab(ReportTab):
 
     def parse(self, line: str, context: Dict[str, Any]) -> None:
         raw_line = line.strip()
-        
+
         # Initialize context storage if missing
         if "texture_stats" not in context:
             context["texture_stats"] = {
@@ -45,11 +46,11 @@ class TextureStatsTab(ReportTab):
                     "total_count": 0,
                     "formats": {},
                     "groups": {},
-                    "errors": []
+                    "errors": [],
                 },
-                "parsing_summary": False
+                "parsing_summary": False,
             }
-        
+
         store = context["texture_stats"]
 
         # Reset state on new Begin command
@@ -64,51 +65,85 @@ class TextureStatsTab(ReportTab):
                     "total_count": 0,
                     "formats": {},
                     "groups": {},
-                    "errors": []
+                    "errors": [],
                 }
             return
 
-        if not raw_line or "MemReport:" in raw_line or "Listing all textures" in raw_line or "Listing NONVT" in raw_line:
+        if (
+            not raw_line
+            or "MemReport:" in raw_line
+            or "Listing all textures" in raw_line
+            or "Listing NONVT" in raw_line
+        ):
             return
-            
+
         # Skip header lines
-        if "Cooked/OnDisk:" in raw_line or "LODGroup" in raw_line or "Authored Bias" in raw_line:
+        if (
+            "Cooked/OnDisk:" in raw_line
+            or "LODGroup" in raw_line
+            or "Authored Bias" in raw_line
+        ):
             return
 
         # 1. Detect Summary Section
-        if raw_line.startswith("Total size:") or (raw_line.startswith("Total ") and "size:" in raw_line):
+        if raw_line.startswith("Total size:") or (
+            raw_line.startswith("Total ") and "size:" in raw_line
+        ):
             store["parsing_summary"] = True
-            
+
             if raw_line.startswith("Total size:"):
-                in_mem_match = re.search(r"InMem=\s*([\d\.]+\s*(?:MB|KB))", raw_line, re.I)
-                on_disk_match = re.search(r"OnDisk=\s*([\d\.]+\s*(?:MB|KB))", raw_line, re.I)
+                in_mem_match = re.search(
+                    r"InMem=\s*([\d\.]+\s*(?:MB|KB))", raw_line, re.I
+                )
+                on_disk_match = re.search(
+                    r"OnDisk=\s*([\d\.]+\s*(?:MB|KB))", raw_line, re.I
+                )
                 count_match = re.search(r"Count=(\d+)", raw_line, re.I)
                 if in_mem_match:
                     val = self._parse_size_in_mb(in_mem_match.group(1))
-                    if val > store["summary"]["total_in_mem"]: store["summary"]["total_in_mem"] = val
+                    if val > store["summary"]["total_in_mem"]:
+                        store["summary"]["total_in_mem"] = val
                 if on_disk_match:
                     val = self._parse_size_in_mb(on_disk_match.group(1))
-                    if val > store["summary"]["total_on_disk"]: store["summary"]["total_on_disk"] = val
+                    if val > store["summary"]["total_on_disk"]:
+                        store["summary"]["total_on_disk"] = val
                 if count_match:
                     val = int(count_match.group(1))
-                    if val > store["summary"]["total_count"]: store["summary"]["total_count"] = val
+                    if val > store["summary"]["total_count"]:
+                        store["summary"]["total_count"] = val
             else:
-                match = re.search(r"Total (PF_|TEXTUREGROUP_)(.*) size: InMem=\s*([\d\.]+\s*(?:MB|KB))\s*OnDisk=\s*([\d\.]+\s*(?:MB|KB))", raw_line, re.I)
+                match = re.search(
+                    r"Total (PF_|TEXTUREGROUP_)(.*) size: InMem=\s*([\d\.]+\s*(?:MB|KB))\s*OnDisk=\s*([\d\.]+\s*(?:MB|KB))",
+                    raw_line,
+                    re.I,
+                )
                 if match:
                     prefix = match.group(1).upper()
                     name = match.group(2)
                     in_mem = self._parse_size_in_mb(match.group(3))
                     on_disk = self._parse_size_in_mb(match.group(4))
-                    
+
                     if prefix == "PF_":
-                        if name not in store["summary"]["formats"] or in_mem > store["summary"]["formats"][name]["in_mem"]:
-                            store["summary"]["formats"][name] = {"in_mem": in_mem, "on_disk": on_disk}
+                        if (
+                            name not in store["summary"]["formats"]
+                            or in_mem > store["summary"]["formats"][name]["in_mem"]
+                        ):
+                            store["summary"]["formats"][name] = {
+                                "in_mem": in_mem,
+                                "on_disk": on_disk,
+                            }
                     else:
-                        if name not in store["summary"]["groups"] or in_mem > store["summary"]["groups"][name]["in_mem"]:
-                            store["summary"]["groups"][name] = {"in_mem": in_mem, "on_disk": on_disk}
+                        if (
+                            name not in store["summary"]["groups"]
+                            or in_mem > store["summary"]["groups"][name]["in_mem"]
+                        ):
+                            store["summary"]["groups"][name] = {
+                                "in_mem": in_mem,
+                                "on_disk": on_disk,
+                            }
             return
 
-        if store["parsing_summary"]: 
+        if store["parsing_summary"]:
             return
 
         # 2. Parse Texture Row
@@ -124,7 +159,7 @@ class TextureStatsTab(ReportTab):
             if temp.count("(") == temp.count(")"):
                 parts.append(temp)
                 temp = ""
-        
+
         if len(parts) < 8:
             return
 
@@ -133,7 +168,7 @@ class TextureStatsTab(ReportTab):
         disk_res = re.search(r"(\d+)x(\d+)", p_disk)
         disk_size_match = re.search(r"\((\d+)\s*KB", p_disk)
         bias_match = re.search(r",\s*([^)]+)\)", p_disk)
-        
+
         disk_w = int(disk_res.group(1)) if disk_res else 0
         disk_h = int(disk_res.group(2)) if disk_res else 0
         disk_kb = float(disk_size_match.group(1)) if disk_size_match else 0.0
@@ -143,7 +178,7 @@ class TextureStatsTab(ReportTab):
         p_ram = parts[1]
         ram_res = re.search(r"(\d+)x(\d+)", p_ram)
         ram_size_match = re.search(r"\((\d+)\s*KB", p_ram)
-        
+
         ram_w = int(ram_res.group(1)) if ram_res else 0
         ram_h = int(ram_res.group(2)) if ram_res else 0
         ram_kb = float(ram_size_match.group(1)) if ram_size_match else 0.0
@@ -157,12 +192,19 @@ class TextureStatsTab(ReportTab):
                 if "/" in path:
                     name_only = path.split("/")[-1]
                     if name_only == leaf:
-                        full_name = path + (":" + full_name.split(":")[1] if ":" in full_name else "")
+                        full_name = path + (
+                            ":" + full_name.split(":")[1] if ":" in full_name else ""
+                        )
 
-        key = full_name 
+        key = full_name
         store["textures"][key] = {
-            "ram_w": ram_w, "ram_h": ram_h, "ram_kb": ram_kb, "bias": bias,
-            "disk_w": disk_w, "disk_h": disk_h, "disk_kb": disk_kb,
+            "ram_w": ram_w,
+            "ram_h": ram_h,
+            "ram_kb": ram_kb,
+            "bias": bias,
+            "disk_w": disk_w,
+            "disk_h": disk_h,
+            "disk_kb": disk_kb,
             "format": parts[2],
             "group": parts[3],
             "name": full_name,
@@ -171,7 +213,7 @@ class TextureStatsTab(ReportTab):
             "vt": parts[7],
             "usage": parts[8],
             "mips": parts[9],
-            "uncompressed": parts[10] if len(parts) > 10 else "NO"
+            "uncompressed": parts[10] if len(parts) > 10 else "NO",
         }
 
     def _validate_stats(self, store):
@@ -185,25 +227,39 @@ class TextureStatsTab(ReportTab):
         sum_g_disk = sum(g["on_disk"] for g in summary["groups"].values())
 
         errors = []
-        EPS = 0.5 
-        
+        EPS = 0.5
+
         if abs(summary["total_in_mem"] - sum_f_in) > EPS:
-            errors.append(f"InMem Total ({summary['total_in_mem']:.2f} MB) != Sum of Formats ({sum_f_in:.2f} MB)")
+            errors.append(
+                f"InMem Total ({summary['total_in_mem']:.2f} MB) != Sum of Formats ({sum_f_in:.2f} MB)"
+            )
         if abs(summary["total_on_disk"] - sum_f_disk) > EPS:
-            errors.append(f"OnDisk Total ({summary['total_on_disk']:.2f} MB) != Sum of Formats ({sum_f_disk:.2f} MB)")
+            errors.append(
+                f"OnDisk Total ({summary['total_on_disk']:.2f} MB) != Sum of Formats ({sum_f_disk:.2f} MB)"
+            )
 
         summary["errors"] = errors
 
     def render(self, context: Dict[str, Any], is_active: bool = False) -> str:
-        store = context.get("texture_stats", {
-            "textures": {}, 
-            "summary": {"total_in_mem": 0.0, "total_on_disk": 0.0, "total_count": 0, "formats": {}, "groups": {}, "errors": []}
-        })
-        
+        store = context.get(
+            "texture_stats",
+            {
+                "textures": {},
+                "summary": {
+                    "total_in_mem": 0.0,
+                    "total_on_disk": 0.0,
+                    "total_count": 0,
+                    "formats": {},
+                    "groups": {},
+                    "errors": [],
+                },
+            },
+        )
+
         self._validate_stats(store)
         summary = store["summary"]
         textures = list(store["textures"].values())
-        
+
         # Validation Alerts
         error_html = ""
         if summary["errors"]:
@@ -306,23 +362,34 @@ class TextureStatsTab(ReportTab):
         """
 
         # Table Headers
-        has_bias = any(t["bias"] and any(c.isdigit() for c in t["bias"]) for t in textures)
+        has_bias = any(
+            t["bias"] and any(c.isdigit() for c in t["bias"]) for t in textures
+        )
         headers = [
             ("#", "count-header"),
-            ("On RAM<br>(Cooked)<br>Width", "numeric"), 
-            ("On RAM<br>(Cooked)<br>Height", "numeric"), 
-            ("On RAM<br>(Cooked)<br>Size", "numeric")
+            ("On RAM<br>(Cooked)<br>Width", "numeric"),
+            ("On RAM<br>(Cooked)<br>Height", "numeric"),
+            ("On RAM<br>(Cooked)<br>Size", "numeric"),
         ]
-        if has_bias: headers.append(("Authored Bias", ""))
-        headers.extend([
-            ("On Disk<br>Width", "numeric"), 
-            ("On Disk<br>Height", "numeric"), 
-            ("On Disk<br>Size", "numeric"), 
-            ("Format", ""), ("Group", ""), ("Name", ""), 
-            ("Streaming", ""), ("UnknownRef", ""), ("VT", ""), 
-            ("Usage", "numeric"), ("Mips", "numeric"), ("Uncompressed", "")
-        ])
-        
+        if has_bias:
+            headers.append(("Authored Bias", ""))
+        headers.extend(
+            [
+                ("On Disk<br>Width", "numeric"),
+                ("On Disk<br>Height", "numeric"),
+                ("On Disk<br>Size", "numeric"),
+                ("Format", ""),
+                ("Group", ""),
+                ("Name", ""),
+                ("Streaming", ""),
+                ("UnknownRef", ""),
+                ("VT", ""),
+                ("Usage", "numeric"),
+                ("Mips", "numeric"),
+                ("Uncompressed", ""),
+            ]
+        )
+
         # Calculate indices (Offset by 1 due to '#' column)
         offset = 5 if has_bias else 4
         idx_ram_size = 3
@@ -335,7 +402,7 @@ class TextureStatsTab(ReportTab):
         idx_usage = offset + 9
         idx_mips = offset + 10
         idx_uncomp = offset + 11
-        
+
         # Unique values for filters
         unique_formats = sorted(set(t["format"] for t in textures))
         unique_groups = sorted(set(t["group"] for t in textures))
@@ -353,7 +420,7 @@ class TextureStatsTab(ReportTab):
             """
 
         filter_html = '<div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; margin-bottom: 20px;">'
-        
+
         # 1. Flags
         flags_btns = f"""
         <button class="action-btn filter-btn" data-col="{idx_streaming}" data-val="YES" onclick="toggleTextureFilter(this)">Streaming</button>
@@ -368,24 +435,31 @@ class TextureStatsTab(ReportTab):
             <div style="flex-grow: 1; display: flex; flex-wrap: wrap; gap: 5px;">{flags_btns}</div>
         </div>
         """
-        
+
         # 2. Formats
         if unique_formats:
             filter_html += make_filter_row("Formats", unique_formats, idx_format)
-            
+
         # 3. Groups
         if unique_groups:
-             filter_html += make_filter_row("Groups", unique_groups, idx_group)
-             
+            filter_html += make_filter_row("Groups", unique_groups, idx_group)
+
         filter_html += "</div>"
 
-            # Table Body
-        thead = "<tr>" + "".join([f"<th class='{h[1]}'>{h[0]}</th>" for h in headers]) + "</tr>"
+        # Table Body
+        thead = (
+            "<tr>"
+            + "".join([f"<th class='{h[1]}'>{h[0]}</th>" for h in headers])
+            + "</tr>"
+        )
         tbody = ""
         for t in textures:
+
             def get_color_style(v_ram, v_disk):
-                if v_ram > v_disk: return 'style="color: #ff4444; font-weight: bold;"'
-                if v_ram < v_disk: return 'style="color: #00c851; font-weight: bold;"'
+                if v_ram > v_disk:
+                    return 'style="color: #ff4444; font-weight: bold;"'
+                if v_ram < v_disk:
+                    return 'style="color: #00c851; font-weight: bold;"'
                 return ""
 
             ram_w_style = get_color_style(t["ram_w"], t["disk_w"])
@@ -407,7 +481,8 @@ class TextureStatsTab(ReportTab):
             row_html = f"<tr class='{row_class}'>"
             row_html += f"<td class='count-cell'></td>"
             row_html += f"<td {ram_w_style}>{t['ram_w']}</td><td {ram_h_style}>{t['ram_h']}</td><td {ram_sz_style}>{self._format_size_smart(t['ram_kb'])}</td>"
-            if has_bias: row_html += f"<td>{t['bias']}</td>"
+            if has_bias:
+                row_html += f"<td>{t['bias']}</td>"
             row_html += f"<td {disk_w_style}>{t['disk_w']}</td><td {disk_h_style}>{t['disk_h']}</td><td {disk_sz_style}>{self._format_size_smart(t['disk_kb'])}</td>"
             row_html += f"<td class='format-cell'>{t['format']}</td><td class='group-cell'>{t['group']}</td>"
             row_html += f"<td title='{t['name']}' class='name-cell'>{t['name']}</td>"
@@ -418,12 +493,12 @@ class TextureStatsTab(ReportTab):
                     if val == "NO":
                         style = 'style="color: #ff4444; font-weight: bold;"'
                     else:
-                        style = 'style="color: #00c851;"' # Good state, no bold
+                        style = 'style="color: #00c851;"'  # Good state, no bold
                 elif col == "unknown_ref":
                     if val == "YES":
                         style = 'style="color: #ff4444; font-weight: bold;"'
                     else:
-                        style = 'style="color: #00c851;"' # Good state, no bold
+                        style = 'style="color: #00c851;"'  # Good state, no bold
                 else:
                     if val == "YES":
                         style = 'style="color: #00c851; font-weight: bold;"'
@@ -431,22 +506,35 @@ class TextureStatsTab(ReportTab):
                         style = 'style="color: var(--text-muted);"'
                 row_html += f"<td {style} class='boolean-cell'>{val}</td>"
             row_html += f"<td class='numeric'>{t['usage']}</td><td class='numeric'>{t['mips']}</td>"
-            uncomp_style = 'style="color: #ff4444; font-weight: bold;"' if t["uncompressed"] == "YES" else 'style="color: var(--text-muted);"'
-            row_html += f"<td {uncomp_style} class='boolean-cell'>{t['uncompressed']}</td></tr>"
+            uncomp_style = (
+                'style="color: #ff4444; font-weight: bold;"'
+                if t["uncompressed"] == "YES"
+                else 'style="color: var(--text-muted);"'
+            )
+            row_html += (
+                f"<td {uncomp_style} class='boolean-cell'>{t['uncompressed']}</td></tr>"
+            )
             tbody += row_html
 
         display_style = "block" if is_active else "none"
-        
+
         # Javascript for this specific tab
-        script = """
+        script = (
+            """
         <script>
             // Store active filters: { colIndex: [val1, val2] }
             var textureFilters = {};
             var textureSpecialFilters = {};
-            const IDX_RAM_SIZE = """ + str(idx_ram_size) + """;
-            const IDX_DISK_SIZE = """ + str(idx_disk_size) + """;
+            const IDX_RAM_SIZE = """
+            + str(idx_ram_size)
+            + """;
+            const IDX_DISK_SIZE = """
+            + str(idx_disk_size)
+            + """;
             const IDX_RAM_W = 1;
-            const IDX_DISK_W = """ + str(offset) + """;
+            const IDX_DISK_W = """
+            + str(offset)
+            + """;
 
             function toggleTextureFilter(btn) {
                 const col = btn.getAttribute('data-col');
@@ -480,7 +568,9 @@ class TextureStatsTab(ReportTab):
                 textureFilters = {};
                 textureSpecialFilters = {};
                 // Clear buttons in the tab
-                const tab = document.getElementById('""" + self.id + """');
+                const tab = document.getElementById('"""
+            + self.id
+            + """');
                 if(tab) {
                      tab.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active-sub'));
                      const searchInput = tab.querySelector('input');
@@ -494,7 +584,9 @@ class TextureStatsTab(ReportTab):
                 clearTextureFilters();
                 
                 // 2. Clear sorting visual state from headers
-                const table = document.getElementById('tbl-""" + self.id + """');
+                const table = document.getElementById('tbl-"""
+            + self.id
+            + """');
                 if(!table) return;
                 table.querySelectorAll('th').forEach(h => {
                      h.classList.remove('sort-asc', 'sort-desc');
@@ -536,7 +628,9 @@ class TextureStatsTab(ReportTab):
             }
             
              function applyTextureFilters() {
-                  const table = document.getElementById('tbl-""" + self.id + """');
+                  const table = document.getElementById('tbl-"""
+            + self.id
+            + """');
                   if(!table) return;
                   const rows = table.querySelectorAll('tbody tr');
                   
@@ -565,7 +659,9 @@ class TextureStatsTab(ReportTab):
                       }
                       
                       // Combined with search term manually to get correct totals
-                      const searchInput = document.querySelector('#""" + self.id + """ input');
+                      const searchInput = document.querySelector('#"""
+            + self.id
+            + """ input');
                       const searchTerm = searchInput ? searchInput.value.toLowerCase() : "";
                       if (visible && searchTerm) {
                           if (!row.innerText.toLowerCase().includes(searchTerm)) {
@@ -609,7 +705,9 @@ class TextureStatsTab(ReportTab):
 
             // Add event listener for table sorting to refresh counters
             document.addEventListener('DOMContentLoaded', () => {
-                const table = document.getElementById('tbl-""" + self.id + """');
+                const table = document.getElementById('tbl-"""
+            + self.id
+            + """');
                 if(table) {
                     table.querySelectorAll('th').forEach(th => {
                         th.addEventListener('click', () => {
@@ -625,6 +723,7 @@ class TextureStatsTab(ReportTab):
             document.addEventListener('DOMContentLoaded', () => applyTextureFilters());
         </script>
         """
+        )
 
         return f"""
         <style>

@@ -1,5 +1,7 @@
 from typing import Any, Dict, List
+
 from . import ReportTab
+
 
 class ConfigCacheMemoryStatsTab(ReportTab):
     def __init__(self):
@@ -15,26 +17,38 @@ class ConfigCacheMemoryStatsTab(ReportTab):
             context["config_mem_known"] = None
             context["config_mem_reported_total"] = None
 
-        if "MemReport: Begin command" in line or "Config cache memory usage:" in line or ("FileName" in line and "NumBytes" in line):
+        if (
+            "MemReport: Begin command" in line
+            or "Config cache memory usage:" in line
+            or ("FileName" in line and "NumBytes" in line)
+        ):
             return
-        
+
         parts = line.split()
         if len(parts) >= 3:
             try:
                 max_bytes = int(parts[-1])
                 num_bytes = int(parts[-2])
                 file_name = " ".join(parts[:-2]).strip()
-                
+
                 if file_name == "KnownFiles":
-                    context["config_mem_known"] = {"NumBytes": num_bytes, "MaxBytes": max_bytes}
-                elif file_name == "Total":
-                    context["config_mem_reported_total"] = {"NumBytes": num_bytes, "MaxBytes": max_bytes}
-                else:
-                    context["config_mem_data"].append({
-                        "FileName": file_name,
+                    context["config_mem_known"] = {
                         "NumBytes": num_bytes,
-                        "MaxBytes": max_bytes
-                    })
+                        "MaxBytes": max_bytes,
+                    }
+                elif file_name == "Total":
+                    context["config_mem_reported_total"] = {
+                        "NumBytes": num_bytes,
+                        "MaxBytes": max_bytes,
+                    }
+                else:
+                    context["config_mem_data"].append(
+                        {
+                            "FileName": file_name,
+                            "NumBytes": num_bytes,
+                            "MaxBytes": max_bytes,
+                        }
+                    )
             except ValueError:
                 pass
 
@@ -51,14 +65,14 @@ class ConfigCacheMemoryStatsTab(ReportTab):
             return ""
 
         active_cls = " active" if is_active else ""
-        
+
         # Aggregates
         calc_num_bytes = sum(item["NumBytes"] for item in data)
         calc_max_bytes = sum(item["MaxBytes"] for item in data)
-        
+
         known = context.get("config_mem_known")
         reported = context.get("config_mem_reported_total")
-        
+
         known_html = f"""
             <div class="analytics-card" style="flex: 1; min-width: 240px; background: var(--header-bg); padding: 15px; border-radius: 6px; text-align: center; border: 1px solid var(--border-color);">
                 <h4 style="margin: 0 0 10px 0; color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">
@@ -80,7 +94,7 @@ class ConfigCacheMemoryStatsTab(ReportTab):
                 <div style="font-size: 0.8em; color: var(--text-muted);">Max: {self._format_size(reported['MaxBytes']) if reported else "N/A"}</div>
             </div>
         """
-        
+
         calc_html = f"""
             <div class="analytics-card" style="flex: 1; min-width: 250px; background: var(--header-bg); padding: 15px; border-radius: 6px; text-align: center; border: 1px solid var(--border-color);">
                 <h4 style="margin: 0 0 10px 0; color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated Total</h4>
@@ -99,8 +113,8 @@ class ConfigCacheMemoryStatsTab(ReportTab):
 
         # Warning logic
         warning_html = ""
-        if reported and abs(calc_num_bytes - reported['NumBytes']) > 1024:
-            diff = calc_num_bytes - reported['NumBytes']
+        if reported and abs(calc_num_bytes - reported["NumBytes"]) > 1024:
+            diff = calc_num_bytes - reported["NumBytes"]
             diff_str = self._format_size(abs(diff))
             direction = "exceeds" if diff > 0 else "is less than"
             warning_html = f"""
@@ -127,7 +141,7 @@ class ConfigCacheMemoryStatsTab(ReportTab):
         headers_html = ""
         for i, h in enumerate(self.headers):
             cls = ' class="numeric"' if i == 0 or i > 2 else ""
-            headers_html += f'<th{cls}>{h}</th>'
+            headers_html += f"<th{cls}>{h}</th>"
 
         return f"""
         <div id="{self.id}" class="tab-content{active_cls}">

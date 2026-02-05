@@ -29,5 +29,5 @@ class ReportTab:
         return [{"id": self.id, "name": self.name}]
 
 
-from .rhi_stats import RhiMemoryTab
 from .persistent_actors_stats import PersistentActorsStatsTab
+from .rhi_stats import RhiMemoryTab
