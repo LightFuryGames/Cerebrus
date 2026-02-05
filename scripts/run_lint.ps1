@@ -1,14 +1,25 @@
 # Run all linters and save output
+# Ensure output directory exists
+# Ensure output directory exists
+$DebugInfoDir = Join-Path $PSScriptRoot "..\DebugInfo"
+$logDir = Join-Path $DebugInfoDir "Linting"
+if (-not (Test-Path -Path $logDir)) {
+    New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+}
+
+# Ensure UTF-8 for console output
+$env:PYTHONIOENCODING = "utf-8"
+
 Write-Host "=== Running Black ===" -ForegroundColor Cyan
-python -m black --check . 2>&1 | Tee-Object -FilePath lint_black.log
+python -m black --check . 2>&1 | ForEach-Object { "$_" } | Tee-Object -FilePath "$logDir\lint_black.log"
 $blackExit = $LASTEXITCODE
 
 Write-Host "`n=== Running isort ===" -ForegroundColor Cyan
-python -m isort --check-only . 2>&1 | Tee-Object -FilePath lint_isort.log
+python -m isort --check-only . 2>&1 | ForEach-Object { "$_" } | Tee-Object -FilePath "$logDir\lint_isort.log"
 $isortExit = $LASTEXITCODE
 
 Write-Host "`n=== Running mypy ===" -ForegroundColor Cyan
-python -m mypy cerebrus 2>&1 | Tee-Object -FilePath lint_mypy.log
+python -m mypy cerebrus 2>&1 | ForEach-Object { "$_" } | Tee-Object -FilePath "$logDir\lint_mypy.log"
 $mypyExit = $LASTEXITCODE
 
 Write-Host "`n=== Summary ===" -ForegroundColor Yellow

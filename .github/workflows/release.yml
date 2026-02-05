@@ -21,7 +21,11 @@ jobs:
       - name: Normalize tag version
         id: version
         shell: bash
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        run: |
+          # Strip 'v' and '.' from start to get base version
+          CLEAN=$(echo ${{ github.ref_name }} | sed 's/^[v.]*//')
+          echo "clean=$CLEAN" >> "$GITHUB_OUTPUT"
+          echo "display=v.$CLEAN" >> "$GITHUB_OUTPUT"
 
       - name: Ensure tag is on dev-py or main
         shell: bash
@@ -58,13 +62,13 @@ jobs:
       - name: Build standalone executable and installer
         shell: pwsh
         run: |
-          ./scripts/build_pyinstaller.ps1 -TagVersion "${{ steps.version.outputs.version }}" -OutputDir "dist"
+          ./scripts/build_pyinstaller.ps1 -TagVersion "${{ steps.version.outputs.clean }}" -OutputDir "dist"
 
       - name: Validate Installer
         shell: pwsh
         run: |
-          $version = "${{ steps.version.outputs.version }}"
-          $installerPath = "dist/Cerebrus-$version-Setup.exe"
+          $displayVersion = "${{ steps.version.outputs.display }}"
+          $installerPath = "dist/Cerebrus-$displayVersion-Setup.exe"
           
           Write-Host "Validating installer: $installerPath"
           
@@ -160,8 +164,8 @@ jobs:
         with:
           name: CerebrusInstallers-${{ github.ref_name }}
           path: |
-            dist/Cerebrus-${{ steps.version.outputs.version }}-Setup.exe
-            dist/Cerebrus-${{ steps.version.outputs.version }}-win64.zip
+            dist/Cerebrus-${{ steps.version.outputs.display }}-Setup.exe
+            dist/Cerebrus-${{ steps.version.outputs.display }}-win64.zip
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -174,13 +178,13 @@ jobs:
             ## Installation Options
             
             ### Option 1: Windows Installer (Recommended)
-            1. Download `Cerebrus-${{ steps.version.outputs.version }}-Setup.exe`
+            1. Download `Cerebrus-${{ steps.version.outputs.display }}-Setup.exe`
             2. Run the installer
             3. Follow the installation wizard
             4. Launch Cerebrus from Start Menu or Desktop shortcut
             
             ### Option 2: Portable ZIP
-            1. Download `Cerebrus-${{ steps.version.outputs.version }}-win64.zip`
+            1. Download `Cerebrus-${{ steps.version.outputs.display }}-win64.zip`
             2. Extract to your preferred location
             3. Run `Cerebrus.exe`
             
@@ -190,6 +194,6 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            dist/Cerebrus-${{ steps.version.outputs.version }}-Setup.exe
-            dist/Cerebrus-${{ steps.version.outputs.version }}-win64.zip
+            dist/Cerebrus-${{ steps.version.outputs.display }}-Setup.exe
+            dist/Cerebrus-${{ steps.version.outputs.display }}-win64.zip
 

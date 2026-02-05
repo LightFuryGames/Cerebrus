@@ -53,6 +53,59 @@ class AdbClient:
         result = self._run(["-s", serial, "shell", *command])
         return result.stdout
 
+    def push(self, serial: str, source: str, destination: str) -> None:
+        """Push a file or directory to the device."""
+        self._run(["-s", serial, "push", source, destination])
+
+    def remove_file(self, serial: str, path: str) -> None:
+        """Remove a file from the device."""
+        self._run(["-s", serial, "shell", "rm", "-f", path])
+
+    def list_files(self, serial: str, path: str) -> List[str]:
+        """List files in a directory on the device."""
+        try:
+            result = self._run(["-s", serial, "shell", "ls", "-1", path])
+            # Filter out error messages like "ls: /path/to/dir: No such file or directory"
+            if result.stderr and (
+                "No such file or directory" in result.stderr
+                or "Permission denied" in result.stderr
+            ):
+                return []
+            files = [
+                f.strip()
+                for f in result.stdout.splitlines()
+                if f.strip() and "No such file or directory" not in f
+            ]
+            return files
+            return []
+        except AdbError:
+            return []
+
+    def launch_package(self, serial: str, package_name: str) -> None:
+        """
+        Launch the application or bring it to foreground if already running.
+        Uses monkey command which is robust for launching without knowing Activity name.
+        """
+        # -p <package>
+        # -c android.intent.category.LAUNCHER
+        # 1 (event count)
+        result = self._run(
+            [
+                "-s",
+                serial,
+                "shell",
+                "monkey",
+                "-p",
+                package_name,
+                "-c",
+                "android.intent.category.LAUNCHER",
+                "1",
+            ]
+        )
+        # Check output for errors commonly returned by monkey
+        if "No activities found" in result.stdout:
+            raise AdbError(f"No launchable activity found for {package_name}")
+
     def send_console_command(self, serial: str, command: str) -> None:
         """Send a console command to the running Unreal Engine application."""
         # Broadcast intent with 'cmd' extra which UE listens for

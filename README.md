@@ -7,20 +7,28 @@
 ### 📱 Device Management
 - **Automatic Discovery**: Instantly list connected Android devices via ADB.
 - **Profiling Control**: Start and stop CSV profiling directly from the UI.
+- **Remote Control**: Launch or resume your application with a single click.
+- **Memory Profiling**: Execute `memreport` and custom console commands remotely.
+- **Remote Console**: Execute any custom console command remotely on the device.
 - **Troubleshooting**: Built-in guidance for common connectivity issues.
 
 ### 📂 File Management
 - **Smart Retrieval**: Automatically move logs and profiling data (CSV) from your device to your PC.
+- **Recursive Search**: Bulk generation tool now recursively searches directories for files.
 - **Organized Output**: Automatically organizes files into device-specific folders (e.g., `OutputPath/DeviceModel/`).
 - **Flexible Naming**: Configure output filenames with optional prefixing and auto-incrementing counters.
 
 ### 📊 Report Generation
 - **Performance Reports**: One-click generation of visual performance reports from CSV data using `PerfReportTool`.
+    - **Enhanced Metrics**: Includes System Metadata, FPS Analysis, and Average FPS.
+- **Advanced Memory Reporting**: New visualization tool for deep dives into memory usage from `.memreport` files.
 - **Colored Logs**: Convert raw text logs into searchable, color-coded HTML files for easier debugging.
 - **Batch Processing**: Process multiple files in bulk with a single click.
 
 ### ⚙️ Configuration & Customization
 - **Profiles**: Save and load project-specific configurations (Package Name, Paths, etc.).
+- **Auto-Update**: Automatically checks for and installs the latest version.
+- **Cloud Integration**: Configure AWS S3 settings for remote configuration syncing.
 - **Themes**: Includes High Contrast and Color Blind modes (Deuteranopia, Tritanopia).
 - **Auto-Save**: Your settings are automatically saved to the active profile.
 

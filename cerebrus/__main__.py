@@ -1,6 +1,6 @@
 """Module entry point for launching the Cerebrus UI."""
 
-from cerebrus.ui import CerebrusApp
+from cerebrus.ui.app import CerebrusApp
 
 
 def main() -> None:

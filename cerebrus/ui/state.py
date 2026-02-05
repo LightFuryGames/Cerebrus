@@ -24,15 +24,23 @@ class UIState:
     use_prefix_only: bool = False
     input_path: Path = Path("C:/")
     output_path: Path = Path("C:/")
+    config_output_path: Path = Path("C:/")
     logs: list[tuple[str, str, str]] = field(default_factory=list)
     log_filter: str = ""
     profile_manager: ProfileManager = field(default_factory=ProfileManager)
     base_output_path: Path | None = (
         None  # Store the original path without device appended
     )
+    base_config_output_path: Path | None = None
 
     # Bulk Action States
     move_logs_enabled: bool = True
     move_csv_enabled: bool = True
     generate_perf_report_enabled: bool = True
     generate_colored_logs_enabled: bool = True
+    move_memreport_enabled: bool = True
+    generate_memreport_enabled: bool = True
+    remote_config_custom_name: str = ""
+    remote_manifest_url: str = (
+        "https://titan-cerebrus-configurations.s3.ap-south-1.amazonaws.com/config_manifest.json"
+    )

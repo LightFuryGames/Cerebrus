@@ -6,8 +6,9 @@ from pathlib import Path
 
 import dearpygui.dearpygui as dpg
 
-from cerebrus.ui import components
 from cerebrus.ui.state import UIState
+
+from . import components
 
 
 class CerebrusApp:
@@ -28,6 +29,11 @@ class CerebrusApp:
             )
             self.state.output_path = (
                 Path(profile.output_path) if profile.output_path else Path("C:/")
+            )
+            self.state.config_output_path = (
+                Path(profile.config_output_path)
+                if profile.config_output_path
+                else Path("C:/")
             )
             self.state.use_prefix_only = profile.use_prefix_only
             self.state.append_device_to_path = True  # Always enabled now
@@ -85,6 +91,9 @@ class CerebrusApp:
             dpg.add_key_press_handler(
                 dpg.mvKey_F1, callback=lambda: components._open_user_guide(self.state)
             )
+
+        # Trigger auto-update check (silent if no update)
+        components.check_for_updates_ui(self.state, silent_on_up_to_date=True)
 
     def run(self) -> None:
         self.build()

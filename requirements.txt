@@ -1,4 +1,5 @@
 dearpygui
+click
 psutil
 pywin32
 pyyaml
@@ -7,3 +8,5 @@ pytest
 mypy
 black
 isort
+
+boto3
