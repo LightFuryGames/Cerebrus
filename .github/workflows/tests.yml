@@ -2,9 +2,9 @@ name: Unit Tests
 
 on:
   push:
-    branches: ["dev-py"]
+    branches: ["dev-py", "Feat/*"]
   pull_request:
-    branches: ["dev-py"]
+    branches: ["dev-py", "Feat/*"]
 
 jobs:
   tests:
