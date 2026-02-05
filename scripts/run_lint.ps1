@@ -1,8 +1,10 @@
 # Run all linters and save output
 # Ensure output directory exists
-$logDir = "DebugInfo\Linting"
+# Ensure output directory exists
+$DebugInfoDir = Join-Path $PSScriptRoot "..\DebugInfo"
+$logDir = Join-Path $DebugInfoDir "Linting"
 if (-not (Test-Path -Path $logDir)) {
-    New-Item -ItemType Directory -Path $logDir | Out-Null
+    New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 }
 
 # Ensure UTF-8 for console output
