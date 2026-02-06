@@ -11,7 +11,7 @@ This guide lists common issues and suggested resolutions.
   - **Remedy**:
     - Temporarily disable real-time scanning during install.
     - Run installer again.
-    - For manual install, verify `python` is available on PATH. And `python --version` return value > 3.11.
+    - For manual install, verify `python` is available on PATH. And `python --version` return value > 3.12.
 
 ## External Tools Not Found
 
@@ -54,8 +54,25 @@ This guide lists common issues and suggested resolutions.
     - Normalize CSVs with `CsvConvert`.
     - Adjust profile configuration to use a supported `-reportType`.
 
-When reporting issues to maintainers, include:
+## Locating Logs
 
-- Log files.
-- Relevant configuration snippets.
-- Exact steps to reproduce.
+When things go wrong, these files are your first stop:
+
+### 1. Installer/Updater Logs
+- **Location**: `%TEMP%\cerebrus_install_debug.txt`
+- **Contents**: Detailed trace of the dependency installation (Python, ADB, etc.) performed by the installer or `install_dependencies.ps1`.
+- **Inno Setup Log**: `%TEMP%\Setup Log *.txt` (if the installer crash itself).
+
+### 2. Application Runtime Logs
+- **Console Output**: When running from source, logs appear in the terminal.
+- **Log File**: `%APPDATA%\Cerebrus\logs\cerebrus.log` (Default location for production builds).
+
+### 3. CI/Build Logs (Local)
+- **Location**: `dist/build_log.txt` (if configured) or the PowerShell terminal output.
+
+## Reporting Issues
+
+When opening an issue, please attach:
+1.  The relevant log file.
+2.  Your `config/cerebrus.yaml` (sanitize secrets first).
+3.  Steps to reproduce.

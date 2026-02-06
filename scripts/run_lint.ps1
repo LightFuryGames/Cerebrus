@@ -11,15 +11,15 @@ if (-not (Test-Path -Path $logDir)) {
 $env:PYTHONIOENCODING = "utf-8"
 
 Write-Host "=== Running Black ===" -ForegroundColor Cyan
-python -m black --check . 2>&1 | ForEach-Object { "$_" } | Tee-Object -FilePath "$logDir\lint_black.log"
+python -m black --check --target-version py312 . 2>&1 | ForEach-Object { "$_" } | Tee-Object -FilePath "$logDir\lint_black.log"
 $blackExit = $LASTEXITCODE
 
 Write-Host "`n=== Running isort ===" -ForegroundColor Cyan
-python -m isort --check-only . 2>&1 | ForEach-Object { "$_" } | Tee-Object -FilePath "$logDir\lint_isort.log"
+python -m isort --check-only --py 312 . 2>&1 | ForEach-Object { "$_" } | Tee-Object -FilePath "$logDir\lint_isort.log"
 $isortExit = $LASTEXITCODE
 
 Write-Host "`n=== Running mypy ===" -ForegroundColor Cyan
-python -m mypy cerebrus 2>&1 | ForEach-Object { "$_" } | Tee-Object -FilePath "$logDir\lint_mypy.log"
+python -m mypy --python-version 3.12 cerebrus 2>&1 | ForEach-Object { "$_" } | Tee-Object -FilePath "$logDir\lint_mypy.log"
 $mypyExit = $LASTEXITCODE
 
 Write-Host "`n=== Summary ===" -ForegroundColor Yellow

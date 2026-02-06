@@ -2,11 +2,17 @@
 
 This document specifies how themes are configured and applied in the Dear ImGui UI.
 
+## Scope
+
+- **Applies to**: The Desktop Application (Dear PyGui).
+- **Related**: Generated Reports (HTML/CSS). While technically independent (`cerebrus/tools/memreport/templates/style.css`), report styling **MUST** mirror the application's aesthetic (fonts, button styles, panel layouts) to ensure a unified user experience.
+
 ## Goals
 
-- Provide consistent appearance across panels.
-- Allow project-wide dark/light or custom themes.
-- Permit advanced users to tweak colors and metrics via config files.
+- **Visual Consistency**: Ensure buttons, panels, and typography look identical across the Desktop App and HTML Reports.
+- **Unified Theming**: Provide a consistent "Cerebrus" look using shared color tokens where possible.
+- **Flexibility**: Allow project-wide dark/light or custom themes.
+- **Configurability**: Permit advanced users to tweak colors and metrics via config files.
 
 ## Theme Configuration
 
@@ -47,3 +53,14 @@ Example (conceptual):
 
 - Provide high-contrast variants where possible.
 - Avoid relying solely on color to communicate status; use icons or labels as well.
+
+## DPI & Scaling
+
+To support High-DPI displays (4K monitors):
+
+- **No Magic Pixels**: Never use hardcoded pixel values (e.g., `width=300`) for structural layout.
+- **Global Scale Factor**:
+  - All padding, spacing, and font sizes must be multiplied by `State.scale_factor`.
+  - Example: `ImGui.push_style_var(ImGui.StyleVar_FramePadding, (4 * scale, 2 * scale))`
+- **Fonts**:
+  - The theme loader must reload fonts with a higher base pixel size when the scale factor changes.

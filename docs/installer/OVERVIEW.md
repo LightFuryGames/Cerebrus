@@ -8,6 +8,7 @@ This document summarizes the goals and layout of the Windows installer.
 - Bundle a compatible Python runtime and dependencies.
 - Configure default paths for logs, cache, and reports.
 - Avoid requiring administrative privileges unless necessary.
+- **Studio Ready**: Support silent install flags (e.g. `/VERYSILENT`) for IT mass-deployment.
 
 ## Responsibilities
 

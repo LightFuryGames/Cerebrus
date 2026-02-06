@@ -13,6 +13,7 @@ The application will:
 
 - Initialize its Python environment.
 - Validate configuration and external tool availability.
+- **Check for Updates**: Automatically queries GitHub for a new version and prompts for update if available.
 - Open the Dear ImGui-based UI main window.
 
 ## From Source (Developer Mode)

@@ -5,6 +5,7 @@ Guidelines for constructing Dear ImGui layouts in Cerebrus.
 ## General Principles
 
 - Use a **main dockspace** layout:
+  - Top Bar: **Current Project / Profile** indicator (Critical for multi-project safety).
   - Left: Devices and project/config panels.
   - Center: Capture and report panels.
   - Bottom or right: Logs and diagnostics.

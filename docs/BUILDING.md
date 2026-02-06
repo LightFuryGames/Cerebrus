@@ -26,7 +26,7 @@ We switched from WiX Toolset because:
 
 ## Prerequisites
 
-- Python 3.11+
+- Python 3.12+
 - pip
 - **Inno Setup 6** (optional, but required for creating installers)
   - Download from: https://jrsoftware.org/isdl.php
@@ -123,4 +123,4 @@ If resources aren't bundled, check the `datas` section in `cerebrus.spec`.
 
 1. Ensure all dependencies are installed: `pip install -r requirements.txt`
 2. Try cleaning previous builds: Remove `build/` and `dist/` folders
-3. Check Python version: Must be 3.11+
+3. Check Python version: Must be 3.12+

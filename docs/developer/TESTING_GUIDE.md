@@ -8,34 +8,49 @@ This document outlines testing expectations and organization.
 
 ## Test Layout
 
-- Mirror the `cerebrus` package:
+Tests are split by scope to ensure fast feedback loops (Unit) and robust verification (Integration).
 
-  ```text
-  tests/
+```text
+tests/
+  unit/             # Fast, mock-heavy tests. NO I/O.
     core/
     tools/
     ui/
-    config/
-    cache/
-  ```
+  integration/      # Slower, I/O allowed. Uses wrappers.
+    tools/
+  data/             # Test fixtures
+    synthetic/     # Generators for fake logs/CSVs
+    fixtures/      # Small (<50KB) static files
+```
 
-- Example:
-  - `cerebrus/core/device_manager.py` → `tests/core/test_device_manager.py`
-  - `cerebrus/tools/csv/collate.py` → `tests/tools/test_csv_collate.py`
+## Internal vs External Tests
 
-## Types of Tests
+### Unit Tests (`tests/unit`)
+- **Goal**: Verify internal logic.
+- **Scope**: Pure functions, config loaders, command builders.
+- **Rule**: Must run in < 50ms per test. No external processes or file system side effects.
+- **Technique**: Mock `subprocess` and `pathlib` heavily.
+- **Example**: Testing that `ClassStatsParser` correctly extracts "1024 KB" from a string line.
 
-- **Unit tests**:
-  - Pure functions, config loaders, command builders.
-  - No external processes or file system side effects where possible.
-- **Integration tests**:
-  - External tool wrappers.
-  - Use temporary directories and controlled input files.
+### Integration Tests (`tests/integration`)
+- **Goal**: Verify tool wrappers and file system interactions.
+- **Rule**: Must separate creation, execution, and cleanup.
+- **Technique**: Use `tmp_path` fixture.
+- **Example**: Creating a dummy CSV, running `run_collate`, and asserting the output file exists.
 
-## Test Data
+## Test Data Strategy
 
-- Use `tests/data/` for small, synthetic CSVs and other fixtures.
-- Do not commit large profiling datasets.
+**Do not commit real log files.** Real logs contain PII, IP addresses, and proprietary paths.
+
+Instead, use **Functional Data Generation**:
+```python
+def create_dummy_memreport() -> str:
+    return """
+    MemReport: Begin command "obj list class=Actor -resourcesizesort"
+    Class    Count   NumKB   MaxKB
+    Actor    10      100.00  10.00
+    """
+```
 
 ## Running Tests
 
@@ -43,26 +58,30 @@ This document outlines testing expectations and organization.
 pytest
 ```
 
-Before running the full suite, keep local changes aligned with CI by executing:
-
+To see **stdout/stderr logs** during a test run (useful for debugging failed integration tests):
 ```bash
-black --check .
-isort --check-only .
-mypy cerebrus
-python -m cerebrus.core.preflight
+pytest -s -rP
+```
+- `-s`: Disable output capture (print to console).
+- `-rP`: Show stdout/stderr for passed tests too.
+
+To run the **full pipeline** locally (Lint + Preflight + Test):
+```powershell
+./scripts/run_tests.ps1  # (If available) OR
+pytest && ./scripts/run_lint.ps1
 ```
 
-Optional flags:
+Before pushing, ensure you pass the full CI suite locally:
 
-- `-q` for quiet.
-- `-k <expr>` to filter by test name.
-- `-m <marker>` for groups (e.g. `slow`, `integration`).
+```powershell
+./scripts/run_lint.ps1
+```
 
 ## CI Integration
 
-- Continuous integration should:
-  - Install dependencies.
-  - Run linting (`black --check`, `isort --check-only`, `mypy`).
-  - Run preflight checks to validate cache creation and configuration loading.
-  - Run unit tests by default.
-  - Optionally run integration tests on a schedule or when requested.
+GitHub Actions executes:
+1.  **Lint**: Enforces `black`, `isort`, `mypy`.
+2.  **Preflight**: Validates config schemas.
+3.  **Unit Tests**: Runs `tests/unit`.
+
+Integration tests may be skipped on PRs to save time, but run on `develop` merges.

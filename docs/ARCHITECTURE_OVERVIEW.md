@@ -1,6 +1,6 @@
 # Project Cerebrus Architecture Overview
 
-This document describes the high-level architecture of Cerebrus. All implementation work—human and Codex—must align with these boundaries.
+This document describes the high-level architecture of Cerebrus. All implementation work—human and AI—must align with these boundaries.
 
 ## Top-Level Modules
 
@@ -90,16 +90,38 @@ This document describes the high-level architecture of Cerebrus. All implementat
   - Bulk directory processing with optional recursion and metadata filters.
   - Summary table and JSON export flows.
 
+### MemReport Tool
+- **Pattern**: Modular Tool Pattern (Data -> Parser -> Analyzer -> Renderer).
+- **Extensibility**: Logic is split into independent `ReportTabs`.
+- **Output**: Single-file, self-contained HTML with embedded JS for interactivity.
+
 ## UI Layer
 
-- Use Dear ImGui panels for:
-  - Device list and selection.
-  - Capture orchestration.
-  - Report generation and browsing.
-  - Configuration editing (tool paths, profiles, cache settings).
-- Follow immediate-mode patterns:
-  - Read current state, draw, then apply mutations explicitly.
-- Keep business logic in `core` and `tools`; the UI calls into those modules.
+Cerebrus employs two distinct UI technologies optimized for different use cases:
+
+### 1. Control Plane (Desktop App)
+- **Technology**: **Dear PyGui** (wrapping Dear ImGui).
+- **Purpose**: Real-time control, device management, and tool orchestration.
+- **Characteristics**: Fast, native, immediate-mode, requires Python runtime.
+
+### 2. Data Plane (Generated Reports)
+- **Technology**: **HTML5 / CSS3 / Vanilla JS**.
+- **Purpose**: Viewing static analysis data (MemReports, Perf Diffs).
+- **Characteristics**: Portable (can be emailed), zero-dependency (runs in any browser), completely decoupled from the main app.
+- **Note**: These files do **not** use ImGui.
+
+- **Pattern**: Functional UI Components (Stateless rendering functions).
+  - Components receive `State` and return `Events`.
+  - No direct mutation of state inside draw calls.
+- **Scaling**: All layouts use relative sizing / DPI-aware style variables.
+
+## Future Architecture (Roadmap)
+
+- **Plugin System**:
+  - `cerebrus.plugins` module to load external Python files at runtime.
+  - Strict `Protocol` interfaces for Tabs and Device Actions.
+- **Event Sourcing**:
+  - Central event bus for QA Macro recording/replay.
 
 ## Installer and Environment Validation
 
@@ -110,7 +132,7 @@ This document describes the high-level architecture of Cerebrus. All implementat
   - Avoid admin elevation unless strictly necessary.
 
 - Environment checks:
-  - Python version compatibility.
+  - Python version compatibility (3.12+).
   - Access to UAFT, CsvTools, PerfReportTool binaries.
   - Write access to cache and report directories.
 
