@@ -64,6 +64,7 @@ The AI adapts to the specificity of the request:
 For any substantive change, the AI should:
 
 - Update relevant `.md` files.
+- **Follow Workflows**: For sensitive or strictly themed files (like `user_guide.html`), you MUST follow the instructions in `.agent/workflows/`.
 - Add or update docstrings for new public classes and functions.
 - Ensure examples in docs remain correct.
 

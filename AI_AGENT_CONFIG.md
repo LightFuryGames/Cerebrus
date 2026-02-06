@@ -23,7 +23,10 @@ The AI should treat the following as authoritative references:
   - `docs/ARCHITECTURE_OVERVIEW.md`
   - `docs/CSVTOOLS_REFERENCE.md`
   - `docs/PERFREPORTTOOL_REFERENCE.md`
+- Workflows (Mandatory for sensitive file updates):
+  - `.agent/workflows/user-guide-maintenance.md`
 - User docs:
+  - `cerebrus/resources/user_guide.html` (Authoritative Living Guide)
   - `docs/user/INSTALLATION.md`
   - `docs/user/RUNNING_CEREBRUS.md`
   - `docs/user/DEVICE_CAPTURE_WORKFLOWS.md`
@@ -87,7 +90,10 @@ The AI must:
 
 For any non-trivial change, the AI must:
 
-- Update or extend the relevant documentation.
+- **Living User Guide**: Proactively update `cerebrus/resources/user_guide.html` if changes affect end-user workflows, UI, or feature sets. This file is the primary end-user reference.
+- **Auto-Correction**: If recent code changes lack corresponding updates in the User Guide, the AI must flag this as an "Incomplete Feature" and perform the documentation update.
+- **Developer Accountability**: Features implemented by human developers without accompanying AI-compatible documentation should be marked as "Missing Necessary Documentation" when next encountered by the AI.
+- **Theme Integrity**: When updating `user_guide.html`, follow the specific rules in `.agent/workflows/user-guide-maintenance.md`.
 - Ensure examples in docs reflect actual code.
 - Avoid duplicating documentation; reference canonical locations where possible.
 

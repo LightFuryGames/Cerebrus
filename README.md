@@ -184,6 +184,10 @@ The `docs/` directory contains comprehensive documentation for Users, Developers
 
 ### 🤖 AI Info
 - **[AI Guide](AI_GUIDE.md)**: Rules and context for AI Agents working on this repo.
+- **[AI Agent Config](AI_AGENT_CONFIG.md)**: Technical operational rules for AI agents.
+
+### 🔄 Maintenance & Workflows
+- **[User Guide Maintenance](.agent/workflows/user-guide-maintenance.md)**: Strict instructions for AI agents on how to update and preserve the `user_guide.html`.
 
 ### ✍️ Documentation Guidelines
 1. **Keep it Fresh**: Update documentation *immediately* when code changes.
