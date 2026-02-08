@@ -59,6 +59,8 @@ The AI adapts to the specificity of the request:
 
 **Note on Summaries**: Unless explicitly asked, do **not** clutter responses with file paths or line numbers. Focus on feature-level or architecture-level explanations.
 
+**Note on Theming**: All UI components must use `ThemeManager` for colors. **Hardcoded colors are strictly prohibited** in `ui/` modules.
+
 ## Documentation Expectations
 
 For any substantive change, the AI should:

@@ -1,0 +1,12 @@
+{
+    "component_settings": {
+        "about_dialog": {
+            "label": "About Cerebrus",
+            "modal": true,
+            "width": 600,
+            "height": 400,
+            "tag": "about_dialog",
+            "no_resize": true
+        }
+    }
+}

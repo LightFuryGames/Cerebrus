@@ -134,9 +134,12 @@ For detailed instructions, access the **User Guide** from the **Help** menu with
 /cerebrus/                # Core Python packages
   core/                   # Core orchestration logic and abstractions
   ui/                     # Dear PyGui UI and layout logic
+    components/           # Reusable UI components
+      dialogs/            # Application dialogs (aws, profile, etc.)
+      panels/             # Usage panels (profiling, logs, config_sync)
+    resources/            # UI resources (fonts, palettes, layouts)
   tools/                  # Wrappers around UAFT, CsvTools, PerfReportTool
   config/                 # Configuration and profile definitions
-  resources/              # Static resources (icons, user guide)
   installers/             # Installer scripts (Inno Setup)
 /docs/                    # User + developer documentation
 /tests/                   # Automated tests

@@ -22,7 +22,9 @@ This document takes precedence when there is ambiguity. When in doubt, favor con
 ## 2. Project Structure
 
 - **`cerebrus/core`**: Orchestration, config, state models, and central business logic.
-- **`cerebrus/ui`**: Dear PyGui UI and layout logic.
+- **`cerebrus/ui`**: Dear PyGui UI, layout logic, and theme management.
+  - **`components/dialogs`**: Organized by functional area (aws, profile, app).
+  - **`components/panels`**: Modular panels (profiling, logs, config_sync).
 - **`cerebrus/tools`**: Thin, testable wrappers around external tools (UAFT, CsvTools, PerfReportTool, etc.).
 - **`cerebrus/config`**: Configuration loading, schema validation, and profile management.
 - **`cerebrus/cache`**: Cache operations and clean-up routines.

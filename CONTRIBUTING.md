@@ -98,7 +98,7 @@ Reviewers should verify:
   - Prefer composition over inheritance.
   - Keep functions small and single-responsibility.
 - Layout:
-  - Group modules by concern: `core`, `ui`, `tools`, `config`, `cache`, `installers`, `tests`.
+  - Group modules by concern: `core`, `ui` (components/resources), `tools`, `config`, `installers`, `tests`.
 - Formatting:
   - Use `black` and `isort` (or equivalent) for consistent formatting.
   - Run linting before sending PRs.

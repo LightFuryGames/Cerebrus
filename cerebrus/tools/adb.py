@@ -19,12 +19,20 @@ class AdbClient:
 
     def list_devices(self) -> List[str]:
         """Return a list of connected device serial numbers."""
+        # Check if adb is available first? _run handles it.
 
-        result = self._run(["devices"])
+        try:
+            result = self._run(["devices"])
+        except AdbError:
+            return []
+
         serials: list[str] = []
         for line in result.stdout.splitlines():
-            if "\tdevice" in line:
-                serials.append(line.split("\t", maxsplit=1)[0])
+            parts = line.strip().split()
+            # Expecting: <serial> <status>
+            # e.g. "serial123 device" or "serial123\tdevice"
+            if len(parts) >= 2 and parts[1] == "device":
+                serials.append(parts[0])
         return serials
 
     def get_property(self, serial: str, prop: str) -> str:
@@ -135,6 +143,44 @@ class AdbClient:
             return bool(result.stdout.strip())
         except AdbError:
             return False
+
+    def force_stop_package(self, serial: str, package_name: str) -> None:
+        """Force stop the application and all its subprocesses."""
+        # Standard force stop
+        self._run(["-s", serial, "shell", "am", "force-stop", package_name])
+        
+        # Broadcast a kill intent if the app is listening for it (Unreal specific sometimes helps)
+        try:
+            self._run(["-s", serial, "shell", "am", "broadcast", "-a", "android.intent.action.PACKAGE_REMOVED", "-d", f"package:{package_name}"])
+        except:
+            pass
+            
+        # Optional: ensure it's removed from recents by killing the task
+        # This is more intrusive and might not work on all Android versions without rooting,
+        # but force-stop usually handles it. 
+        # For now, let's just stick to the robust force-stop and clear data.
+
+    def minimize_package(self, serial: str) -> None:
+        """Send HOME key event to minimize current app."""
+        self._run(["-s", serial, "shell", "input", "keyevent", "3"])
+
+    def clear_package_data(self, serial: str, package_name: str) -> None:
+        """Clear the application data and cache using pm clear."""
+        self._run(["-s", serial, "shell", "pm", "clear", package_name])
+
+    def clear_package_cache_only(self, serial: str, package_name: str) -> None:
+        """Attempt to clear UE Saved and cache folders on SD card."""
+        parts = package_name.split(".")
+        if len(parts) >= 3:
+            project_name = parts[-1]
+            # Try to clear common Unreal cache/saved locations on SD card
+            paths_to_clear = [
+                f"/sdcard/Android/data/{package_name}/cache/",
+                f"/sdcard/Android/data/{package_name}/files/UnrealGame/{project_name}/{project_name}/Saved/Logs/",
+                f"/sdcard/Android/data/{package_name}/files/UnrealGame/{project_name}/{project_name}/Saved/Crashes/",
+            ]
+            for path in paths_to_clear:
+                self._run(["-s", serial, "shell", "rm", "-rf", path])
 
     def _run(self, args: List[str]) -> subprocess.CompletedProcess[str]:
         command = [self.executable, *args]

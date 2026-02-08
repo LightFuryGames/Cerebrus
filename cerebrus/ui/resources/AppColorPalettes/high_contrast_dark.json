@@ -1,0 +1,133 @@
+{
+    "name": "High Contrast Dark",
+    "palette": "High Contrast",
+    "mode": "Dark",
+    "colors": {
+        "mvThemeCol_WindowBg": [
+            0,
+            0,
+            0
+        ],
+        "mvThemeCol_ChildBg": [
+            0,
+            0,
+            0
+        ],
+        "mvThemeCol_PopupBg": [
+            0,
+            0,
+            0
+        ],
+        "mvThemeCol_Border": [
+            255,
+            255,
+            255
+        ],
+        "mvThemeCol_FrameBg": [
+            0,
+            0,
+            0
+        ],
+        "mvThemeCol_TitleBg": [
+            50,
+            50,
+            50
+        ],
+        "mvThemeCol_MenuBarBg": [
+            0,
+            0,
+            0
+        ],
+        "mvThemeCol_Header": [
+            50,
+            50,
+            50
+        ],
+        "mvThemeCol_Button": [
+            0,
+            0,
+            0
+        ],
+        "mvThemeCol_Text": [
+            255,
+            255,
+            255
+        ],
+        "mvThemeCol_Separator": [
+            255,
+            255,
+            255
+        ],
+        "mvThemeCol_TableBorderStrong": [
+            255,
+            255,
+            255
+        ],
+        "mvThemeCol_TableBorderLight": [
+            255,
+            255,
+            255
+        ]
+    },
+    "label_colors": {
+        "header": [
+            255,
+            255,
+            255
+        ],
+        "subheader": [
+            255,
+            255,
+            255
+        ]
+    },
+    "profile_status_colors": {
+        "DEFAULT": [
+            255,
+            255,
+            0
+        ],
+        "LOADED": [
+            0,
+            255,
+            0
+        ],
+        "ERROR": [
+            255,
+            0,
+            0
+        ],
+        "INFO": [
+            255,
+            255,
+            255
+        ]
+    },
+    "log_colors": {
+        "DEBUG": [
+            200,
+            200,
+            200
+        ],
+        "INFO": [
+            255,
+            255,
+            255
+        ],
+        "WARNING": [
+            255,
+            255,
+            0
+        ],
+        "ERROR": [
+            255,
+            0,
+            0
+        ],
+        "SUCCESS": [
+            0,
+            255,
+            0
+        ]
+    }
+}

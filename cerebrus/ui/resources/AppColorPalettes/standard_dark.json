@@ -1,0 +1,120 @@
+{
+    "name": "Standard Dark",
+    "palette": "Standard",
+    "mode": "Dark",
+    "colors": {
+        "mvThemeCol_WindowBg": [
+            30,
+            30,
+            30
+        ],
+        "mvThemeCol_ChildBg": [
+            0.9177489280700684,
+            0.1589175909757614,
+            0.1589175909757614,
+            1.0
+        ],
+        "mvThemeCol_PopupBg": [
+            40,
+            40,
+            40
+        ],
+        "mvThemeCol_Border": [
+            60,
+            60,
+            60
+        ],
+        "mvThemeCol_FrameBg": [
+            50,
+            50,
+            50
+        ],
+        "mvThemeCol_TitleBg": [
+            40,
+            40,
+            40
+        ],
+        "mvThemeCol_MenuBarBg": [
+            40,
+            40,
+            40
+        ],
+        "mvThemeCol_Header": [
+            0.2536684274673462,
+            0.4122112989425659,
+            0.6103895902633667,
+            1.0
+        ],
+        "mvThemeCol_Button": [
+            60,
+            60,
+            60
+        ],
+        "mvThemeCol_Text": [
+            220,
+            220,
+            220
+        ]
+    },
+    "label_colors": {
+        "header": [
+            120,
+            180,
+            255
+        ],
+        "subheader": [
+            200,
+            200,
+            200
+        ]
+    },
+    "profile_status_colors": {
+        "DEFAULT": [
+            255,
+            210,
+            120
+        ],
+        "LOADED": [
+            15,
+            240,
+            15
+        ],
+        "ERROR": [
+            255,
+            120,
+            120
+        ],
+        "INFO": [
+            120,
+            200,
+            255
+        ]
+    },
+    "log_colors": {
+        "DEBUG": [
+            170,
+            170,
+            170
+        ],
+        "INFO": [
+            120,
+            200,
+            255
+        ],
+        "WARNING": [
+            255,
+            210,
+            120
+        ],
+        "ERROR": [
+            255,
+            120,
+            120
+        ],
+        "SUCCESS": [
+            15,
+            240,
+            15
+        ]
+    }
+}

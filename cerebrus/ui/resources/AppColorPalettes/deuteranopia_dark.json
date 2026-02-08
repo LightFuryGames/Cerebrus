@@ -1,0 +1,109 @@
+{
+    "name": "Deuteranopia Dark",
+    "palette": "Deuteranopia",
+    "mode": "Dark",
+    "colors": {
+        "mvThemeCol_WindowBg": [
+            15,
+            23,
+            42
+        ],
+        "mvThemeCol_ChildBg": [
+            30,
+            41,
+            59
+        ],
+        "mvThemeCol_Border": [
+            100,
+            100,
+            130
+        ],
+        "mvThemeCol_Text": [
+            241,
+            245,
+            249
+        ],
+        "mvThemeCol_Header": [
+            0.0,
+            1.0,
+            0.08494186401367188,
+            1.0
+        ],
+        "mvThemeCol_TitleBg": [
+            30,
+            41,
+            59
+        ],
+        "mvThemeCol_FrameBg": [
+            15,
+            23,
+            42
+        ],
+        "mvThemeCol_Button": [
+            0,
+            70,
+            130
+        ]
+    },
+    "label_colors": {
+        "header": [
+            0,
+            90,
+            150
+        ],
+        "subheader": [
+            200,
+            200,
+            200
+        ]
+    },
+    "profile_status_colors": {
+        "DEFAULT": [
+            255,
+            210,
+            120
+        ],
+        "LOADED": [
+            15,
+            240,
+            15
+        ],
+        "ERROR": [
+            255,
+            120,
+            120
+        ],
+        "INFO": [
+            120,
+            200,
+            255
+        ]
+    },
+    "log_colors": {
+        "DEBUG": [
+            150,
+            150,
+            150
+        ],
+        "INFO": [
+            100,
+            200,
+            255
+        ],
+        "WARNING": [
+            255,
+            255,
+            100
+        ],
+        "ERROR": [
+            180,
+            180,
+            255
+        ],
+        "SUCCESS": [
+            255,
+            255,
+            0
+        ]
+    }
+}

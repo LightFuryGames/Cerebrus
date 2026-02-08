@@ -58,7 +58,27 @@ cerebrus/                   # Main package directory
   ui/                       # User Interface (Dear PyGui)
     __init__.py
     app.py                  # Main UI entry point / definitions
-    components.py           # Reusable UI components
+    components/             # Reusable UI components
+      __init__.py
+      dialogs/              # Dialog implementations
+        app/
+        aws/
+        files/
+        profile/
+      panels/               # Panel implementations
+        config_sync/
+        device/
+        logs/
+        profiling/
+      file_manager.py
+      layout.py
+      menu.py
+      palette_manager.py
+      shared.py
+      ui_config.py          # UI Configuration logic
+    resources/              # UI specific resources
+      AppColorPalettes/     # JSON Theme definitions
+      layouts/              # JSON Layout configurations
     state.py                # UI State management
     themes.py               # UI Theming
 

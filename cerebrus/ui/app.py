@@ -8,7 +8,16 @@ import dearpygui.dearpygui as dpg
 
 from cerebrus.ui.state import UIState
 
-from . import components
+from cerebrus.ui.components import (
+    setup_fonts,
+    build_menu_bar,
+    build_profile_summary,
+    build_file_actions,
+    build_device_controls,
+    log_message,
+    check_for_updates_ui,
+    _open_user_guide
+)
 
 
 class CerebrusApp:
@@ -23,7 +32,8 @@ class CerebrusApp:
 
         # Load persisted fields from profile into state
         if profile:
-            self.state.output_file_name = profile.output_file_name
+            # We start with empty output file name until a device is selected
+            self.state.output_file_name = ""
             self.state.input_path = (
                 Path(profile.input_path) if profile.input_path else Path("C:/")
             )
@@ -45,15 +55,18 @@ class CerebrusApp:
                 self.state.input_path = Path("C:/")
 
     def build(self) -> None:
+        from cerebrus.core.logging_setup import setup_logging
+        setup_logging()
+        
         dpg.create_context()
 
         # Initialize theme
         from cerebrus.ui.themes import get_theme_manager
 
-        get_theme_manager().apply_theme("System")
+        get_theme_manager().apply_theme(mode="Dark")
 
-        components.setup_fonts()
-        components.log_message(self.state, "INFO", "Cerebrus App Loaded")
+        setup_fonts()
+        log_message(self.state, "INFO", "Cerebrus App Loaded")
 
         # Check environment
         from cerebrus.core.setup import check_and_setup_environment
@@ -61,14 +74,14 @@ class CerebrusApp:
         # Run in background or just run? It might block UI.
         # For now, run synchronously as it's critical.
         check_and_setup_environment(
-            lambda level, msg: components.log_message(self.state, level, msg)
+            lambda level, msg: log_message(self.state, level, msg)
         )
 
         if (
             self.state.profile_path
             and str(self.state.profile_path) != "No profile loaded"
         ):
-            components.log_message(
+            log_message(
                 self.state,
                 "INFO",
                 f"Last used profile loaded: {self.state.profile_nickname}",
@@ -79,21 +92,21 @@ class CerebrusApp:
             width=1100,
             height=750,
         ):
-            components.build_menu_bar(self.state)
-            components.build_profile_summary(self.state)
-            components.build_device_controls(self.state)
-            components.build_file_actions(self.state)
+            build_menu_bar(self.state)
+            build_profile_summary(self.state)
+            build_device_controls(self.state)
+            build_file_actions(self.state)
 
         dpg.set_primary_window("MainWindow", True)
 
         # Register keyboard handlers
         with dpg.handler_registry():
             dpg.add_key_press_handler(
-                dpg.mvKey_F1, callback=lambda: components._open_user_guide(self.state)
+                dpg.mvKey_F1, callback=lambda: _open_user_guide(self.state)
             )
 
         # Trigger auto-update check (silent if no update)
-        components.check_for_updates_ui(self.state, silent_on_up_to_date=True)
+        check_for_updates_ui(self.state, silent_on_up_to_date=True)
 
     def run(self) -> None:
         self.build()

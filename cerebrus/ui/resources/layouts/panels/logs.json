@@ -1,0 +1,14 @@
+{
+    "component_settings": {
+        "logs_filter_child": {
+            "border": false,
+            "autosize_x": true,
+            "autosize_y": true
+        },
+        "logs_container_child": {
+            "border": true,
+            "autosize_x": true,
+            "height": 200
+        }
+    }
+}

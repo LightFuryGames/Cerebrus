@@ -1,0 +1,118 @@
+{
+    "name": "Standard Light",
+    "palette": "Standard",
+    "mode": "Light",
+    "colors": {
+        "mvThemeCol_WindowBg": [
+            240,
+            240,
+            245
+        ],
+        "mvThemeCol_ChildBg": [
+            255,
+            255,
+            255
+        ],
+        "mvThemeCol_PopupBg": [
+            255,
+            255,
+            255
+        ],
+        "mvThemeCol_Border": [
+            180,
+            180,
+            190
+        ],
+        "mvThemeCol_FrameBg": [
+            230,
+            230,
+            235
+        ],
+        "mvThemeCol_TitleBg": [
+            210,
+            210,
+            220
+        ],
+        "mvThemeCol_MenuBarBg": [
+            250,
+            250,
+            252
+        ],
+        "mvThemeCol_Header": [
+            0,
+            0,
+            0
+        ],
+        "mvThemeCol_Button": [
+            225,
+            225,
+            230
+        ],
+        "mvThemeCol_Text": [
+            30,
+            30,
+            35
+        ]
+    },
+    "label_colors": {
+        "header": [
+            0,
+            0,
+            0
+        ],
+        "subheader": [
+            20,
+            20,
+            25
+        ]
+    },
+    "profile_status_colors": {
+        "DEFAULT": [
+            110,
+            60,
+            0
+        ],
+        "LOADED": [
+            0,
+            90,
+            0
+        ],
+        "ERROR": [
+            140,
+            0,
+            0
+        ],
+        "INFO": [
+            0,
+            40,
+            120
+        ]
+    },
+    "log_colors": {
+        "DEBUG": [
+            80,
+            80,
+            90
+        ],
+        "INFO": [
+            0,
+            40,
+            120
+        ],
+        "WARNING": [
+            110,
+            60,
+            0
+        ],
+        "ERROR": [
+            140,
+            0,
+            0
+        ],
+        "SUCCESS": [
+            0,
+            90,
+            0
+        ]
+    }
+}
