@@ -22,7 +22,7 @@ from cerebrus.ui.components.palette_manager import (
     _show_load_palette_dialog,
     _show_theme_editor,
 )
-from cerebrus.ui.components.panels.logs.logs_panel import _render_log_entries
+from cerebrus.ui.components.panels.logs_panel.logs_panel import _render_log_entries
 from cerebrus.ui.components.shared import _update_profile_display_colors, log_message
 from cerebrus.ui.state import UIState
 from cerebrus.ui.themes import get_theme_manager

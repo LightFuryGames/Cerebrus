@@ -11,7 +11,7 @@ import dearpygui.dearpygui as dpg
 
 from ..state import UIState
 from ..themes import get_theme_manager
-from .panels.logs.logs_panel import _render_log_entries
+from .panels.logs_panel.logs_panel import _render_log_entries
 from .shared import log_message
 
 

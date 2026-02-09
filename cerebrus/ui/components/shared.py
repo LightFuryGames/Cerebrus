@@ -48,7 +48,7 @@ S3_CONFIG_BASE_URL = "https://titan-cerebrus-configurations.s3.ap-south-1.amazon
 
 def log_message(state: UIState, level: str, message: str) -> None:
     """Deprecating wrapper for centralized logging."""
-    from cerebrus.ui.components.panels.logs.logs_panel import log_message as _log
+    from cerebrus.ui.components.panels.logs_panel.logs_panel import log_message as _log
 
     _log(state, level, message)
 

@@ -30,7 +30,7 @@ from cerebrus.ui.themes import get_theme_manager
 
 from .dialogs.aws.sync_panel import build_remote_config_sync
 from .panels.device.device_panel import _populate_devices, _render_device_table
-from .panels.logs.logs_panel import (
+from .panels.logs_panel.logs_panel import (
     _clear_logs,
     _handle_export_logs,
     _handle_log_filter,

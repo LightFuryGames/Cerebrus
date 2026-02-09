@@ -27,11 +27,11 @@ from .palette_manager import (
     _show_theme_editor,
 )
 from .panels.device.device_panel import build_device_controls
-from .panels.logs.logs_panel import (
+from .panels.logs_panel.logs_panel import (
     _clear_logs,
     _handle_export_logs,
     _handle_log_filter,
     _render_log_entries,
 )
-from .panels.logs.logs_panel import log_message as _log_message
+from .panels.logs_panel.logs_panel import log_message as _log_message
 from .shared import log_message
