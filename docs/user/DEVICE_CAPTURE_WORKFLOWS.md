@@ -4,7 +4,7 @@ Cerebrus coordinates Android device profiling through Unreal Engine tools and AD
 
 ## Device Discovery
 
-- Cerebrus queries connected devices using ADB (and potentially UAFT).
+- Cerebrus queries connected devices using ADB through the `AdbClient` wrapper.
 - Device list shows:
   - Serial
   - Make / model
@@ -46,21 +46,10 @@ Capture definitions are controlled through **profiles** (see `docs/config/PROFIL
 
 ## Storage Layout
 
-Typical project capture layout:
+Typical project capture layout within the Output Folder:
 
-```text
-<ProjectRoot>/
-  captures/
-    <device>/<run-id>/
-      raw/
-        *.csv
-        *.prc
-        logcat_*.txt
-      processed/
-        collated/
-        reports/
-        svg/
-```
+- **`/Profiling`**: Performance Reports (`.html`), Collated CSVs, and Colored Logs.
+- **`/MemReports`**: Memory Analysis Reports (`.html`) generated from `.memreport` files.
 
 The exact layout is configurable but should be stable per project to keep reporting scripts reliable.
 

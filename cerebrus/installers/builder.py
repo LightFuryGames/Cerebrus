@@ -66,7 +66,7 @@ set APP_DIR=%BASE_DIR%app
 set PY_EXE=%APP_DIR%\\python\\python.exe
 
 if not exist "%PY_EXE%" (
-    echo No bundled Python found. Please place a Python 3.11+ build in "%APP_DIR%\\python".
+    echo No bundled Python found. Please place a Python 3.12+ build in "%APP_DIR%\python".
     exit /b 1
 )
 
@@ -115,18 +115,18 @@ function Ensure-Python {
 
     if ($python) {
         $version = & $python.Source -c "import sys; print('{}.{}'.format(*sys.version_info[:2]))" 2>$null
-        if ($version -and [version]$version -ge [version]"3.11") {
+        if ($version -and [version]$version -ge [version]"3.12") {
             Write-Host "Found Python $version" -ForegroundColor Green
             & $python.Source -m pip install --upgrade pip --quiet
             return $python.Source
         }
-        Write-Host "Python found but below 3.11; upgrading via winget..." -ForegroundColor Yellow
+        Write-Host "Python found but below 3.12; upgrading via winget..." -ForegroundColor Yellow
     } else {
         Write-Host "Python not found; installing via winget..." -ForegroundColor Yellow
     }
 
     Ensure-WingetAvailable
-    winget install --id Python.Python.3.11 --exact --silent --accept-package-agreements --accept-source-agreements
+    winget install --id Python.Python.3.12 --exact --silent --accept-package-agreements --accept-source-agreements
     $python = Get-Command py -ErrorAction SilentlyContinue
     if (-not $python) {
         $python = Get-Command python -ErrorAction SilentlyContinue
@@ -201,7 +201,7 @@ def _write_manifest(staging_root: Path, items: Iterable[str | Path]) -> None:
         *entries,
         "",
         "Use install.cmd to validate Python and adb prerequisites with winget before launching.",
-        "launch_cerebrus.bat expects a Python 3.11+ interpreter to be available in app/python/.",
+        "launch_cerebrus.bat expects a Python 3.12+ interpreter to be available in app/python/.",
     ]
     manifest_path.write_text("\n".join(manifest_lines))
 

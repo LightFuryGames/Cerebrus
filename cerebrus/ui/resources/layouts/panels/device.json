@@ -1,0 +1,15 @@
+{
+    "component_settings": {
+        "device_table_container": {
+            "border": false,
+            "width": -1,
+            "height": 135
+        },
+        "adb_troubleshoot_modal": {
+            "modal": true,
+            "no_resize": true,
+            "width": 500,
+            "height": 320
+        }
+    }
+}

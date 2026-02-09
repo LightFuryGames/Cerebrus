@@ -1,0 +1,27 @@
+{
+    "spacers": {
+        "tiny": 2,
+        "small": 5,
+        "standard": 10,
+        "large": 20,
+        "section_gap": 15
+    },
+    "dimensions": {
+        "button_width_small": 80,
+        "button_width_standard": 120,
+        "button_width_large": 140,
+        "button_width_xlarge": 200,
+        "input_width_standard": 200,
+        "input_width_wide": 300,
+        "input_width_xlarge": 400,
+        "tab_container_height": 450,
+        "logs_container_height": 250
+    },
+    "tables": {
+        "policy_stretch": "dpg.mvTable_SizingStretchProp",
+        "policy_fixed": "dpg.mvTable_SizingFixedFit",
+        "device_col_width": 310,
+        "status_col_width": 30
+    },
+    "component_settings": {}
+}

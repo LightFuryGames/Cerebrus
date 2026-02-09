@@ -67,12 +67,24 @@ catch {
 # 1. Run Unit Tests
 Write-Log "Step 1: Running Unit Tests..."
 try {
-    # Using python -m pytest to avoid path issues
-    $TestOutput = python -m pytest tests 2>&1 | Out-String
-    Write-Log $TestOutput
-    if ($LASTEXITCODE -ne 0) { throw "Pytest failed with exit code $LASTEXITCODE" }
-    Write-Log "Unit Tests Passed."
-    Write-Host "Unit Tests Passed!" -ForegroundColor Green
+    $TestScript = Join-Path $PSScriptRoot "scripts\run_unittests.ps1"
+    if (Test-Path $TestScript) {
+        Write-Log "Executing run_unittests.ps1..."
+        
+        # Execute the test script and capture output
+        $TestProcess = Start-Process -FilePath "powershell" -ArgumentList "-File `"$TestScript`"" -PassThru -Wait -NoNewWindow
+        
+        if ($TestProcess.ExitCode -eq 0) {
+            Write-Log "Unit Tests Passed."
+            Write-Host "Unit Tests Passed!" -ForegroundColor Green
+        }
+        else {
+            throw "Unit Tests failed with exit code $($TestProcess.ExitCode)."
+        }
+    }
+    else {
+        throw "run_unittests.ps1 script not found at $TestScript"
+    }
 }
 catch {
     Write-Log "Pipeline Failed at Unit Tests."

@@ -1,0 +1,17 @@
+{
+    "component_settings": {
+        "profile_dialog": {
+            "modal": true,
+            "width": 800,
+            "height": 550,
+            "tag": "profile_dialog"
+        },
+        "profile_warning_modal": {
+            "label": "Warning",
+            "modal": true,
+            "width": 400,
+            "height": 150,
+            "tag": "default_profile_warning"
+        }
+    }
+}

@@ -13,30 +13,17 @@ The application will:
 
 - Initialize its Python environment.
 - Validate configuration and external tool availability.
+- **Check for Updates**: Automatically queries GitHub for a new version and prompts for update if available.
 - Open the Dear ImGui-based UI main window.
 
 ## From Source (Developer Mode)
 
-1. Activate your virtual environment:
+1. Activate your virtual environment and run the main entrypoint:
 
    ```bash
-   cd cerebrus
    .venv\Scripts\activate
-   ```
-
-2. Run the main entrypoint (to be implemented):
-
-   ```bash
-   python -m cerebrus
-   ```
-
-or
-
-   ```bash
    python -m cerebrus.main
    ```
-
-depending on the final structure.
 
 The main window will appear and present:
 

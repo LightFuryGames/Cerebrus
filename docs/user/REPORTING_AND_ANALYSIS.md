@@ -48,13 +48,19 @@ Configurable per project but typically:
 ```text
 <ProjectRoot>/
   reports/
-    <profile>/
-      <build>/<device>/<timestamp>/
-        perf_html/
-        summary_csv/
-        summary_json/
-        svg/
+    Profiling/          # Performance reports
+      <report_name>.html
+    Logs/               # Colored logs
+      <log_file>.html
+    MemReports/         # Memory reports
+      <memreport_name>.html
 ```
+
+## Report Features
+
+Generated HTML reports now include:
+- **Dark Mode Toggle**: Switch between light and dark themes.
+- **Scroll to Top**: Quickly navigate to the top of long reports.
 
 ## Troubleshooting
 

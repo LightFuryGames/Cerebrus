@@ -12,7 +12,7 @@ class ClassStatsTab(ReportTab):
         count = int(count_match.group(1)) if count_match else 0
 
         # Use a helper to extract values with unit awareness
-        def get_val(key):
+        def get_val(key: str) -> float:
             # Matches "Key: 123.45M" or "Key: 123.45"
             m = re.search(rf"{key}:\s+([\d\.]+)\s*(M|K|G)?", line, re.IGNORECASE)
             if m:
@@ -34,12 +34,12 @@ class ClassStatsTab(ReportTab):
             "res": get_val("Res"),
         }
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("Class Memory Stats", "class-stats-generic")
         self.current_class: Optional[str] = None
         self.current_sort: Optional[str] = None
         self.parsing_summary = False
-        self.detected_classes = set()
+        self.detected_classes: set[str] = set()
 
     def should_handle(self, line: str) -> bool:
         return line.startswith('MemReport: Begin command "obj list class=')

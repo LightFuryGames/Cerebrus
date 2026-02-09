@@ -4,6 +4,8 @@
 
 The "Output File Name" and "Use as Prefix Only" settings control how your generated reports and colored logs are named.
 
+> **Note**: Generated files are automatically organized into subdirectories (`Profiling/` or `MemReports/`) within your selected output path.
+
 ## Visual Examples
 
 ### Example 1: Use as Prefix (Checkbox CHECKED) ✓
@@ -109,10 +111,11 @@ If you generate a file that would have the same name as an existing file:
 **Example:**
 ```
 Output Folder:
-├── report.html          (from first run)
-├── report_1.html        (from second run)
-├── report_2.html        (from third run)
-└── old_data.html        (your existing file, untouched)
+├── Profiling/
+│   ├── report.html          (from first run)
+│   ├── report_1.html        (from second run)
+│   ├── report_2.html        (from third run)
+│   └── old_data.html        (your existing file, untouched)
 ```
 
 ---

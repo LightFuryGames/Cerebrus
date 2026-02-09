@@ -1,0 +1,19 @@
+{
+    "component_settings": {
+        "profiling_main_child": {
+            "border": false,
+            "autosize_x": true,
+            "autosize_y": true
+        },
+        "bulk_actions_left_child": {
+            "border": true,
+            "autosize_y": true,
+            "width": 360
+        },
+        "bulk_actions_right_child": {
+            "border": true,
+            "autosize_y": true,
+            "width": 460
+        }
+    }
+}

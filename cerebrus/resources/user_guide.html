@@ -4,321 +4,1575 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cerebrus User Guide</title>
-
+    <title>Cerebrus Documentation | Unreal Engine Android Profiling Hub</title>
+    <link rel="icon" type="image/png" href="icon.png">
     <style>
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f4f4f4;
+        :root {
+            --bg-color: #0f172a;
+            --sidebar-bg: #1e293b;
+            --card-bg: #1e293b;
+            --text-color: #f1f5f9;
+            --text-muted: #94a3b8;
+            --accent-color: #3b82f6;
+            --accent-hover: #60a5fa;
+            --border-color: #334155;
+            --code-bg: #0f172a;
+            --sidebar-width: 300px;
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        h1,
-        h2,
-        h3 {
-            color: #2c3e50;
+        body.light-mode {
+            --bg-color: #f8fafc;
+            --sidebar-bg: #ffffff;
+            --card-bg: #ffffff;
+            --text-color: #1e293b;
+            --text-muted: #475569;
+            --accent-color: #2563eb;
+            --accent-hover: #1d4ed8;
+            --border-color: #e2e8f0;
+            --code-bg: #f1f5f9;
+            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            display: flex;
+            min-height: 100vh;
+            transition: background-color var(--transition), color var(--transition);
+        }
+
+        /* Sidebar & TOC */
+        aside {
+            width: var(--sidebar-width);
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            padding: 1.25rem 0.75rem;
+            z-index: 100;
+            transition: var(--transition);
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        aside::-webkit-scrollbar {
+            display: none;
+        }
+
+        .logo {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: var(--accent-color);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            letter-spacing: -0.02em;
+        }
+
+        .toc-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+            padding-left: 0.75rem;
+        }
+
+        .toc-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .toc-item {
+            margin-bottom: 0;
+        }
+
+        .toc-link {
+            text-decoration: none;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.5rem;
+            transition: var(--transition);
+        }
+
+        .toc-link:hover {
+            color: var(--accent-color);
+            background-color: rgba(59, 130, 246, 0.08);
+        }
+
+        .toc-sub-link {
+            font-size: 0.8rem;
+            padding: 0.15rem 0.75rem 0.15rem 1.75rem !important;
+            opacity: 0.8;
+        }
+
+        .toc-link.active {
+            color: white;
+            background-color: var(--accent-color);
+            box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+        }
+
+        body.light-mode .toc-link.active {
+            color: white;
+        }
+
+        /* Main Content */
+        main {
+            margin-left: var(--sidebar-width);
+            flex: 1;
+            padding: 1.5rem 2.5rem;
+            max-width: 1300px;
+        }
+
+        section {
+            margin-bottom: 2rem;
+            scroll-margin-top: 4rem;
         }
 
         h1 {
-            border-bottom: 2px solid #3498db;
-            padding-bottom: 10px;
+            font-size: 3.5rem;
+            font-weight: 900;
+            margin-bottom: 1rem;
+            letter-spacing: -0.04em;
+            background: linear-gradient(135deg, var(--accent-color), #8b5cf6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
         h2 {
-            border-bottom: 1px solid #bdc3c7;
-            padding-bottom: 5px;
-            margin-top: 30px;
+            scroll-margin-top: 100px;
+            font-size: 2.25rem;
+            font-weight: 800;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid var(--border-color);
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        h3 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--accent-color);
+        }
+
+        p {
+            margin-bottom: 1rem;
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 1.25rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            border-color: var(--accent-color);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
         }
 
         code {
-            background-color: #e0e0e0;
-            padding: 2px 4px;
-            border-radius: 4px;
-            font-family: Consolas, monospace;
+            background-color: var(--code-bg);
+            color: var(--accent-color);
+            padding: 0.2rem 0.45rem;
+            border-radius: 0.5rem;
+            font-family: 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 0.95rem;
+            font-weight: 700;
         }
 
         pre {
-            background-color: #2c3e50;
-            color: #ecf0f1;
-            padding: 15px;
-            border-radius: 5px;
+            background-color: var(--code-bg);
+            padding: 0.75rem;
+            border-radius: 1rem;
             overflow-x: auto;
+            margin-bottom: 0.75rem;
+            border: 1px solid var(--border-color);
         }
 
-        a {
-            color: #3498db;
-            text-decoration: none;
+        pre code {
+            background: transparent;
+            padding: 0;
+            color: #cbd5e1;
         }
 
-        a:hover {
-            text-decoration: underline;
+        body.light-mode pre code {
+            color: #334155;
         }
 
-        .container {
-            background-color: #fff;
-            padding: 40px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .step-number {
+        .badge {
             display: inline-block;
-            background-color: #3498db;
+            padding: 0.35rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+
+        .badge-new {
+            background-color: #10b981;
             color: white;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            text-align: center;
-            line-height: 24px;
-            margin-right: 8px;
-            font-weight: bold;
         }
 
-        .workflow {
-            background-color: #f8f9fa;
-            border-left: 4px solid #3498db;
-            padding: 15px;
-            margin: 15px 0;
+        .badge-core {
+            background-color: #6366f1;
+            color: white;
         }
 
-        .workflow h4 {
-            margin-top: 0;
-            color: #3498db;
+        strong {
+            color: var(--accent-color);
+            font-weight: 700;
+        }
+
+        .note-orange {
+            color: #f59e0b;
+            font-weight: 700;
+            background-color: rgba(245, 158, 11, 0.1);
+            padding: 0.15rem 0.4rem;
+            border-radius: 0.4rem;
+            display: inline-block;
+            font-size: 0.9rem;
+        }
+
+        .note-red {
+            color: #ef4444;
+            font-weight: 700;
+            background-color: rgba(239, 68, 68, 0.1);
+            padding: 0.15rem 0.4rem;
+            border-radius: 0.4rem;
+            display: inline-block;
+            font-size: 0.9rem;
+        }
+
+        .highlight-red {
+            color: #ef4444 !important;
+            font-weight: 700;
+        }
+
+        .highlight-blue {
+            color: #3b82f6 !important;
+            font-weight: 700;
+        }
+
+        .highlight-orange {
+            color: #f59e0b !important;
+            font-weight: 700;
+        }
+
+        .highlight-green {
+            color: #10b981 !important;
+            font-weight: 700;
+        }
+
+        .persona-tag {
+            color: #a855f7;
+            font-weight: 800;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        /* Warning Boxes */
+        .warning-box {
+            padding: 0.75rem;
+            border-radius: 1rem;
+            margin: 1rem 0;
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .warning-orange {
+            border-color: #f59e0b;
+            background-color: rgba(245, 158, 11, 0.1);
+        }
+
+        body.light-mode .warning-orange {
+            border-color: #b45309;
+            background: linear-gradient(to right, rgba(180, 83, 9, 0.15), rgba(180, 83, 9, 0.05));
+        }
+
+        body.light-mode .note-orange {
+            color: #b45309;
+            background-color: rgba(180, 83, 9, 0.1);
+        }
+
+        body.light-mode .highlight-orange {
+            color: #b45309 !important;
+        }
+
+        .warning-red {
+            border-color: #ef4444;
+            background-color: rgba(239, 68, 68, 0.1);
+        }
+
+        body.light-mode .warning-red {
+            background: linear-gradient(to right, rgba(239, 68, 68, 0.12), rgba(239, 68, 68, 0.03));
+        }
+
+        .warning-blue {
+            border-color: #3b82f6;
+            background-color: rgba(59, 130, 246, 0.1);
+        }
+
+        .warning-cyan {
+            border-color: #06b6d4;
+            background-color: rgba(6, 182, 212, 0.1);
+        }
+
+        /* Buttons & Controls */
+        #theme-toggle {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            background-color: var(--sidebar-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            width: 3.5rem;
+            height: 3.5rem;
+            border-radius: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            box-shadow: var(--shadow);
+            z-index: 1000;
+            transition: var(--transition);
+        }
+
+        #theme-toggle:hover {
+            transform: scale(1.05) rotate(5deg);
+            border-color: var(--accent-color);
+        }
+
+        #scroll-top {
+            position: fixed;
+            bottom: 2.5rem;
+            right: 2.5rem;
+            background-color: var(--accent-color);
+            color: white;
+            width: 4rem;
+            height: 4rem;
+            border-radius: 1.25rem;
+            border: none;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.75rem;
+            box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.4);
+            z-index: 1000;
+            transition: var(--transition);
+        }
+
+        #scroll-top:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 25px -5px rgba(37, 99, 235, 0.5);
+        }
+
+        /* Features Grid */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .feature-item {
+            display: flex;
+            gap: 1.25rem;
+            align-items: flex-start;
+        }
+
+        .feature-icon {
+            background-color: rgba(59, 130, 246, 0.1);
+            color: var(--accent-color);
+            width: 3rem;
+            height: 3rem;
+            border-radius: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 1.5rem;
+        }
+
+        /* Step List */
+        .steps {
+            list-style: none;
+            counter-reset: step;
+        }
+
+        .step-item {
+            position: relative;
+            padding-left: 4rem;
+            margin-bottom: 2rem;
+        }
+
+        .step-item::before {
+            counter-increment: step;
+            content: counter(step);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 2.5rem;
+            height: 2.5rem;
+            background-color: var(--accent-color);
+            color: white;
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.1rem;
+        }
+
+        /* Table Styles */
+        .table-wrap {
+            overflow-x: auto;
+            margin: 2rem 0;
+            border-radius: 1rem;
+            border: 1px solid var(--border-color);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+            background-color: rgba(255, 255, 255, 0.01);
+        }
+
+        th {
+            background-color: rgba(59, 130, 246, 0.05);
+            color: var(--accent-color);
+            text-align: left;
+            padding: 1.25rem;
+            font-weight: 700;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        td {
+            padding: 1.25rem;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-muted);
+            vertical-align: top;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            color: var(--text-color);
+            background-color: rgba(59, 130, 246, 0.02);
+        }
+
+        .highlight {
+            color: var(--accent-color);
+            font-weight: 700;
+        }
+
+        ul,
+        ol {
+            margin-left: 2rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-muted);
+        }
+
+        li {
+            margin-bottom: 0.75rem;
+        }
+
+        @media (max-width: 1100px) {
+            aside {
+                width: 70px;
+                padding: 2rem 0.5rem;
+                align-items: center;
+            }
+
+            .logo span,
+            .toc-title,
+            .toc-item span {
+                display: none;
+            }
+
+            .toc-link {
+                padding: 0.75rem;
+                display: flex;
+                justify-content: center;
+            }
+
+            main {
+                margin-left: 70px;
+                padding: 3rem;
+            }
         }
     </style>
-
 </head>
 
 <body>
-    <div class="container">
-        <h1 id="cerebrus-user-guide">Cerebrus User Guide</h1>
-        <p>Cerebrus is a comprehensive GUI toolkit for Unreal Engine Android profiling workflows. It simplifies the
-            process of collecting logs, moving files, and generating performance reports.</p>
-        <h2 id="table-of-contents">Table of Contents</h2>
-        <ol>
-            <li><a href="#getting-started">Getting Started</a></li>
-            <li><a href="#usage-steps">Usage / Steps to Use</a></li>
-            <li><a href="#profile-management">Profile Management</a></li>
-            <li><a href="#device-management">Device Management</a></li>
-            <li><a href="#remote-profiling">Remote Profiling</a></li>
-            <li><a href="#file-actions">File Actions</a></li>
-            <li><a href="#tools">Tools</a></li>
-            <li><a href="#report-generation">Report Generation</a></li>
-            <li><a href="#settings">Settings</a></li>
-        </ol>
-        <h2 id="getting-started">Getting Started</h2>
-        <p>Launch Cerebrus to see the main dashboard. The application will automatically check for and install ADB
-            (Android Debug Bridge) if it's missing from your system. The interface is divided into several sections:
-            - <strong>Menu Bar</strong>: Access file operations, views, tools, settings, and help.
-            - <strong>Profile Summary</strong>: Displays the currently loaded profile information.
-            - <strong>Device List</strong>: Shows connected Android devices.
-            - <strong>Data and Perf Report</strong>: Configure paths and perform bulk actions.
-            - <strong>Logging</strong>: View real-time application logs.</p>
+    <button id="theme-toggle" title="Toggle Light/Dark Mode">☀️</button>
+    <button id="scroll-top" title="Back to Top">↑</button>
 
-        <h2 id="usage-steps">Usage / Steps to Use</h2>
-        <p>This section provides step-by-step instructions for common workflows in Cerebrus.</p>
-
-        <div class="workflow">
-            <h4>Workflow 1: First-Time Setup</h4>
-            <ol>
-                <li><strong>Launch Cerebrus</strong> - The application will automatically check for ADB. If not found,
-                    it will be installed automatically.</li>
-                <li><strong>Create or Load a Profile</strong> - Go to <code>File → New Profile</code> or use the default
-                    "Titan" profile.</li>
-                <li><strong>Configure Package Name</strong> - In the Edit Profile dialog, enter your Unreal Engine app's
-                    package name (e.g., <code>com.lightfury.titan</code>).</li>
-                <li><strong>Set Output Path</strong> - Choose a workspace folder where all data and reports will be
-                    saved (defaults to <code>C:\</code>).</li>
-                <li><strong>Save Profile</strong> - Your settings will be auto-saved to the profile JSON file.</li>
-            </ol>
+    <aside>
+        <div class="logo">
+            <img src="icon.png" alt="Cerebrus Logo" style="width: 32px; height: 32px; border-radius: 6px;">
+            <span>Cerebrus</span>
         </div>
-
-        <div class="workflow">
-            <h4>Workflow 2: Collecting Data from a Device</h4>
-            <ol>
-                <li><strong>Connect Your Android Device</strong> - Enable USB debugging and connect via USB cable.</li>
-                <li><strong>List Devices</strong> - Click the "List Devices" button to scan for connected devices.
-                    <br><em>Note: If this fails on first run, open Command Prompt and run <code>adb devices</code>
-                        manually once to initialize the ADB daemon.</em>
+        <nav>
+            <div class="toc-title">Documentation</div>
+            <ul class="toc-list">
+                <li class="toc-item"><a href="#intro" class="toc-link"><span>1. Introduction</span></a></li>
+                <li class="toc-item"><a href="#getting-started" class="toc-link"><span>2. Getting Started</span></a>
                 </li>
-                <li><strong>Select Device</strong> - Click on the device row in the table to select it. The device
-                    make/model will be automatically appended to your output path.</li>
-                <li><strong>Verify Package Installation</strong> - Check that the "Package Found" column shows "Yes" for
-                    your device.</li>
-                <li><strong>Run Your App</strong> - Launch your Unreal Engine application on the device.</li>
-                <li><strong>Start Profiling</strong> (Optional) - Click "Start Profiling" to begin collecting
-                    performance data.</li>
-                <li><strong>Perform Testing</strong> - Use your app and perform the actions you want to profile.</li>
-                <li><strong>Stop Profiling</strong> (Optional) - Click "Stop Profiling" when done.</li>
-                <li><strong>Move Data to PC</strong>:
-                    <ul>
-                        <li>Check "Move Logs" to copy log files from the device</li>
-                        <li>Check "Move Profiling Data" to copy CSV profiling data</li>
-                        <li>Files will be organized in <code>Output Path/DeviceMakeModel/Logs</code> and
-                            <code>Output Path/DeviceMakeModel/CSV</code>
+                <li class="toc-item"><a href="#data-concepts" class="toc-link"><span>3. Understanding Your
+                            Data</span></a>
+                </li>
+                <li class="toc-item"><a href="#usage" class="toc-link"><span>4. Usage / Steps to Use</span></a>
+                    <ul class="toc-list">
+                        <li class="toc-item"><a href="#usage-setup" class="toc-link toc-sub-link">First-Time Setup</a>
+                        </li>
+                        <li class="toc-item"><a href="#usage-collection" class="toc-link toc-sub-link">Data
+                                Collection</a></li>
+                        <li class="toc-item"><a href="#usage-generation" class="toc-link toc-sub-link">Generating
+                                Reports</a></li>
+                        <li class="toc-item"><a href="#usage-multi" class="toc-link toc-sub-link">Multiple Devices</a>
+                        </li>
+                        <li class="toc-item"><a href="#usage-existing" class="toc-link toc-sub-link">Existing Data</a>
                         </li>
                     </ul>
                 </li>
-            </ol>
-        </div>
-
-        <div class="workflow">
-            <h4>Workflow 3: Generating Performance Reports</h4>
-            <ol>
-                <li><strong>Ensure Data is Available</strong> - Make sure you have CSV files and/or log files in your
-                    output path (either from moving data or from previous sessions).</li>
-                <li><strong>Set Output File Name</strong> - Enter a descriptive name for your report in the "Output File
-                    Name" field.</li>
-                <li><strong>Choose Report Type</strong>:
-                    <ul>
-                        <li><strong>Generate Perf Report Only</strong> - Processes CSV files using PerfreportTool.exe to
-                            create performance reports</li>
-                        <li><strong>Generate Colored Logs Only</strong> - Converts text logs to color-coded HTML files
-                            for easier reading</li>
-                        <li><strong>Generate Perf Report + Colored Logs</strong> - Performs both operations together
-                        </li>
+                <li class="toc-item"><a href="#profiles" class="toc-link"><span>4. Profile Management</span></a></li>
+                <li class="toc-item"><a href="#devices" class="toc-link"><span>5. Device Management</span></a>
+                    <ul class="toc-list">
+                        <li class="toc-item"><a href="#usage-compatibility" class="toc-link toc-sub-link">Compatibility
+                                Warning</a></li>
                     </ul>
                 </li>
-                <li><strong>Click the Generate Button</strong> - The selected operation will run and output files will
-                    be created in the device-specific subfolder.</li>
-                <li><strong>View Results</strong> - Click "View HTML Logs" to open the output folder and view generated
-                    reports.</li>
-            </ol>
-        </div>
-
-        <div class="workflow">
-            <h4>Workflow 4: Working with Multiple Devices or Projects</h4>
-            <ol>
-                <li><strong>Create Separate Profiles</strong> - Go to <code>File → New Profile</code> for each
-                    project/app.</li>
-                <li><strong>Configure Each Profile</strong> - Set unique package names and output paths for each.</li>
-                <li><strong>Save Profiles</strong> - Use descriptive filenames (e.g., <code>titan_profile.json</code>,
-                    <code>game2_profile.json</code>).
+                <li class="toc-item"><a href="#file-actions" class="toc-link"><span>6. File Actions</span></a>
+                    <ul class="toc-list">
+                        <li class="toc-item"><a href="#file-config" class="toc-link toc-sub-link">Configuration</a></li>
+                        <li class="toc-item"><a href="#file-phone-pc" class="toc-link toc-sub-link">Phone to PC</a></li>
+                    </ul>
                 </li>
-                <li><strong>Switch Between Profiles</strong> - Use <code>File → Open Profile</code> to load different
-                    configurations.</li>
-                <li><strong>Device Auto-Organization</strong> - When you select different devices, Cerebrus
-                    automatically creates device-specific subfolders to keep data organized.</li>
-            </ol>
-        </div>
-
-        <div class="workflow">
-            <h4>Workflow 5: Analyzing Existing Data</h4>
-            <ol>
-                <li><strong>Set Output Path</strong> - Point to a folder that already contains <code>Logs</code> and/or
-                    <code>CSV</code> subdirectories.
+                <li class="toc-item"><a href="#report-gen" class="toc-link"><span>7. Report Generation</span></a>
+                    <ul class="toc-list">
+                        <li class="toc-item"><a href="#report-pc-pc" class="toc-link toc-sub-link">Bulk Actions (PC to
+                                PC)</a></li>
+                    </ul>
                 </li>
-                <li><strong>Generate Reports</strong> - You can generate performance reports and colored logs even
-                    without moving data from a device.</li>
-                <li><strong>No Device Required</strong> - This workflow works entirely offline with existing data.</li>
-            </ol>
-        </div>
+                <li class="toc-item"><a href="#memreport" class="toc-link"><span>8. Memory Report Analyzer</span></a>
+                    <ul class="toc-list">
+                        <li class="toc-item"><a href="#memreport-tabs" class="toc-link toc-sub-link">Tab Breakdown</a>
+                        </li>
+                        <li class="toc-item"><a href="#memreport-interact" class="toc-link toc-sub-link">Interactive
+                                Features</a></li>
+                    </ul>
+                </li>
+                <li class="toc-item"><a href="#console" class="toc-link"><span>9. Remote Console</span></a></li>
+                <li class="toc-item"><a href="#tools-settings" class="toc-link"><span>10. Tools & Settings</span></a>
+                </li>
+                <li class="toc-item"><a href="#advanced" class="toc-link"><span>11. Advanced Features</span></a></li>
+                <li class="toc-item"><a href="#best-practices" class="toc-link"><span>12. Best Practices &
+                            Accuracy</span></a></li>
+                <li class="toc-item"><a href="#troubleshoot" class="toc-link"><span>13. Troubleshooting</span></a>
+                    <ul class="toc-list">
+                        <li class="toc-item"><a href="#troubleshoot-adb" class="toc-link toc-sub-link">ADB &
+                                Connectivity</a></li>
+                        <li class="toc-item"><a href="#troubleshoot-data" class="toc-link toc-sub-link">Missing Data &
+                                Reports</a></li>
+                        <li class="toc-item"><a href="#troubleshoot-build" class="toc-link toc-sub-link">Build Type
+                                Compatibility</a></li>
+                        <li class="toc-item"><a href="#troubleshoot-parsing" class="toc-link toc-sub-link">Parsing
+                                Failures</a></li>
+                    </ul>
+                <li class="toc-item"><a href="#known-issues" class="toc-link"><span>14. Known Issues & Bugs</span></a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
 
-        <h2 id="profile-management">Profile Management</h2>
-        <p>Profiles allow you to save and load configurations for different projects or devices.
-            - <strong>New Profile</strong>: Create a fresh configuration.
-            - <strong>Open Profile</strong>: Load an existing JSON profile.
-            - <strong>Edit Profile</strong>: Modify the current profile settings.
-            - <strong>Auto-Save</strong>: Changes to paths and settings are automatically saved to the current profile.
-        </p>
-        <h2 id="device-management">Device Management</h2>
-        <p>The device list shows all connected Android devices.
-            - <strong>Refresh</strong>: Click "List Devices" to scan for connected devices.
-            - <strong>Selection</strong>: Click on a device row to select it for operations.
-            - <strong>Status</strong>: The table shows the device model, serial number, Android version, and if the
-            target package is installed.</p>
-        <h2 id="remote-profiling">Remote Profiling & Console</h2>
-        <p>Control Unreal Engine profiling directly from Cerebrus.
-            - <strong>Launch Package</strong>: Launches the application (supports Launch Package v2.0.0).
-            - <strong>Start Profiling</strong>: Starts profiling data on selected device.
-            - <strong>Stop Profiling</strong>: Stops profiling data on selected device.
-            - <strong>Remote Console</strong>: Send commands directly to the device.
-        </p>
+    <main>
+        <section id="intro">
+            <h2>Introduction</h2>
+            <h1>Modern Profiling for Unreal Engine Android.</h1>
+            <p>Cerebrus is an advanced GUI-driven toolkit designed to streamline the chaotic process of Unreal
+                Engine profiling. It provides a UI-friendly interface for device listing and data extraction,
+                transforming raw terminal noise into actionable developer dashboards.</p>
 
-        <h3 id="console-commands">Remote Console Commands</h3>
-        <p>Send standard or custom console commands to the running application.</p>
-        <ul>
-            <li><strong>Memreport</strong>: Sends <code>memreport</code> to generate a standard memory report.</li>
-            <li><strong>Memreport Full</strong>: Sends <code>memreport -full</code> for a comprehensive memory analysis.
-            </li>
-            <li><strong>Custom Command</strong>: Type any command (e.g., <code>stat unit</code>) and press Enter or
-                click Send.</li>
-        </ul>
+            <div class="features-grid">
+                <div class="card">
+                    <div class="feature-item">
+                        <div class="feature-icon">💎</div>
+                        <div>
+                            <h4 class="highlight">Precision Analysis</h4>
+                            <p>Exhaustive parsing of memory reports, CSV profiling time series data and Color Coded
+                                logs.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="feature-item">
+                        <div class="feature-icon">🛸</div>
+                        <div>
+                            <h4 class="highlight">Remote Command</h4>
+                            <p>Execute complex console strings across multiple devices from a unified interface.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="feature-item">
+                        <div class="feature-icon">🔍</div>
+                        <div>
+                            <h4 class="highlight">Device Discovery</h4>
+                            <p>UI-friendly device listing to validate installation and handle
+                                <code>Launch</code>/<code>Resume</code> operations.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="feature-item">
+                        <div class="feature-icon">⚡</div>
+                        <div>
+                            <h4 class="highlight">Bulk Automation</h4>
+                            <p>One-click pipelines to pull CSVs, memory reports and logs to generate reports in
+                                sequence.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="feature-item">
+                        <div class="feature-icon">🎯</div>
+                        <div>
+                            <h4 class="highlight">Multi-Device Targeting</h4>
+                            <p>Independently target specific devices for CSV performance data, logs, and memory reports
+                                across multiple connected handsets.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="feature-item">
+                        <div class="feature-icon">🌗</div>
+                        <div>
+                            <h4 class="highlight">Universal Access</h4>
+                            <p>Support for Light and Dark modes across the toolkit, HTML Logs, and Memory Reports.
+                                <code
+                                    class="note-orange">(Note: Performance Reports do not currently support theme toggles or Scroll to Top).</code>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <section id="getting-started">
+                <h2>Getting Started</h2>
+                <div class="card">
+                    <p>Launch Cerebrus to see the main dashboard. All necessary dependencies, including <code>ADB
+                            (Android Debug Bridge)</code>, are bundled with the installation. In case of any
+                        <code class="highlight-red">failures</code>, please contact the <code>Tech & Tools team</code>.
+                    </p>
+                    <p>The interface is divided into several sections:</p>
+                    <ul>
+                        <li><span class="highlight">Menu Bar:</span> Access file operations, views,
+                            <code>Tools Menu</code>, <code>Settings Menu</code>, and <code>Help</code>.
+                        </li>
+                        <li><span class="highlight">Profile Summary:</span> Displays the currently loaded profile
+                            information.</li>
+                        <li><span class="highlight">Device List:</span> Shows connected Android devices and their target
+                            package status.</li>
+                        <li><span class="highlight">Data, Memory and Perf Report:</span> Configure paths and perform
+                            bulk
+                            actions for CSV profiling, logs, and memory dumps.</li>
+                        <li><span class="highlight">Logging:</span> View real-time application logs and process status.
+                        </li>
+                    </ul>
+                </div>
+            </section>
 
-        <h2 id="file-actions">File Actions</h2>
-        <p>Manage files between your PC and the connected Android device.</p>
-        <h3 id="configuration">Configuration</h3>
-        <ul>
-            <li><strong>Output File Name</strong>: The base name for generated files.</li>
-            <li><strong>Output Path</strong>: The main workspace folder. Files moved from devices will be saved here,
-                and generated reports will be output here.</li>
-            <li><strong>Automatic Device Organization</strong>: When a device is selected, a subfolder with the device
-                make and model is automatically created in the Output Path to keep your data organized.</li>
-        </ul>
-        <h3 id="bulk-actions-phone-to-pc">Bulk Actions (Phone to PC)</h3>
-        <ul>
-            <li><strong>Move Logs</strong>: Copies logs from <code>Saved/Logs</code> on the device to your PC.</li>
-            <li><strong>Move Profiling Data</strong>: Copies profiling data from <code>Saved/Profiling/CSV</code> on the
-                device to your PC.</li>
-        </ul>
+            <section id="data-concepts">
+                <h2>Understanding Your Data</h2>
+                <div class="features-grid">
+                    <div class="card">
+                        <h4 class="highlight">Profiling Reports (CSV)</h4>
+                        <p style="font-size: 0.9rem;">These represent <code class="highlight-green">Time Series
+                                Data</code>. They track metrics (FPS, Frame Time, GPU) continuously over a duration.
+                            They are strictly <code class="highlight-orange">Device & Tier Specific</code>—comparing a
+                            low-tier handset to a flagship is not recommended.</p>
+                    </div>
+                    <div class="card">
+                        <h4 class="highlight">Memory Reports (MemReport)</h4>
+                        <p style="font-size: 0.9rem;">Unlike CSVs, these are <code class="highlight-green">Single Frame
+                                Dumps</code>. They capture the exact memory state at the moment the command is
+                            executed.
+                            Like performance reports, these are <code class="highlight-orange">Device & Tier
+                                Specific</code> and fluctuate based on specific level context.</p>
+                    </div>
+                </div>
+                <div class="card warning-red" style="margin-top: 1rem; border-left: 4px solid #ef4444;">
+                    <p style="font-size: 0.95rem; margin-bottom: 0;"><strong class="highlight-red">Critical
+                            Note:</strong> Performance and
+                        memory metrics vary wildly between hardware. Always validate that your targets are running on
+                        the intended <code class="highlight-blue">Device Tier</code> for accurate optimization
+                        comparisons.</p>
+                </div>
+            </section>
 
-        <h2 id="tools">Tools</h2>
-        <p>Access additional utilities from the <strong>Tools</strong> menu.</p>
-        <h3 id="aws-configuration">AWS Configuration</h3>
-        <p>Configure AWS credentials for S3 integration.</p>
-        <ul>
-            <li><strong>S3 Bucket URL</strong>: The base URL for your S3 bucket (e.g., for config downloads).</li>
-            <li><strong>Access Key / Secret Key</strong>: Your AWS credentials.</li>
-            <li><strong>Region</strong>: The AWS region for your resources.</li>
-        </ul>
-        <p>These settings are used for resolving remote configurations and other cloud-integrated features.</p>
+            <section id="usage">
+                <h2>Usage / Steps to Use</h2>
+                <p>Step-by-step instructions for common workflows in Cerebrus.</p>
 
-        <h2 id="report-generation">Report Generation</h2>
-        <p>Process collected data into readable formats.</p>
-        <h3 id="bulk-actions-pc-to-pc">Bulk Actions (PC to PC)</h3>
-        <ul>
-            <li><strong>Recursive Search</strong>: Automatically recursively searches for files in the output directory.
-            </li>
-            <li><strong>Generate Perf Report Only</strong>: Runs <code>PerfreportTool.exe</code> on CSV files (includes
-                Avg FPS).</li>
-            <li><strong>Generate Memory Report Only</strong>: Converts <code>.memreport</code> files to interactive HTML
-                visualizations.</li>
-            <li><strong>Generate Colored Logs Only</strong>: Converts text logs to color-coded HTML files.</li>
-            <li><strong>Generate All</strong>: Performs all enabled operations in sequence.</li>
-            <li><strong>View HTML Logs</strong>: Opens the output folder to view generated HTML logs.</li>
-        </ul>
+                <div id="usage-setup" class="card">
+                    <h3>Workflow 1: First-Time Setup</h3>
+                    <ol class="steps">
+                        <li class="step-item">
+                            <h4 class="highlight">Launch Cerebrus</h4>
+                            <p>The application automatically checks for <code>ADB</code>. If not found, it will be
+                                installed
+                                automatically.</p>
+                        </li>
+                        <li class="step-item">
+                            <h4 class="highlight">Create or Load a Profile</h4>
+                            <p>Go to <code>File → New Profile</code> or use the default "Titan" profile.</p>
+                        </li>
+                        <li class="step-item">
+                            <h4 class="highlight">Configure Package Name</h4>
+                            <p>In the Edit Profile dialog, enter your Unreal Engine app's <code>Package Name</code>
+                                (e.g.,
+                                <code>com.lightfury.titan</code>).
+                            </p>
+                        </li>
+                        <li class="step-item">
+                            <h4 class="highlight">Cloud Integration <code class="highlight-orange">(Optional)</code>
+                            </h4>
+                            <p>Configure AWS credentials for S3 integration via the
+                                <code>Tools → AWS Configuration</code>
+                                menu. This is now decoupled from your profile, allowing you to switch between different
+                                bucket/credential sets globally.
+                            </p>
+                        </li>
+                        <li class="step-item">
+                            <h4 class="highlight">Set Output Path</h4>
+                            <p>Choose a workspace folder where all data and reports will be saved (defaults to
+                                <code>C:\</code>).
+                            </p>
+                        </li>
+                        <li class="step-item">
+                            <h4 class="highlight">Save Profile</h4>
+                            <p>Your settings will be auto-saved to the profile JSON file.
+                                <br>
+                                <code
+                                    class="note-orange">Note: AWS Settings are stored in a separate global JSON file and can be replaced or updated without needing to create a new profile.</code>
+                            </p>
+                        </li>
+                    </ol>
+                </div>
 
-        <h2 id="tools">Tools</h2>
-        <p>Access additional utilities from the <strong>Tools</strong> menu.</p>
+                <div id="usage-collection" class="card">
+                    <h3>Workflow 2: Collecting Data from a Device</h3>
+                    <ol class="steps">
+                        <li class="step-item">
+                            <h4 class="highlight">Connect Your Android Device</h4>
+                            <p>Enable USB debugging and connect via USB cable.</p>
+                        </li>
+                        <li class="step-item">
+                            <h4 class="highlight">List Devices</h4>
+                            <p>Click <code>List Devices</code> to scan.</p>
+                            <span class="note-orange" style="display: block; margin-top: 0.5rem;">Note: If this fails,
+                                run <code>adb devices</code> in a Command
+                                Prompt once to initialize the daemon.</span>
+                        </li>
+                        <li class="step-item">
+                            <h4 class="highlight">Select Device</h4>
+                            <p>Click on the device row. The make/model is automatically appended to your output path.
+                            </p>
+                        </li>
+                        <li class="step-item">
+                            <h4 class="highlight">Verify Package Installation</h4>
+                            <p>Check that <code>Package Found</code> shows <code class="highlight-green">Yes</code> (or
+                                <code class="highlight-red">No</code> if not installed).
+                            </p>
+                        </li>
+                        <li class="step-item">
+                            <h4 class="highlight">Run & Profile</h4>
+                            <p><code>Launch</code> the app. Optionally click <code>Start Profiling</code> to begin
+                                collection,
+                                and
+                                <code>Stop Profiling</code> when finished.
+                            </p>
+                        </li>
+                        <li class="step-item">
+                            <h4 class="highlight">Move Data to PC</h4>
+                            <p>Check <code>Move Logs</code>, <code>Move Profiling Data</code>, or
+                                <code>Move MemReports</code>. Files are
+                                organized into <code>Output Path/Device/Profiling</code> (for CSVs),
+                                <code>Output Path/Device/Logs</code>, and <code>Output Path/Device/MemReports</code>.
+                            </p>
+                        </li>
+                    </ol>
+                </div>
 
-        <h3 id="advanced-memory-reporting">Advanced Memory Reporting</h3>
-        <p>Use the <strong>MemReport to HTML</strong> tool to visualize memory logs. This generates a dashboard with:
-        </p>
-        <ul>
-            <li>Device Information & Metadata</li>
-            <li>Memory Statistics (Physical, Virtual, Page File)</li>
-            <li>Object Summary Lists</li>
-        </ul>
+                <div id="usage-generation" class="card">
+                    <h3>Workflow 3: Generating Performance Reports</h3>
+                    <ol class="steps">
+                        <li class="step-item">
+                            <h4 class="highlight">Ensure Data is Available</h4>
+                            <p>Confirm CSV, Log, or MemReport files exist in your output path (from data moves or
+                                previous sessions).
+                            </p>
+                        </li>
+                        <li class="step-item">
+                            <h4 class="highlight">Set Output File Name</h4>
+                            <p>The base name for generated files.</p>
+                            <div class="card warning-red"
+                                style="margin-top: 0.5rem; padding: 0.5rem; border-left: 3px solid #ef4444;">
+                                <p style="font-size: 0.95rem; margin-bottom: 0;">
+                                    <span class="note-red">⚠️ Known Bug:</span> Multi-part CSV renaming has edge cases.
+                                </p>
+                            </div>
+                        </li>
+                        <li class="step-item">
+                            <h4 class="highlight">Choose Report Type</h4>
+                            <p>Select <code>Generate Perf Report Only</code>, <code>Generate Colored Logs Only</code>,
+                                <code>Generate Memory Report Only</code>, or any combination of these.
+                            </p>
+                        </li>
+                        <li class="step-item">
+                            <h4 class="highlight">Click Generate</h4>
+                            <p>The operation runs and outputs files to organized subdirectories:
+                                <code>/Profiling</code> for Performance Reports,
+                                <code>/Logs</code> for Colored Logs, and
+                                <code>/MemReports</code> for Memory Analysis.
+                            </p>
+                        </li>
+                        <li class="step-item">
+                            <h4 class="highlight">View Results</h4>
+                            <p>Click <code>View HTML Files</code> to open the folder and inspect reports.</p>
+                        </li>
+                    </ol>
+                </div>
 
-        <h3 id="aws-configuration">AWS Configuration</h3>
-        <p>Customize your experience via the Settings menu.
-            - <strong>Load Theme</strong>: Switch between Dark, Light, or System themes.
-            - <strong>Log Colors</strong>: Customize the colors used in the application log window.
-            - <strong>Key Bindings</strong>: View or edit keyboard shortcuts.</p>
-        <h2 id="troubleshooting">Troubleshooting</h2>
-        <ul>
-            <li><strong>No Devices Found</strong>: Ensure USB debugging is enabled and ADB is running.</li>
-            <li><strong>List Devices Not Working</strong>: If the "List Devices" button does not work automatically,
-                open a command prompt and run the command <code>adb devices</code> manually once to initialize the
-                daemon.</li>
-            <li><strong>Tool Not Found</strong>: Verify that <code>PerfreportTool.exe</code> path is correctly
-                configured in your environment or settings.</li>
-        </ul>
-    </div>
+                <div id="usage-multi" class="card">
+                    <h3>Workflow 4: Working with Multiple Devices or Projects</h3>
+                    <ul>
+                        <li><span class="highlight">Separate Profiles:</span> Create unique profiles for each project
+                            (e.g.,
+                            <code>titan.json</code>, <code>game2.json</code>).
+                        </li>
+                        <li><span class="highlight">Switching:</span> Use <code>File → Open Profile</code> to hot-swap
+                            configurations.</li>
+                        <li><span class="highlight">Auto-Organization:</span> Device-specific subfolders are created
+                            automatically upon selection to prevent data collisions.</li>
+                    </ul>
+                </div>
+
+                <div id="usage-existing" class="card">
+                    <h3>Workflow 5: Analyzing Existing Data</h3>
+                    <ul>
+                        <li><span class="highlight">Point & Click:</span> Set Output Path to any folder containing
+                            <code>Logs</code>, <code>CSV</code>, or <code>MemReports</code> subdirectories.
+                        </li>
+                        <li><span class="highlight">Offline Mode:</span> Generate performance reports, colored logs, and
+                            memory dashboards entirely
+                            offline without a connected device.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section id="profiles">
+                <h2>Profile Management</h2>
+                <div class="card">
+                    <p>Cerebrus uses a profile-centric architecture. This allows different engineering teams (UI,
+                        Rendering,
+                        Gameplay) to maintain separate workspace structures and targeting rules.</p>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Setting</th>
+                                    <th>Functional Impact</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="highlight">Package Name</td>
+                                    <td>Dictates which app ADB targets for logs, file pulls, and console commands.</td>
+                                </tr>
+                                <tr>
+                                    <td class="highlight">Output Path</td>
+                                    <td>The root folder. Cerebrus will append <code>/DeviceModel_Serial/</code>
+                                        automatically to keep runs separate.</td>
+                                </tr>
+                                <tr>
+                                    <td class="highlight">Prefix Logic</td>
+                                    <td>Toggle whether to rename files entirely or just prefix them with your chosen
+                                        name.
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="highlight">AWS Configuration <code
+                                            class="highlight-orange">(Optional)</code></td>
+                                    <td><code>S3 configuration</code> is now stored as a separate
+                                        <code>global JSON</code>,
+                                        decoupling it from individual profiles. This allows you to maintain and
+                                        select from multiple independent bucket configurations across all your
+                                        projects.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 1rem;">
+                    <h4 class="highlight">Creating Profiles</h4>
+                    <p style="font-size: 0.95rem;">Use <code class="highlight-green">File → New Profile</code> to create
+                        a fresh configuration. This isolates your <code>Package Name</code> and <code>Output
+                            Path</code> into a new JSON file, perfect for
+                        switching between different game projects.
+                    </p>
+                    <div class="card warning-blue"
+                        style="margin-top: 0.5rem; padding: 0.5rem; border-left: 3px solid #3b82f6;">
+                        <p style="font-size: 0.9rem; margin-bottom: 0;">
+                            <span class="note-blue">AWS Management:</span> AWS credentials are saved in a separate JSON.
+                            You can maintain multiple AWS files and swap them via the <code>Tools</code> menu to test
+                            different environments or accounts without modifying your core tool profiles.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="devices">
+                <h2>Device Management</h2>
+                <div class="card">
+                    <p>Cerebrus provides a sophisticated bridge between your workstation and connected Android handsets,
+                        automating the complex ADB handshakes required for Unreal profiling.</p>
+                    <div class="features-grid" style="margin-top: 1rem;">
+                        <div class="card" style="padding: 1.5rem;">
+                            <h4 class="highlight">Smart Discovery</h4>
+                            <p style="font-size: 0.9rem;">UI-friendly device listing to validate installation.
+                                Cerebrus
+                                validates if the target <code>Package Name</code> is installed and ready for
+                                profiling.
+                            </p>
+                        </div>
+                        <div class="card" style="padding: 1.5rem;">
+                            <h4 class="highlight">Lifecycle Control</h4>
+                            <p style="font-size: 0.9rem;">One-click <code>Launch</code>, <code>Resume</code>,
+                                and
+                                <code>Force Stop</code> operations ensure you are profiling the correct process
+                                state.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="usage-compatibility" class="warning-box warning-orange">
+                    <h4 class="note-orange">⚠️ Build Compatibility Warning</h4>
+                    <p style="font-size: 0.95rem; margin-bottom: 0;">Profiling functionality depends heavily on your
+                        Unreal
+                        Build Configuration:</p>
+                    <ul style="font-size: 0.9rem; margin-top: 0.5rem;">
+                        <li><span class="highlight"><code>Development</code>:</span> Full functionality. Supported for
+                            all profiling,
+                            logging, and console commands.</li>
+                        <li><span class="highlight"><code>Test</code>:</span> Supports Console Commands and MemReports.
+                            <code class="note-orange">Logging is disabled</code> by Unreal in this build type.
+                        </li>
+                        <li><span class="highlight"><code>Shipping</code>:</span> <code
+                                class="highlight-red">Incompatible</code>.
+                            Console and Logging are stripped by the engine. Discovery will fail.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section id="file-actions">
+                <h2>File Actions</h2>
+                <p>Manage files between your PC and the connected Android device.</p>
+
+                <div id="file-config" class="card">
+                    <h3>Configuration</h3>
+                    <ul>
+                        <li><span class="highlight">Output File Name:</span> The base name for generated files.
+                            <div class="card warning-red"
+                                style="margin-top: 0.5rem; padding: 0.5rem; border-left: 3px solid #ef4444;">
+                                <p style="font-size: 0.95rem; margin-bottom: 0;">
+                                    <span class="note-red">⚠️ Known Bug:</span> Multi-part CSV renaming has edge cases.
+                                </p>
+                            </div>
+                        </li>
+                        <li><span class="highlight">Output Path:</span> The main workspace folder. Files moved from
+                            devices
+                            will be saved here, and generated reports will be output here.</li>
+                        <li><span class="highlight">Automatic Device Organization:</span> When a device is selected,
+                            a
+                            subfolder with the device make and model is automatically created in the Output Path to
+                            keep
+                            your data organized.</li>
+                    </ul>
+                </div>
+
+                <div id="file-phone-pc" class="card">
+                    <h3 style="margin-bottom: 0.5rem;">Bulk Actions (Phone to PC)</h3>
+                    <div class="features-grid" style="grid-template-columns: repeat(3, 1fr); margin-top: 1rem;">
+                        <div class="card" style="padding: 1rem;">
+                            <h4 class="highlight">Move Logs</h4>
+                            <p style="font-size: 0.9rem;">Copies logs from <code>Saved/Logs</code> on the device to your
+                                PC.
+                            </p>
+                        </div>
+                        <div class="card" style="padding: 1rem;">
+                            <h4 class="highlight">Move Profiling Data</h4>
+                            <p style="font-size: 0.9rem;">Copies profiling data from <code>Saved/Profiling/CSV</code> on
+                                the
+                                device to your PC.</p>
+                        </div>
+                        <div class="card" style="padding: 1rem;">
+                            <h4 class="highlight">Move MemReports</h4>
+                            <p style="font-size: 0.9rem;">Copies memory reports from
+                                <code>Saved/Profiling/MemReport</code> on the device to your PC.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="report-gen">
+                <h2>Report Generation</h2>
+                <p>Process collected data into readable formats.</p>
+
+                <div id="report-pc-pc" class="card">
+                    <h3>Bulk Actions (PC to PC)</h3>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Action</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="highlight">Recursive Search</td>
+                                    <td>Automatically recursively searches for files in the output directory.</td>
+                                </tr>
+                                <tr>
+                                    <td class="highlight">Generate Perf Report Only</td>
+                                    <td>Runs <code>PerfreportTool.exe</code> on CSV files (includes Avg FPS).</td>
+                                </tr>
+                                <tr>
+                                    <td class="highlight">Generate Memory Report Only</td>
+                                    <td>Converts <code>.memreport</code> files to interactive HTML visualizations.</td>
+                                </tr>
+                                <tr>
+                                    <td class="highlight">Generate Colored Logs Only</td>
+                                    <td>Converts text logs to color-coded HTML files.</td>
+                                </tr>
+                                <tr>
+                                    <td class="highlight">Generate All</td>
+                                    <td>Performs all enabled operations in sequence.</td>
+                                </tr>
+                                <tr>
+                                    <td class="highlight">Report Enhancements</td>
+                                    <td>Dark Mode toggle and Scroll to Top button are supported by HTML Logs, Memory
+                                        Reports, and Cerebrus Documentation for better readability.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="memreport">
+                <span class="badge badge-new">Latest Enhancement</span>
+                <h2>Memory Report Analyzer</h2>
+                <p>Converts static walls of text logs of thousands of lines into an interactive, lightning-fast HTML
+                    dashboard. Essential for
+                    spotting memory regressions <strong>before</strong> they hit production builds.</p>
+
+                <div class="card" id="memreport-tabs">
+                    <h3 style="margin-bottom: 0.5rem;">Expert Tab Breakdown</h3>
+                    <p style="margin-bottom: 1.5rem;">Cerebrus parses every major Stat Group from the MemReport output,
+                        categorized for
+                        cross-discipline
+                        utility:</p>
+
+                    <div class="features-grid"
+                        style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 1rem;">
+                        <div class="card" style="padding: 1.5rem; border-style: dashed;">
+                            <h4 class="highlight">Overview & Engine</h4>
+                            <ul style="font-size: 0.9rem; margin-top: 0.5rem; margin-left: 1.2rem;">
+                                <li><strong>Device Info:</strong> Build CL, Config, and Device Name.</li>
+                                <li><strong>Memory Stats:</strong> OS Physical/Virtual Mem, LLM Tags.</li>
+                                <li><strong>Level Loading:</strong> Streaming status and load times.</li>
+                                <li><strong>Object Summary:</strong> Global instance counts and memory.</li>
+                            </ul>
+                            <div
+                                style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 0.75rem;">
+                                <span class="persona-tag">Best For:</span>
+                                <p style="font-size: 0.85rem; font-style: italic; margin-bottom: 0;">
+                                    <strong>Tech Leads:</strong> Budget tracking & CL validation.<br>
+                                    <strong>Core Engine:</strong> LLM tag audits & memory limit tuning.<br>
+                                    <strong>QA:</strong> Build configuration & device spec verification.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="card" style="padding: 1.5rem; border-style: dashed;">
+                            <h4 class="highlight">Rendering & VFX</h4>
+                            <ul style="font-size: 0.9rem; margin-top: 0.5rem; margin-left: 1.2rem;">
+                                <li><strong>Texture Stats:</strong> Resolution, Format, and VRAM.</li>
+                                <li><strong>RHI Resource Stats:</strong> Draw calls, Vertices, Indices.</li>
+                                <li><strong>Render Target Pool:</strong> GPU buffer allocations.</li>
+                                <li><strong>Particle Systems:</strong> Component counts and VFX memory.</li>
+                            </ul>
+                            <div
+                                style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 0.75rem;">
+                                <span class="persona-tag">Best For:</span>
+                                <p style="font-size: 0.85rem; font-style: italic; margin-bottom: 0;">
+                                    <strong>VFX:</strong> Particle memory impact & component limits.<br>
+                                    <strong>Graphics Eng:</strong> VRAM pool & GPU buffer health.<br>
+                                    <strong>Tech Art:</strong> Texture resolution audits & Draw Call density.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="card" style="padding: 1.5rem; border-style: dashed;">
+                            <h4 class="highlight">Assets & Audio</h4>
+                            <ul style="font-size: 0.9rem; margin-top: 0.5rem; margin-left: 1.2rem;">
+                                <li><strong>Skeletal/Static Mesh:</strong> LODs and geometry memory.</li>
+                                <li><strong>SoundWave Stats:</strong> Audio bitrate and cache usage.</li>
+                                <li><strong>Level Memory:</strong> Sub-level specific budget tracking.</li>
+                            </ul>
+                            <div
+                                style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 0.75rem;">
+                                <span class="persona-tag">Best For:</span>
+                                <p style="font-size: 0.85rem; font-style: italic; margin-bottom: 0;">
+                                    <strong>Audio:</strong> Wave cache usage & bitrate optimization.<br>
+                                    <strong>Env Art:</strong> Sub-level memory budget tracking.<br>
+                                    <strong>Anim/QA:</strong> LOD geometry footprint & Asset sanity checks.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="card" style="padding: 1.5rem; border-style: dashed;">
+                            <h4 class="highlight">Actors & Logic</h4>
+                            <ul style="font-size: 0.9rem; margin-top: 0.5rem; margin-left: 1.2rem;">
+                                <li><strong>Actor Hierarchy:</strong> Tree-view of level actors (available in specific
+                                    tabs).</li>
+                                <li><strong>Class Stats:</strong> Detailed per-class memory metrics (available in
+                                    specific tabs).</li>
+                                <li><strong>Config Cache:</strong> .ini and config memory overhead.</li>
+                            </ul>
+                            <div
+                                style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 0.75rem;">
+                                <span class="persona-tag">Best For:</span>
+                                <p style="font-size: 0.85rem; font-style: italic; margin-bottom: 0;">
+                                    <strong>Level Design:</strong> Spatial actor hierarchy analysis.<br>
+                                    <strong>Gameplay:</strong> Class-based memory growth monitoring.<br>
+                                    <strong>QA:</strong> Identifying memory spikes & tracking high-cost assets.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 id="memreport-interact" style="margin-top: 2rem;">Exclusive Interactive Features</h3>
+                    <ul>
+                        <li><span class="highlight">Actor Hierarchy:</span> Interactive tree-view of level actors to
+                            identify parent-child memory relationships.</li>
+                        <li><span class="highlight">Threshold-based Filtration:</span> A slider-driven system to hide
+                            "noise" assets (e.g., hiding everything below 1MB).</li>
+                        <li><span class="highlight">Multi-toggle Filtration:</span> Layered filters to isolate specific
+                            categories like VFX, Meshes, or UI simultaneously.</li>
+                        <li><span class="highlight">Sticky Totals:</span> Critical aggregate values (Total Physical Mem,
+                            Total Texture Size) are pinned to the top of every table.</li>
+                        <li><span class="highlight">Smart Sorting:</span> Column headers support two-way sorting with
+                            color
+                            indicators (<span style="color: #ef4444">▼ Red</span> for Heavy/Desc, <span
+                                style="color: #10b981">▲ Green</span> for Light/Asc).</li>
+                        <li><span class="highlight">Report Validations:</span> Real-time generation of
+                            <code>Warnings</code> and <code class="highlight-red">Errors</code> to help devs and QA
+                            validate data integrity.
+                        </li>
+                        <li><span class="highlight">Global Search:</span> Instant fuzzy filtering across tens of
+                            thousands
+                            of rows.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section id="console">
+                <h2>Remote Console</h2>
+                <div class="card">
+                    <p>The Remote Console provides a terminal interface directly to the Unreal Engine game thread. It
+                        allows you to trigger Unreal commands without needing to touch the device screen.</p>
+                    <pre><code>// Common Profiling Commands (Not Case Sensitive)
+stat unit          // High-level FPS/Frame breakdown
+stat renderthread  // Detailed GPU/Draw call analytics
+memreport -full    // Comprehensive memory dump
+slomo 0.1          // Slow down time (useful for debugging VFX/Logic)
+t.MaxFPS 30        // Lock framerate for consistency</code></pre>
+                    <p class="note-orange">Note: Console commands only work if the application's package is in
+                        the <code>foreground</code> on the device.</p>
+                </div>
+            </section>
+
+            <section id="tools-settings">
+                <h2>Tools & Settings</h2>
+                <div id="tools" class="card">
+                    <h3>Tools</h3>
+                    <p>Access additional utilities from the <code>Tools Menu</code>.</p>
+                    <h4 class="highlight" style="margin-top: 1.5rem;">AWS Configuration <code
+                            class="highlight-orange">(Optional)</code></h4>
+                    <p style="font-size: 0.95rem;">Configure AWS credentials for S3 integration.</p>
+                    <ul style="font-size: 0.9rem;">
+                        <li><strong>S3 Bucket URL:</strong> The base URL for your S3 bucket (e.g., for config
+                            downloads).</li>
+                        <li><strong>Access Key / Secret Key:</strong> Your AWS credentials.</li>
+                        <li><strong>Region:</strong> The AWS region for your resources.</li>
+                    </ul>
+                    <p style="font-size: 0.9rem; margin-top: 1rem;">These settings are used for resolving remote
+                        configurations and other cloud-integrated features.</p>
+                    <div class="card warning-orange"
+                        style="margin-top: 0.5rem; padding: 0.5rem; font-size: 0.85rem; color: var(--text-muted);">
+                        <span class="note-orange">Note:</span> <code>S3 configuration</code> is now stored as a separate
+                        <code>global JSON</code>, decoupling it from individual profiles. This allows you to maintain
+                        and select from multiple independent bucket configurations across all your projects.
+                    </div>
+                </div>
+
+                <div id="settings" class="card">
+                    <h3>Settings</h3>
+                    <p>Customize your experience via the <code>Settings Menu</code>.</p>
+                    <ul>
+                        <li><span class="highlight">Load Theme:</span> Switch between <code>Dark</code>,
+                            <code>Light</code>, or <code>System</code> themes.
+                            <div class="card warning-orange"
+                                style="margin-top: 0.5rem; padding: 0.75rem; border-left: 3px solid #f59e0b;">
+                                <p style="font-size: 0.95rem; margin-bottom: 0;">
+                                    <span class="note-orange">Work in Progress:</span> The theme system is undergoing an
+                                    overhaul. Palette bugs may appear in generated reports.
+                                </p>
+                            </div>
+                        </li>
+                        <li><span class="highlight">Log Colors:</span> Customize the colors used in the application log
+                            window for better visibility.</li>
+                        <li><span class="highlight">Key Bindings:</span> View or edit keyboard shortcuts to speed up
+                            your
+                            workflow.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section id="advanced">
+                <h2>Advanced Features</h2>
+                <div class="features-grid">
+                    <div class="card">
+                        <h4 class="highlight">Device Isolation</h4>
+                        <p>Independently target specific devices for Performance CSV reports even when multiple handsets
+                            are
+                            connected simultaneously.</p>
+                    </div>
+                    <div class="card">
+                        <h4 class="highlight">Manual Updates</h4>
+                        <p>Cerebrus checks for new releases on every startup. You can also manually trigger a check from
+                            the
+                            <code>Help → Check for Updates</code> menu for the latest bug fixes and parsers.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="best-practices">
+                <h2>Best Practices & Accuracy</h2>
+                <div class="card">
+                    <h4 class="highlight">Thermal Accuracy & Management</h4>
+                    <p style="font-size: 0.95rem;">Continuous data gathering via a USB connection generates heat and
+                        <code class="highlight-orange">inaccurate thermal metrics</code>. Because different devices run
+                        differently under varied environmental circumstances, we recommend the
+                        <code>Trigger-Disconnect-Pull</code> workflow:
+                    </p>
+
+                    <ol style="font-size: 0.9rem; margin-top: 0.5rem; line-height: 1.6;">
+                        <li><strong>Initiate Profiling:</strong> Trigger collection using your preferred method:
+                            <ul style="margin-top: 0.25rem; font-size: 0.85rem;">
+                                <li><strong>Cerebrus UI:</strong> Click <code>Start Profiling</code> or
+                                    <code>MemReport</code>.
+                                </li>
+                                <li><strong>Remote Console:</strong> Send <code>start CSVProfiling</code> or
+                                    <code>memreport</code>.
+                                </li>
+                                <li><strong>Device:</strong> Use in-game debug menus if available.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Disconnect for Accuracy:</strong> Unplug the USB cable immediately after triggering
+                            to allow the device to profile in its "native" thermal state.</li>
+                        <li><strong>End Test Session (Optional):</strong> Before reconnecting, you may want to:
+                            <ul style="margin-top: 0.25rem; font-size: 0.85rem;">
+                                <li>Trigger a final <code>memreport</code> for end-of-test state.</li>
+                                <li>Manually <code>stop CSVProfiling</code> via device or console.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Kill Application (Recommended):</strong> Use <code>Force Stop</code> in Cerebrus or
+                            the device task manager. This ensures Unreal Engine flushes all buffers and releases file
+                            locks on logs.</li>
+                        <li><strong>Reconnect & Process:</strong>
+                            <ul style="margin-top: 0.25rem; font-size: 0.85rem;">
+                                <li>Plug the USB cable back in.</li>
+                                <li>Click <code>Stop Profiling</code> (if still active) for final cleanup.</li>
+                                <li>Click <code>Generate</code> to pull data and create the HTML reports.</li>
+                            </ul>
+                        </li>
+                    </ol>
+
+                    <div class="card warning-orange" style="margin-top: 1rem; border-left: 4px solid #f59e0b;">
+                        <p style="font-size: 0.95rem; margin-bottom: 0;"><code class="highlight-orange">⚠️ Thermal
+                                Note:</code> This
+                            "offline" workflow prevents the physical heat of an active USB data link from skewing your
+                            FPS and thermal data, ensuring laboratory-grade accuracy.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="troubleshoot">
+                <h2>Troubleshooting</h2>
+                <div id="troubleshoot-adb" class="card warning-blue" style="border-left: 4px solid #3b82f6;">
+                    <h3>ADB & Connectivity</h3>
+                    <p>If the device list is empty:
+                    <ol>
+                        <li>Verify <code>USB Debugging</code> is toggled ON in Android Developer Options.</li>
+                        <li>Ensure you've clicked <code>Allow</code> on the phone's RSA key permission prompt.</li>
+                        <li>Verify that <code>adb.exe</code> exists. Cerebrus installs this to your user directory by
+                            default.</li>
+                        <li>If it persists, restart the ADB server via <code>adb kill-server</code> then
+                            <code>adb start-server</code>.
+                        </li>
+                        <li><strong>Manual Restart:</strong> Open Task Manager, kill any <code>adb.exe</code> processes,
+                            then run <code>adb devices</code>.</li>
+                    </ol>
+                    </p>
+                    <div class="card warning-red" style="border-left: 4px solid #ef4444; margin-top: 0.25rem;">
+                        <h3><code class="highlight-red">Tool Not Found</code></h3>
+                        <p style="font-size: 0.95rem;">Verify that <code>PerfreportTool.exe</code> path is
+                            correctly configured in your environment or global settings if performance reports fail to
+                            generate.
+                        </p>
+                    </div>
+                </div>
+
+                <div id="troubleshoot-data" class="card warning-orange" style="border-left: 4px solid #f59e0b;">
+                    <h3>Missing Data & Reports</h3>
+                    <p>If reports or logs aren't appearing after manual capture:
+                    <ul>
+                        <li><span class="note-orange">Process Lock:</span> Unreal Engine often locks the active log
+                            file.
+                            You <code>must kill/close the app process</code> on the device before Cerebrus can
+                            successfully pull the final log data.</li>
+                        <li><span class="note-orange">Case Sensitivity:</span> Unreal console commands like
+                            <code>memreport</code> are <code>NOT</code> case sensitive, but the system needs time to
+                            flush the buffer.
+                        </li>
+                        <li><span class="note-orange">Write Latency:</span> Wait ~5 seconds after a command before
+                            clicking
+                            <code>Pull Data</code>—Unreal takes time to write dumps to the device storage.
+                        </li>
+                    </ul>
+                    </p>
+                </div>
+
+
+                <div id="troubleshoot-build" class="card warning-red" style="border-left: 4px solid #ef4444;">
+                    <h3>Compatibility Warning</h3>
+                    <p style="font-size: 0.95rem;">If Cerebrus detects the device but fails to pull any data, check your
+                        <code>Build Configuration</code> in Unreal:
+                    </p>
+                    <ul style="font-size: 0.9rem;">
+                        <li><strong><code>Development</code>:</strong> Full functionality. Supported for all profiling,
+                            logging, and
+                            console commands.</li>
+                        <li><strong><code>Test</code>:</strong> Supports Console Commands and MemReports. <code
+                                class="note-orange">Logging is disabled</code> by
+                            Unreal in this build type.</li>
+                        <li><strong><code>Shipping</code>:</strong> <code class="highlight-red">Incompatible</code>.
+                            Console and
+                            Logging are stripped by the engine. Discovery will fail.</li>
+                    </ul>
+                </div>
+
+                <div id="troubleshoot-parsing" class="card warning-cyan" style="border-left: 4px solid #06b6d4;">
+                    <h3>Parsing Failures</h3>
+                    <h4 class="highlight">Memory Report Issues</h4>
+                    <p style="font-size: 0.95rem;">If the Memory Report dashboard fails to render a specific section or
+                        shows corrupted data:</p>
+                    <p style="font-size: 0.9rem;">Please <code>Provide Feedback</code> to the
+                        <code>Tech & Tools team</code> to
+                        request a parsing update. Include a copy of the <code>generated HTML</code>
+                        file or the raw <code>.memreport</code> file.
+                    </p>
+                    <p style="font-size: 0.9rem;">You can do this via <code>Cerebrus Help → Provide
+                            Feedback</code> in the top Menu toolbar.</p>
+                </div>
+            </section>
+
+            <section id="known-issues">
+                <h2>Known Bugs, Issues & Concerns</h2>
+                <div class="card warning-red"
+                    style="border-left: 4px solid #ef4444; background-color: rgba(239, 68, 68, 0.05);">
+                    <p style="font-size: 1rem; margin-bottom: 0;"><i><strong><code
+                                    class="highlight-red">CRITICAL:</code></strong></i> If
+                        you encounter any bugs, crashes, or data discrepancies other than these documented issues,
+                        please report them to the <code>Tech & Tools team</code> immediately via
+                        <code>Help -> Provide feedback</code>. Also share the <code>generated HTML files</code> where
+                        the bug was encountered, <code>screenshots</code> if possible and or <code>Cerebrus logs</code>
+                        if possible with the <code>Cerebrus App Live Logs Export button</code>.
+                    </p>
+                </div>
+
+                <div class="card warning-red" style="border-left: 4px solid #ef4444;">
+                    <h4 class="highlight-red">1. Unreal Data Inaccuracies</h4>
+                    <p>Calculated data reported by Unreal Engine can sometimes be incorrect in terms of memory usage.
+                        While we implement several safety checks, warnings may not trigger in every scenario.</p>
+                    <p style="font-size: 0.95rem;"><code>Object Summary Stats:</code> The table may
+                        initially appear to be missing thousands of entries in the reported and calculated totals.
+                        Clicking any column header to sort the table will force a refresh that displays all rows and
+                        updates the calculated totals correctly at runtime.</p>
+                    <p style="font-size: 0.95rem;"><code>Note on RHI Memory:</code> We are aware that
+                        <code>RHI memory stats</code> often deviate from actual physical usage. However, if you observe
+                        an <code>error margin greater than 5%</code> compared to native Android profiling tools, please
+                        report it to the <code>Tech & Tools team</code>.
+                    </p>
+                    <p style="font-size: 0.95rem;">If you identify an <code>error margin greater than 5%</code> in other
+                        parsed tabs where warnings did not pop up, please submit the <code>generated HTML file</code> to
+                        the <code>Tech & Tools team</code> via <code>Help -> Provide feedback</code>.</p>
+                </div>
+
+                <div class="card warning-orange" style="border-left: 4px solid #f59e0b;">
+                    <h4 class="highlight-orange">2. Experimental Theme System</h4>
+                    <p style="font-size: 0.95rem; margin-bottom: 0;"><code>Work in Progress:</code> The
+                        application's theme system (Light/Dark/System) is currently undergoing a major overhaul. You
+                        may encounter visual artifacts, inconsistent colors in generated reports, or palette-related
+                        bugs. <code>Full design parity is planned for future updates.</code></p>
+                </div>
+
+                <div class="card warning-blue" style="border-left: 4px solid #3b82f6;">
+                    <h4 class="highlight-blue">3. Android Rotation Settings</h4>
+                    <p>When using the <code>Launch Button</code> to start the game, Cerebrus may override the Android OS
+                        rotation settings. If the device's system setting is currently locked to a specific mode (e.g.,
+                        Portrait), the toolkit may force it back to <code>Auto-Rotate</code> mode to ensure
+                        compatibility with standard Unreal landscape layouts.</p>
+                </div>
+
+                <div class="card warning-red" style="border-left: 4px solid #ef4444; margin-top: 1rem;">
+                    <h4 class="highlight-red">4. Naming & Prefix Features</h4>
+                    <p style="font-size: 0.95rem;">The <code class="highlight-red">Output File Name</code> feature and
+                        <code class="highlight-red">Prefix Only</code> feature currently have known edge cases.
+                    </p>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem; margin-bottom: 0;">
+                        Multi-part CSV renaming has edge cases where
+                        custom names may not apply correctly to all generated artifacts. We recommend using the
+                        default naming convention if you encounter issues.
+                    </p>
+                </div>
+            </section>
+
+            <!-- Navigation Spacer to ensure bottom nav links work -->
+            <div style="height: 50vh;"></div>
+        </section>
+    </main>
+
+    <script>
+        // Theme Toggle
+        const themeToggle = document.getElementById('theme-toggle');
+        const body = document.body;
+
+        function updateTheme(isLight) {
+            if (isLight) {
+                body.classList.add('light-mode');
+                themeToggle.innerText = '☀️';
+            } else {
+                body.classList.remove('light-mode');
+                themeToggle.innerText = '🌙';
+            }
+        }
+
+        themeToggle.addEventListener('click', () => {
+            const isLight = !body.classList.contains('light-mode');
+            updateTheme(isLight);
+            localStorage.setItem('docs-theme-pref', isLight ? 'light' : 'dark');
+        });
+
+        // Init Theme
+        const savedTheme = localStorage.getItem('docs-theme-pref') || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+        updateTheme(savedTheme === 'light');
+
+        // Scroll Logic
+        const scrollTopBtn = document.getElementById('scroll-top');
+        const links = document.querySelectorAll('.toc-link');
+        const scrollTargets = Array.from(links).map(link => document.querySelector(link.getAttribute('href'))).filter(el => el);
+
+        window.onscroll = () => {
+            // Show/Hide Scroll Button
+            if (window.pageYOffset > 500) {
+                scrollTopBtn.style.display = "flex";
+            } else {
+                scrollTopBtn.style.display = "none";
+            }
+
+            // Update Active TOC link
+            let current = "";
+            scrollTargets.forEach(target => {
+                const targetTop = target.offsetTop;
+                if (window.pageYOffset >= targetTop - 200) {
+                    current = target.getAttribute('id');
+                }
+            });
+
+            links.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === "#" + current) {
+                    link.classList.add('active');
+                }
+            });
+        };
+
+        scrollTopBtn.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    </script>
 </body>
 
 </html>
