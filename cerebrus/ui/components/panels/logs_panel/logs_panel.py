@@ -16,8 +16,10 @@ def log_message(state: UIState, level: str, message: str) -> None:
 
     # Constantly keep a temporary overwriteable file for ease of multi-line selection
     try:
-        debug_dir = Path("DebugInfo")
-        debug_dir.mkdir(exist_ok=True)
+        from cerebrus.core.paths import get_debug_dir
+
+        debug_dir = get_debug_dir()
+        debug_dir.mkdir(parents=True, exist_ok=True)
         live_log_file = debug_dir / "live_logs.txt"
         # Always append to keep it "active"
         with open(live_log_file, "a", encoding="utf-8") as f:
@@ -114,7 +116,9 @@ def _copy_to_clipboard(text: str) -> None:
 def _clear_logs(state: UIState) -> None:
     state.logs.clear()
     try:
-        live_log_file = Path("DebugInfo") / "live_logs.txt"
+        from cerebrus.core.paths import get_debug_dir
+
+        live_log_file = get_debug_dir() / "live_logs.txt"
         if live_log_file.exists():
             with open(live_log_file, "w", encoding="utf-8") as f:
                 f.truncate(0)

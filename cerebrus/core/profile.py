@@ -4,8 +4,10 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+from cerebrus.core.paths import get_app_data_dir
+
 # Global config path
-CONFIG_DIR = Path.home() / ".cerebrus"
+CONFIG_DIR = get_app_data_dir()
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
 
