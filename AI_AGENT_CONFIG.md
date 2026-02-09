@@ -35,10 +35,12 @@ The AI should treat the following as authoritative references:
 - Developer docs:
   - `docs/developer/SETUP.md`
   - `docs/developer/PROJECT_STRUCTURE.md`
-  - `docs/developer/CONFIG_SYSTEM.md`
   - `docs/developer/TOOL_WRAPPER_DESIGN.md`
   - `docs/developer/TESTING_GUIDE.md`
   - `docs/developer/LOGGING_AND_ERROR_HANDLING.md`
+- Technical docs:
+  - `docs/technical/html_viewer_implementation.md`
+  - `docs/technical/native_file_dialog_implementation.md`
 - UI docs:
   - `docs/ui/THEME_SPECIFICATION.md`
   - `docs/ui/IMGUI_LAYOUT_GUIDELINES.md`

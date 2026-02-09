@@ -81,12 +81,12 @@ class Profile:
 
 
 class ProfileManager:
-    def __init__(self):
+    def __init__(self) -> None:
         self._ensure_config_dir()
         self.current_profile: Optional[Profile] = None
         self.current_profile_path: Optional[Path] = None
 
-    def _ensure_config_dir(self):
+    def _ensure_config_dir(self) -> None:
         if not CONFIG_DIR.exists():
             CONFIG_DIR.mkdir(parents=True)
 
@@ -105,7 +105,7 @@ class ProfileManager:
             pass
         return None
 
-    def set_last_used_profile_path(self, path: Optional[Path]):
+    def set_last_used_profile_path(self, path: Optional[Path]) -> None:
         data = {}
         if CONFIG_FILE.exists():
             try:
@@ -187,6 +187,6 @@ class ProfileManager:
         self.set_last_used_profile_path(path)
         return profile
 
-    def save_current_profile(self):
+    def save_current_profile(self) -> None:
         if self.current_profile and self.current_profile_path:
             self.current_profile.save(self.current_profile_path)

@@ -1,7 +1,7 @@
-
 import dearpygui.dearpygui as dpg
-from cerebrus.ui.state import UIState
+
 from cerebrus.ui.components.menu import build_menu_bar
+from cerebrus.ui.state import UIState
 
 dpg.create_context()
 dpg.create_viewport()
@@ -16,6 +16,7 @@ with dpg.window(label="Debug Menu"):
     except Exception as e:
         print(f"Error building menu bar: {e}")
         import traceback
+
         traceback.print_exc()
 
 dpg.show_viewport()

@@ -2,27 +2,23 @@
 
 from __future__ import annotations
 
-import os
 import json
-import dearpygui.dearpygui as dpg
+import os
 from pathlib import Path
 from urllib.parse import urlparse
 
-from cerebrus.ui.state import UIState
-from cerebrus.ui.themes import get_theme_manager
-from cerebrus.ui.components.shared import log_message, _add_help_button
-from cerebrus.ui.components.dialogs.files.file_dialog import _browse_folder_native
-from cerebrus.ui.components.dialogs.files.file_dialog import _browse_folder_native
-from cerebrus.ui.components.file_manager import _open_folder_in_explorer
-from cerebrus.ui.components.dialogs.aws.aws_dialog import _show_aws_config_dialog
-from cerebrus.tools.adb import AdbClient
-from cerebrus.ui.components.ui_config import UIConfig
+import dearpygui.dearpygui as dpg
 
-from .sync_logic import (
-    is_aws_configured,
-    update_manifest_url_state,
-    smart_download
-)
+from cerebrus.tools.adb import AdbClient
+
+from ....state import UIState
+from ....themes import get_theme_manager
+from ...dialogs.files.file_dialog import _browse_folder_native
+from ...file_manager import _open_folder_in_explorer
+from ...shared import _add_help_button, log_message
+from ...ui_config import UIConfig
+from .aws_dialog import _show_aws_config_dialog
+from .sync_logic import is_aws_configured, smart_download, update_manifest_url_state
 
 
 def build_remote_config_sync(state: UIState) -> None:
@@ -36,12 +32,12 @@ def build_remote_config_sync(state: UIState) -> None:
         with dpg.group(horizontal=True, horizontal_spacing=8):
             dpg.add_text("Remote Configuration Sync", color=header_color)
             _add_help_button("sync_remote_config")
-            
+
             dpg.add_spacer(width=20)
             dpg.add_button(
-                label="Sync Settings", 
+                label="Sync Settings",
                 width=120,
-                callback=lambda: _show_aws_config_dialog(state)
+                callback=lambda: _show_aws_config_dialog(state),
             )
 
         # Show loaded AWS config file
@@ -55,12 +51,16 @@ def build_remote_config_sync(state: UIState) -> None:
                 config_file = str(aws_config)
         except Exception:
             pass
-        
+
         status_colors = get_theme_manager().get_profile_status_colors()
         dpg.add_text(
-            f"AWS Config File: {config_file}", 
-            color=status_colors.get("LOADED") if "aws" in config_file.lower() else status_colors.get("DEFAULT"), 
-            bullet=True
+            f"AWS Config File: {config_file}",
+            color=(
+                status_colors.get("LOADED")
+                if "aws" in config_file.lower()
+                else status_colors.get("DEFAULT")
+            ),
+            bullet=True,
         )
 
         # Show current source
@@ -71,13 +71,8 @@ def build_remote_config_sync(state: UIState) -> None:
         else:
             source_msg = "Source: Default S3 Bucket"
             msg_color = status_colors.get("LOADED")
-            
-        dpg.add_text(
-            source_msg,
-            color=msg_color,
-            bullet=True,
-            tag="sync_source_label"
-        )
+
+        dpg.add_text(source_msg, color=msg_color, bullet=True, tag="sync_source_label")
 
         dpg.add_spacer(height=config.get_spacer("small"))
 
@@ -134,7 +129,9 @@ def build_remote_config_sync(state: UIState) -> None:
 
         dpg.add_spacer(height=config.get_spacer("small"))
 
-        with dpg.table(header_row=False, policy=config.get_table_policy("policy_stretch")):
+        with dpg.table(
+            header_row=False, policy=config.get_table_policy("policy_stretch")
+        ):
             dpg.add_table_column(init_width_or_weight=1.0)
             dpg.add_table_column(init_width_or_weight=1.0)
 
@@ -151,9 +148,11 @@ def build_remote_config_sync(state: UIState) -> None:
                             ),
                         )
                     # Fixed height container for list
-                    with dpg.child_window(tag="local_configs_list", height=150, border=True):
-                         with dpg.group(tag="config_files_list_container"):
-                             pass
+                    with dpg.child_window(
+                        tag="local_configs_list", height=150, border=True
+                    ):
+                        with dpg.group(tag="config_files_list_container"):
+                            pass
 
                 # Right Column: Device Configs
                 with dpg.group():
@@ -169,7 +168,9 @@ def build_remote_config_sync(state: UIState) -> None:
                             ),
                         )
                     # Fixed height container for list
-                    with dpg.child_window(tag="device_configs_list", height=150, border=True):
+                    with dpg.child_window(
+                        tag="device_configs_list", height=150, border=True
+                    ):
                         with dpg.group(tag="device_config_files_list_container"):
                             pass
 
@@ -211,10 +212,20 @@ def _show_aws_not_configured_modal(state: UIState, on_success_callback) -> None:
 
     config = UIConfig.get_instance()
     # Explicitly set modal=True and larger size
-    with dpg.window(label="Missing Configuration", modal=True, show=True, tag="aws_not_configured_modal", width=width, height=height, pos=pos, no_collapse=True, no_resize=True):
+    with dpg.window(
+        label="Missing Configuration",
+        modal=True,
+        show=True,
+        tag="aws_not_configured_modal",
+        width=width,
+        height=height,
+        pos=pos,
+        no_collapse=True,
+        no_resize=True,
+    ):
         dpg.add_text(
             "Remote Configuration is missing.\n\nTo use this feature, you must configure either:\n1. A valid AWS S3 Connection (keys or profile)\n2. A Base URL for a public bucket\n\nClick 'Configure Now' to set this up.",
-            wrap=480
+            wrap=480,
         )
         dpg.add_spacer(height=config.get_spacer("section_gap"))
 
@@ -223,9 +234,9 @@ def _show_aws_not_configured_modal(state: UIState, on_success_callback) -> None:
             # (500 - (140 + 8 + 120)) / 2 = (500 - 268) / 2 = 116
             dpg.add_spacer(width=116)
             dpg.add_button(
-                label="Configure Now", 
-                width=config.get_dimension("button_width_large"), 
-                callback=_on_configure_click
+                label="Configure Now",
+                width=config.get_dimension("button_width_large"),
+                callback=_on_configure_click,
             )
             dpg.add_button(
                 label="Cancel",
@@ -436,6 +447,7 @@ def _push_single_file_to_device(state: UIState, filename: str) -> None:
     except Exception as e:
         log_message(state, "ERROR", f"Failed to push {filename}: {e}")
 
+
 def _render_device_configs_list(state: UIState) -> None:
     """Render the list of .ini files present on the device's persistent storage."""
     tm = get_theme_manager()
@@ -508,14 +520,14 @@ def _render_device_configs_list(state: UIState) -> None:
                     callback=lambda s, a, u: _handle_delete_config_on_device(state, u),
                     user_data=filename,
                 )
-        
+
         dpg.add_button(
             label="Delete All",
             width=config.get_dimension("button_width_standard"),
             callback=lambda: _handle_delete_all_configs_on_device(state),
-            parent="device_configs_list_container"
+            parent="device_configs_list_container",
         )
-        
+
     except Exception as e:
         dpg.add_text(
             f"Error: {e}",
@@ -569,6 +581,3 @@ def _handle_delete_all_configs_on_device(state: UIState) -> None:
         _render_device_configs_list(state)
     except Exception as e:
         log_message(state, "ERROR", f"Failed to delete all configs: {e}")
-
-
-

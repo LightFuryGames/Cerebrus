@@ -69,7 +69,9 @@ Process collected data into readable formats.
     - **Visualization**: Provides tree maps and detailed object tracking for memory analysis.
 - **Generate Colored Logs Only**: Converts text logs to color-coded HTML files.
 - **Generate All**: Performs all enabled operations in sequence.
-- **View HTML Logs**: Opens the output folder to view generated HTML logs.
+- **View HTML Logs**: Opens the `Logs` output folder to view generated HTML logs.
+
+> **Note**: Generated reports are automatically organized into `Profiling/`, `Logs/`, and `MemReports/` subdirectories within your Output Path.
 
 ## Tools
 Access additional utilities from the **Tools** menu.
@@ -94,4 +96,5 @@ Customize your experience via the Settings menu.
 ## Troubleshooting
 - **No Devices Found**: Ensure USB debugging is enabled and ADB is running.
 - **Tool Not Found**: Verify that `PerfreportTool.exe` path is correctly configured in your environment or settings.
+- **Report Features**: Generated HTML reports include a **Dark Mode** toggle and **Scroll to Top** button for better readability.
 

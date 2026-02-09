@@ -52,3 +52,84 @@ def test_is_package_installed_short_circuits_for_empty_name(
 
     assert client.is_package_installed("serial", "") is False
     run_mock.assert_not_called()
+
+
+@patch("subprocess.run")
+def test_force_stop_package(run_mock: MagicMock) -> None:
+    run_mock.return_value = _completed("")
+    client = AdbClient()
+    client.force_stop_package("serial", "com.test.app")
+    # AdbClient.force_stop_package makes two calls: am force-stop and am broadcast
+    assert run_mock.call_count == 2
+    run_mock.assert_any_call(
+        ["adb", "-s", "serial", "shell", "am", "force-stop", "com.test.app"],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+
+@patch("subprocess.run")
+def test_clear_package_data(run_mock: MagicMock) -> None:
+    run_mock.return_value = _completed("")
+    client = AdbClient()
+    client.clear_package_data("serial", "com.test.app")
+    run_mock.assert_called_once_with(
+        ["adb", "-s", "serial", "shell", "pm", "clear", "com.test.app"],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+
+@patch("subprocess.run")
+def test_launch_package(run_mock: MagicMock) -> None:
+    run_mock.return_value = _completed("")
+    client = AdbClient()
+    client.launch_package("serial", "com.test.app")
+    run_mock.assert_called_once_with(
+        [
+            "adb",
+            "-s",
+            "serial",
+            "shell",
+            "monkey",
+            "-p",
+            "com.test.app",
+            "-c",
+            "android.intent.category.LAUNCHER",
+            "1",
+        ],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+
+@patch("subprocess.run")
+def test_send_console_command(run_mock: MagicMock) -> None:
+    run_mock.return_value = _completed("")
+    client = AdbClient()
+    client.send_console_command("serial", "stat unit")
+    run_mock.assert_called_once_with(
+        [
+            "adb",
+            "-s",
+            "serial",
+            "shell",
+            "am",
+            "broadcast",
+            "-a",
+            "android.intent.action.RUN",
+            "-e",
+            "cmd",
+            "'stat unit'",
+        ],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )

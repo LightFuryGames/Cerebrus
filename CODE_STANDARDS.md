@@ -131,7 +131,7 @@ Before committing, run the local scripts to match the GitHub Actions pipeline:
 
 - **Linting**: `./scripts/run_lint.ps1` (`black`, `isort`, `mypy`).
 - **Preflight**: `./scripts/run_preflight.ps1` (Validates configuration wiring).
-- **Testing**: `./scripts/run_tests.ps1` (Runs `pytest`).
+- **Testing**: `./scripts/run_unittests.ps1` (Runs `pytest`).
 - **Build**: `./scripts/build_pyinstaller.ps1` (Verifies binary creation).
 - **Full Pipeline**: `./run_pipeline.ps1` (Sequential execution of all checks).
 

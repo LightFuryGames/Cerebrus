@@ -1,13 +1,12 @@
-
-import sys
 import os
+import sys
 
 # Add project root to path
 sys.path.append(os.getcwd())
 
 try:
-    from cerebrus.tools.adb import AdbClient
     from cerebrus.core.devices import collect_device_info
+    from cerebrus.tools.adb import AdbClient
 
     print("--- Testing AdbClient.list_devices ---")
     client = AdbClient()

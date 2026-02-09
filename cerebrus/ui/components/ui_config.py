@@ -1,12 +1,14 @@
 from __future__ import annotations
+
 import json
 import sys
 from pathlib import Path
 from typing import Any
 
+
 class UIConfig:
     _instance: UIConfig | None = None
-    
+
     def __init__(self):
         self._config: dict[str, Any] = {}
         self._load_config()
@@ -24,14 +26,14 @@ class UIConfig:
                 base_path = Path(sys._MEIPASS)
                 resource_path = base_path / "cerebrus" / "ui" / "resources"
                 if not resource_path.exists():
-                     resource_path = base_path / "ui" / "resources"
+                    resource_path = base_path / "ui" / "resources"
             else:
                 # dev mode
                 base_path = Path(__file__).resolve().parent.parent
                 resource_path = base_path / "resources"
-            
+
             self.layouts_path = resource_path / "layouts"
-            
+
             # Load app_config.json first (base)
             app_config_path = self.layouts_path / "app_config.json"
             if app_config_path.exists():
@@ -45,11 +47,11 @@ class UIConfig:
             # Merge them into self._config
             # Keys in specific files will overwrite keys in app_config.json if they collide at top level
             # But typically we want to merge sub-dictionaries (like component_settings)
-            
+
             for file_path in self.layouts_path.rglob("*.json"):
                 if file_path.name == "app_config.json":
                     continue
-                
+
                 try:
                     with open(file_path, "r") as f:
                         data = json.load(f)
@@ -63,7 +65,11 @@ class UIConfig:
     def _merge_config(self, new_data: dict) -> None:
         """Deep merge config dictionaries."""
         for key, value in new_data.items():
-            if key in self._config and isinstance(self._config[key], dict) and isinstance(value, dict):
+            if (
+                key in self._config
+                and isinstance(self._config[key], dict)
+                and isinstance(value, dict)
+            ):
                 self._config[key].update(value)
             else:
                 self._config[key] = value
@@ -77,7 +83,7 @@ class UIConfig:
                     return json.load(f)
         except Exception:
             pass
-        
+
         # Fallback to hardcoded defaults or empty
         return {}
 
@@ -94,13 +100,14 @@ class UIConfig:
     def get_table_policy(self, key: str, default=None):
         """Get a DearPyGui table policy constant."""
         policy_name = self._config.get("tables", {}).get(key)
-        
+
         import dearpygui.dearpygui as dpg
+
         if policy_name == "dpg.mvTable_SizingStretchProp":
             return dpg.mvTable_SizingStretchProp
         elif policy_name == "dpg.mvTable_SizingFixedFit":
             return dpg.mvTable_SizingFixedFit
-        
+
         return default if default is not None else dpg.mvTable_SizingStretchProp
 
     def get_component_settings(self, key: str, default: dict | None = None) -> dict:

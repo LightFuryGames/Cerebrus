@@ -4,7 +4,7 @@ Cerebrus uses a **Tag-Based** release workflow powered by GitHub Actions.
 
 ## The Release Flow
 
-1.  **Tagging**: A developer pushes a tag matching `v*` (e.g., `v.1.2.0`).
+1.  **Tagging**: A developer pushes a tag matching `v.*.*.*` (e.g., `v.2.0.0.1`).
 2.  **Validation**: CI ensures the commit passes Linting and Tests.
 3.  **Build**:
     - `PyInstaller` compiles the source into a standalone `.exe`.

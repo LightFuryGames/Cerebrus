@@ -14,17 +14,10 @@ This document describes the high-level architecture of Cerebrus. All implementat
   - Error and notification surfaces.
 - `cerebrus.tools`
   - Thin, testable wrappers around external tools:
-    - UAFT (Unreal Android File Tool)
-    - CsvTools:
-      - CSVCollate
-      - CsvConvert
-      - CSVFilter
-      - CSVSplit
-      - CsvToSVG
-      - csvinfo
+    - ADB (Android Debug Bridge)
+    - CsvTools (CSVCollate, CsvConvert, CSVFilter, CSVSplit, CsvToSVG, csvinfo)
     - PerfReportTool
-    - MemReport:
-      - Modular generic parsing and HTML visualizer (`cerebrus.tools.memreport`)
+    - MemReport (Modular generic parsing and HTML visualizer)
 - `cerebrus.config`
   - Loading, validating, and persisting project configuration.
   - Tool-path configuration and per-project overrides.
@@ -58,14 +51,14 @@ This document describes the high-level architecture of Cerebrus. All implementat
 
 ## External Tools Integration
 
-### UAFT
-
-- Responsible for communicating with Android devices and retrieving artifacts (logs, CSVs, PRCs, Insights captures).
-- Cerebrus should:
-  - Encapsulate UAFT usage in `cerebrus.tools.uaft`.
-  - Provide high-level operations like:
-    - `pull_logcat(device, output_dir)`
-    - `pull_csv_profiles(device, project_profile, output_dir)`
+### ADB Wrapper
+- Responsible for communicating with Android devices via `adb` to manage application state and retrieve artifacts (logs, CSVs, PRCs, Insights captures).
+- Cerebrus encapsulates ADB usage in `cerebrus.tools.adb.AdbClient`.
+- High-level operations include:
+  - `list_devices()`
+  - `get_package_info(device, package)`
+  - `pull_file(device, remote_path, local_path)`
+  - `shell_command(device, cmd)`
 
 ### CsvTools
 

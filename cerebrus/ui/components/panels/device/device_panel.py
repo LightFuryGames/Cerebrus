@@ -6,10 +6,11 @@ import dearpygui.dearpygui as dpg
 
 from cerebrus.core.devices import DeviceInfo, collect_device_info
 from cerebrus.tools.adb import AdbClient
-from cerebrus.ui.state import UIState
-from cerebrus.ui.themes import get_theme_manager
-from cerebrus.ui.components.shared import log_message, SELECTED_ROW_COLOR, _add_help_button
-from cerebrus.ui.components.ui_config import UIConfig
+
+from ....state import UIState
+from ....themes import get_theme_manager
+from ...shared import SELECTED_ROW_COLOR, _add_help_button, log_message
+from ...ui_config import UIConfig
 
 
 def build_device_controls(state: UIState) -> None:
@@ -20,15 +21,19 @@ def build_device_controls(state: UIState) -> None:
         dpg.bind_item_theme(dpg.add_text("Device(s)"), tm.get_header_theme())
         _add_help_button("device_table")
         dpg.add_button(
-            label="List Devices", width=UIConfig.get_instance().get_dimension("button_width_standard"), callback=lambda: _populate_devices(state)
+            label="List Devices",
+            width=UIConfig.get_instance().get_dimension("button_width_standard"),
+            callback=lambda: _populate_devices(state),
         )
         _add_help_button("list_devices")
     # Use autosize_x=False and width=0 to ensure it fills available space but respects window bounds
-    settings = UIConfig.get_instance().get_component_settings("device_table_container", {"tag": "device_table_container"})
+    settings = UIConfig.get_instance().get_component_settings(
+        "device_table_container", {"tag": "device_table_container"}
+    )
     settings["autosize_x"] = False
     settings["width"] = 0
     # JSON overrides might miss the tag, so we force it to ensure refreshing works
-    settings["tag"] = "device_table_container" 
+    settings["tag"] = "device_table_container"
     with dpg.child_window(**settings):
         _render_device_table(state)
 
@@ -40,7 +45,7 @@ def _populate_devices(state: UIState) -> None:
     )
     state.package_name = package_value or ""
     log_message(state, "DEBUG", f"Package Name: {state.package_name}")
-    
+
     try:
         state.devices = collect_device_info(state.package_name)
         log_message(state, "DEBUG", f"Devices found: {len(state.devices)}")
@@ -49,6 +54,7 @@ def _populate_devices(state: UIState) -> None:
     except Exception as e:
         log_message(state, "ERROR", f"collect_device_info failed: {e}")
         import traceback
+
         traceback.print_exc()
 
     if not state.devices:
@@ -80,12 +86,24 @@ def _render_device_table(state: UIState) -> None:
         borders_innerH=True,
         borders_innerV=True,
     ):
-        dpg.add_table_column(label="Make", width_stretch=True, init_width_or_weight=0.12)
-        dpg.add_table_column(label="Model", width_stretch=True, init_width_or_weight=0.22)
-        dpg.add_table_column(label="Serial", width_stretch=True, init_width_or_weight=0.18)
-        dpg.add_table_column(label="Android Ver.", width_stretch=True, init_width_or_weight=0.08)
-        dpg.add_table_column(label="SDK level", width_stretch=True, init_width_or_weight=0.08)
-        dpg.add_table_column(label="Package Found", width_stretch=True, init_width_or_weight=0.15)
+        dpg.add_table_column(
+            label="Make", width_stretch=True, init_width_or_weight=0.12
+        )
+        dpg.add_table_column(
+            label="Model", width_stretch=True, init_width_or_weight=0.22
+        )
+        dpg.add_table_column(
+            label="Serial", width_stretch=True, init_width_or_weight=0.18
+        )
+        dpg.add_table_column(
+            label="Android Ver.", width_stretch=True, init_width_or_weight=0.08
+        )
+        dpg.add_table_column(
+            label="SDK level", width_stretch=True, init_width_or_weight=0.08
+        )
+        dpg.add_table_column(
+            label="Package Found", width_stretch=True, init_width_or_weight=0.15
+        )
 
         state.device_cell_tags = []
 
@@ -117,7 +135,9 @@ def _render_device_row(row_index: int, device: DeviceInfo, state: UIState) -> No
             if column_index == len(values) - 1:  # Package Found column
                 status = "SUCCESS" if device.package_found else "ERROR"
                 # Use text with color instead of selectable for this column
-                dpg.bind_item_theme(dpg.add_text(value, tag=cell_tag), tm.get_log_theme(status))
+                dpg.bind_item_theme(
+                    dpg.add_text(value, tag=cell_tag), tm.get_log_theme(status)
+                )
             else:
                 dpg.add_selectable(
                     tag=cell_tag,
@@ -187,13 +207,13 @@ def _handle_device_select(
         state.output_file_name = new_file_name
         if dpg.does_item_exist("output_file_name"):
             dpg.set_value("output_file_name", new_file_name)
-        
+
         # We need a way to trigger auto-save or profile updates from here
-        # For now, let's just accept state changes are transient until next manual save 
+        # For now, let's just accept state changes are transient until next manual save
         # or rely on other triggers. Or assume _auto_save_profile is imported if needed.
         # But _auto_save_profile is in dialogs technically or app logic.
         # Let's import it if we extract it, but circular imports are tricky.
-        # Better to keep state logic pure or use events. 
+        # Better to keep state logic pure or use events.
         # For this refactor, I will omit _auto_save_profile here to avoid circular dep for now
         # unless moved to shared.
 
@@ -242,7 +262,9 @@ def _show_device_troubleshooting_dialog(state: UIState) -> None:
         pos=(pos_x, pos_y),
         no_resize=True,
     ):
-        dpg.bind_item_theme(dpg.add_text("No active devices found."), tm.get_log_theme("ERROR"))
+        dpg.bind_item_theme(
+            dpg.add_text("No active devices found."), tm.get_log_theme("ERROR")
+        )
         dpg.add_text(
             "If your device is connected but not showing up, please try the following:",
             wrap=460,
@@ -264,9 +286,10 @@ def _show_device_troubleshooting_dialog(state: UIState) -> None:
 
         with dpg.group(horizontal=True):
             dpg.add_text("  ")
-            dpg.bind_item_theme(dpg.add_text(
-                "Select 'Always allow' and click Allow."
-            ), tm.get_log_theme("WARNING"))
+            dpg.bind_item_theme(
+                dpg.add_text("Select 'Always allow' and click Allow."),
+                tm.get_log_theme("WARNING"),
+            )
 
         with dpg.group(horizontal=True):
             dpg.add_text("4.")

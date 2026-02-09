@@ -7,6 +7,12 @@ Move from a "Local Script Wrapper" to a "Professional Game Development Tool" wit
 
 ---
 
+## ✅ Completed (Recent Enhancements)
+- **Advanced Memory Reporting**: Modular tool with 13 specialized tabs (Class Stats, Texture Stats, etc.).
+- **Organized Output System**: Automatic sorting into `/Profiling` and `/MemReports`.
+- **HTML Report Enhancements**: Dark Mode toggle and Scroll-to-Top functionality.
+- **Native File Dialogs**: Transitioned to native OS dialogs for better UX.
+
 ## 🚀 Priority 1: Plugin Architecture (Hot-Reloading)
 *Objective: Allow project-specific tabs and parsers to be added without modifying core code.*
 
@@ -25,7 +31,7 @@ Move from a "Local Script Wrapper" to a "Professional Game Development Tool" wit
   - Components (Buttons, Tables, Trees) must be pure functions taking `State` and returning `Events`.
   - Elimination of immediate-mode spaghetti (logic mixed with `imgui.begin`).
   - Strict separation: `ui/` folder generally forbids `subprocess` imports.
-- **Benefit**: Easier testing of UI logic, consistent styling, and prep for Priority 3.
+- **Benefit**: Easier testing of UI logic, consistent styling.
 
 ## 🖥️ Priority 3: UI Scaling & DPI Support
 *Objective: Ensure Cerebrus looks perfect on 4K monitors and high-DPI laptops.*

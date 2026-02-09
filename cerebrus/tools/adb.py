@@ -148,16 +148,28 @@ class AdbClient:
         """Force stop the application and all its subprocesses."""
         # Standard force stop
         self._run(["-s", serial, "shell", "am", "force-stop", package_name])
-        
+
         # Broadcast a kill intent if the app is listening for it (Unreal specific sometimes helps)
         try:
-            self._run(["-s", serial, "shell", "am", "broadcast", "-a", "android.intent.action.PACKAGE_REMOVED", "-d", f"package:{package_name}"])
+            self._run(
+                [
+                    "-s",
+                    serial,
+                    "shell",
+                    "am",
+                    "broadcast",
+                    "-a",
+                    "android.intent.action.PACKAGE_REMOVED",
+                    "-d",
+                    f"package:{package_name}",
+                ]
+            )
         except:
             pass
-            
+
         # Optional: ensure it's removed from recents by killing the task
         # This is more intrusive and might not work on all Android versions without rooting,
-        # but force-stop usually handles it. 
+        # but force-stop usually handles it.
         # For now, let's just stick to the robust force-stop and clear data.
 
     def minimize_package(self, serial: str) -> None:

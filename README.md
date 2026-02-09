@@ -20,7 +20,7 @@
 
 ### 📊 Report Generation
 - **Performance Reports**: One-click generation of visual performance reports from CSV data using `PerfReportTool`.
-    - **Enhanced Metrics**: Includes System Metadata, FPS Analysis, and Average FPS.
+    - **Enhanced Metrics**: Includes System Metadata, FPS Analysis, and Average FPS. Supports Dark Mode.
 - **Advanced Memory Reporting**: New visualization tool for deep dives into memory usage from `.memreport` files.
 - **Colored Logs**: Convert raw text logs into searchable, color-coded HTML files for easier debugging.
 - **Batch Processing**: Process multiple files in bulk with a single click.
@@ -70,7 +70,7 @@ To validate your changes against the official build pipeline locally:
    ```
 2. **Unit Tests**:
    ```powershell
-   ./scripts/run_tests.ps1
+   ./scripts/run_unittests.ps1
    ```
 3. **Full Build & Test Loop**:
    ```powershell

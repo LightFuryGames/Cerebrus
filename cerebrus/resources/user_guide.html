@@ -322,7 +322,17 @@
         }
 
         body.light-mode .warning-orange {
-            background: linear-gradient(to right, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.05));
+            border-color: #b45309;
+            background: linear-gradient(to right, rgba(180, 83, 9, 0.15), rgba(180, 83, 9, 0.05));
+        }
+
+        body.light-mode .note-orange {
+            color: #b45309;
+            background-color: rgba(180, 83, 9, 0.1);
+        }
+
+        body.light-mode .highlight-orange {
+            color: #b45309 !important;
         }
 
         .warning-red {
@@ -611,6 +621,7 @@
                         <li class="toc-item"><a href="#troubleshoot-parsing" class="toc-link toc-sub-link">Parsing
                                 Failures</a></li>
                     </ul>
+                <li class="toc-item"><a href="#known-issues" class="toc-link"><span>14. Known Issues & Bugs</span></a>
                 </li>
             </ul>
         </nav>
@@ -649,7 +660,8 @@
                         <div class="feature-icon">🔍</div>
                         <div>
                             <h4 class="highlight">Device Discovery</h4>
-                            <p>UI-friendly device listing to validate installation and handle Launch/Resume operations.
+                            <p>UI-friendly device listing to validate installation and handle
+                                <code>Launch</code>/<code>Resume</code> operations.
                             </p>
                         </div>
                     </div>
@@ -679,8 +691,10 @@
                         <div class="feature-icon">🌗</div>
                         <div>
                             <h4 class="highlight">Universal Access</h4>
-                            <p>Full support for Light and Dark modes across the toolkit and all generated HTML reports
-                                for maximum accessibility.</p>
+                            <p>Support for Light and Dark modes across the toolkit, HTML Logs, and Memory Reports.
+                                <code
+                                    class="note-orange">(Note: Performance Reports do not currently support theme toggles or Scroll to Top).</code>
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -695,7 +709,7 @@
                     <p>The interface is divided into several sections:</p>
                     <ul>
                         <li><span class="highlight">Menu Bar:</span> Access file operations, views,
-                            <code>Tools Menu</code>, <code>Settings Menu</code>, and help.
+                            <code>Tools Menu</code>, <code>Settings Menu</code>, and <code>Help</code>.
                         </li>
                         <li><span class="highlight">Profile Summary:</span> Displays the currently loaded profile
                             information.</li>
@@ -765,13 +779,11 @@
                         <li class="step-item">
                             <h4 class="highlight">Cloud Integration <code class="highlight-orange">(Optional)</code>
                             </h4>
-                            <p>Configure AWS credentials for S3 integration if your project uses remote config
-                                downloads:</p>
-                            <ul style="font-size: 0.9rem;">
-                                <li><strong>S3 Bucket URL:</strong> The base URL for your S3 bucket.</li>
-                                <li><strong>Access Key / Secret Key:</strong> Your private AWS credentials.</li>
-                                <li><strong>Region:</strong> The AWS region for your resources.</li>
-                            </ul>
+                            <p>Configure AWS credentials for S3 integration via the
+                                <code>Tools → AWS Configuration</code>
+                                menu. This is now decoupled from your profile, allowing you to switch between different
+                                bucket/credential sets globally.
+                            </p>
                         </li>
                         <li class="step-item">
                             <h4 class="highlight">Set Output Path</h4>
@@ -781,7 +793,11 @@
                         </li>
                         <li class="step-item">
                             <h4 class="highlight">Save Profile</h4>
-                            <p>Your settings will be auto-saved to the profile JSON file.</p>
+                            <p>Your settings will be auto-saved to the profile JSON file.
+                                <br>
+                                <code
+                                    class="note-orange">Note: AWS Settings are stored in a separate global JSON file and can be replaced or updated without needing to create a new profile.</code>
+                            </p>
                         </li>
                     </ol>
                 </div>
@@ -813,7 +829,8 @@
                         </li>
                         <li class="step-item">
                             <h4 class="highlight">Run & Profile</h4>
-                            <p>Launch the app. Optionally click <code>Start Profiling</code> to begin collection,
+                            <p><code>Launch</code> the app. Optionally click <code>Start Profiling</code> to begin
+                                collection,
                                 and
                                 <code>Stop Profiling</code> when finished.
                             </p>
@@ -822,8 +839,8 @@
                             <h4 class="highlight">Move Data to PC</h4>
                             <p>Check <code>Move Logs</code>, <code>Move Profiling Data</code>, or
                                 <code>Move MemReports</code>. Files are
-                                organized into <code>Output Path/Device/Logs</code>,
-                                <code>Output Path/Device/CSV</code>, and <code>Output Path/Device/MemReports</code>.
+                                organized into <code>Output Path/Device/Profiling</code> (for CSVs),
+                                <code>Output Path/Device/Logs</code>, and <code>Output Path/Device/MemReports</code>.
                             </p>
                         </li>
                     </ol>
@@ -840,7 +857,13 @@
                         </li>
                         <li class="step-item">
                             <h4 class="highlight">Set Output File Name</h4>
-                            <p>Enter a descriptive name for your report.</p>
+                            <p>The base name for generated files.</p>
+                            <div class="card warning-red"
+                                style="margin-top: 0.5rem; padding: 0.5rem; border-left: 3px solid #ef4444;">
+                                <p style="font-size: 0.95rem; margin-bottom: 0;">
+                                    <span class="note-red">⚠️ Known Bug:</span> Multi-part CSV renaming has edge cases.
+                                </p>
+                            </div>
                         </li>
                         <li class="step-item">
                             <h4 class="highlight">Choose Report Type</h4>
@@ -850,7 +873,11 @@
                         </li>
                         <li class="step-item">
                             <h4 class="highlight">Click Generate</h4>
-                            <p>The operation runs and outputs files to the device-specific subfolder.</p>
+                            <p>The operation runs and outputs files to organized subdirectories:
+                                <code>/Profiling</code> for Performance Reports,
+                                <code>/Logs</code> for Colored Logs, and
+                                <code>/MemReports</code> for Memory Analysis.
+                            </p>
                         </li>
                         <li class="step-item">
                             <h4 class="highlight">View Results</h4>
@@ -916,8 +943,35 @@
                                         name.
                                     </td>
                                 </tr>
+                                <tr>
+                                    <td class="highlight">AWS Configuration <code
+                                            class="highlight-orange">(Optional)</code></td>
+                                    <td><code>S3 configuration</code> is now stored as a separate
+                                        <code>global JSON</code>,
+                                        decoupling it from individual profiles. This allows you to maintain and
+                                        select from multiple independent bucket configurations across all your
+                                        projects.
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 1rem;">
+                    <h4 class="highlight">Creating Profiles</h4>
+                    <p style="font-size: 0.95rem;">Use <code class="highlight-green">File → New Profile</code> to create
+                        a fresh configuration. This isolates your <code>Package Name</code> and <code>Output
+                            Path</code> into a new JSON file, perfect for
+                        switching between different game projects.
+                    </p>
+                    <div class="card warning-blue"
+                        style="margin-top: 0.5rem; padding: 0.5rem; border-left: 3px solid #3b82f6;">
+                        <p style="font-size: 0.9rem; margin-bottom: 0;">
+                            <span class="note-blue">AWS Management:</span> AWS credentials are saved in a separate JSON.
+                            You can maintain multiple AWS files and swap them via the <code>Tools</code> menu to test
+                            different environments or accounts without modifying your core tool profiles.
+                        </p>
                     </div>
                 </div>
             </section>
@@ -932,15 +986,15 @@
                             <h4 class="highlight">Smart Discovery</h4>
                             <p style="font-size: 0.9rem;">UI-friendly device listing to validate installation.
                                 Cerebrus
-                                validates if the target <strong>Package Name</strong> is installed and ready for
+                                validates if the target <code>Package Name</code> is installed and ready for
                                 profiling.
                             </p>
                         </div>
                         <div class="card" style="padding: 1.5rem;">
                             <h4 class="highlight">Lifecycle Control</h4>
-                            <p style="font-size: 0.9rem;">One-click <strong>Launch</strong>, <strong>Resume</strong>,
+                            <p style="font-size: 0.9rem;">One-click <code>Launch</code>, <code>Resume</code>,
                                 and
-                                <strong>Force Stop</strong> operations ensure you are profiling the correct process
+                                <code>Force Stop</code> operations ensure you are profiling the correct process
                                 state.
                             </p>
                         </div>
@@ -953,15 +1007,15 @@
                         Unreal
                         Build Configuration:</p>
                     <ul style="font-size: 0.9rem; margin-top: 0.5rem;">
-                        <li><span class="highlight">Development:</span> Full functionality. Supported for all profiling,
+                        <li><span class="highlight"><code>Development</code>:</span> Full functionality. Supported for
+                            all profiling,
                             logging, and console commands.</li>
-                        <li><span class="highlight">Test:</span> Supports Console Commands and MemReports.
-                            <strong>Logging
-                                is disabled</strong> by Unreal in this build type.
+                        <li><span class="highlight"><code>Test</code>:</span> Supports Console Commands and MemReports.
+                            <code class="note-orange">Logging is disabled</code> by Unreal in this build type.
                         </li>
-                        <li><span class="highlight">Shipping:</span> <strong>Incompatible.</strong> Console and Logging
-                            are
-                            stripped by the engine. Discovery will fail.</li>
+                        <li><span class="highlight"><code>Shipping</code>:</span> <code
+                                class="highlight-red">Incompatible</code>.
+                            Console and Logging are stripped by the engine. Discovery will fail.</li>
                     </ul>
                 </div>
             </section>
@@ -973,12 +1027,21 @@
                 <div id="file-config" class="card">
                     <h3>Configuration</h3>
                     <ul>
-                        <li><span class="highlight">Output File Name:</span> The base name for generated files.</li>
+                        <li><span class="highlight">Output File Name:</span> The base name for generated files.
+                            <div class="card warning-red"
+                                style="margin-top: 0.5rem; padding: 0.5rem; border-left: 3px solid #ef4444;">
+                                <p style="font-size: 0.95rem; margin-bottom: 0;">
+                                    <span class="note-red">⚠️ Known Bug:</span> Multi-part CSV renaming has edge cases.
+                                </p>
+                            </div>
+                        </li>
                         <li><span class="highlight">Output Path:</span> The main workspace folder. Files moved from
                             devices
                             will be saved here, and generated reports will be output here.</li>
-                        <li><span class="highlight">Automatic Device Organization:</span> When a device is selected, a
-                            subfolder with the device make and model is automatically created in the Output Path to keep
+                        <li><span class="highlight">Automatic Device Organization:</span> When a device is selected,
+                            a
+                            subfolder with the device make and model is automatically created in the Output Path to
+                            keep
                             your data organized.</li>
                     </ul>
                 </div>
@@ -1044,8 +1107,9 @@
                                     <td>Performs all enabled operations in sequence.</td>
                                 </tr>
                                 <tr>
-                                    <td class="highlight">View HTML Logs</td>
-                                    <td>Opens the output folder to view generated HTML logs.</td>
+                                    <td class="highlight">Report Enhancements</td>
+                                    <td>Dark Mode toggle and Scroll to Top button are supported by HTML Logs, Memory
+                                        Reports, and Cerebrus Documentation for better readability.</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -1183,7 +1247,7 @@ memreport -full    // Comprehensive memory dump
 slomo 0.1          // Slow down time (useful for debugging VFX/Logic)
 t.MaxFPS 30        // Lock framerate for consistency</code></pre>
                     <p class="note-orange">Note: Console commands only work if the application's package is in
-                        the <span class="highlight-blue">foreground</span> on the device.</p>
+                        the <code>foreground</code> on the device.</p>
                 </div>
             </section>
 
@@ -1203,6 +1267,12 @@ t.MaxFPS 30        // Lock framerate for consistency</code></pre>
                     </ul>
                     <p style="font-size: 0.9rem; margin-top: 1rem;">These settings are used for resolving remote
                         configurations and other cloud-integrated features.</p>
+                    <div class="card warning-orange"
+                        style="margin-top: 0.5rem; padding: 0.5rem; font-size: 0.85rem; color: var(--text-muted);">
+                        <span class="note-orange">Note:</span> <code>S3 configuration</code> is now stored as a separate
+                        <code>global JSON</code>, decoupling it from individual profiles. This allows you to maintain
+                        and select from multiple independent bucket configurations across all your projects.
+                    </div>
                 </div>
 
                 <div id="settings" class="card">
@@ -1211,6 +1281,13 @@ t.MaxFPS 30        // Lock framerate for consistency</code></pre>
                     <ul>
                         <li><span class="highlight">Load Theme:</span> Switch between <code>Dark</code>,
                             <code>Light</code>, or <code>System</code> themes.
+                            <div class="card warning-orange"
+                                style="margin-top: 0.5rem; padding: 0.75rem; border-left: 3px solid #f59e0b;">
+                                <p style="font-size: 0.95rem; margin-bottom: 0;">
+                                    <span class="note-orange">Work in Progress:</span> The theme system is undergoing an
+                                    overhaul. Palette bugs may appear in generated reports.
+                                </p>
+                            </div>
                         </li>
                         <li><span class="highlight">Log Colors:</span> Customize the colors used in the application log
                             window for better visibility.</li>
@@ -1283,8 +1360,8 @@ t.MaxFPS 30        // Lock framerate for consistency</code></pre>
                     </ol>
 
                     <div class="card warning-orange" style="margin-top: 1rem; border-left: 4px solid #f59e0b;">
-                        <p style="font-size: 0.95rem; margin-bottom: 0;"><strong class="highlight-orange">⚠️ Thermal
-                                Note:</strong> This
+                        <p style="font-size: 0.95rem; margin-bottom: 0;"><code class="highlight-orange">⚠️ Thermal
+                                Note:</code> This
                             "offline" workflow prevents the physical heat of an active USB data link from skewing your
                             FPS and thermal data, ensuring laboratory-grade accuracy.</p>
                     </div>
@@ -1301,9 +1378,11 @@ t.MaxFPS 30        // Lock framerate for consistency</code></pre>
                         <li>Ensure you've clicked <code>Allow</code> on the phone's RSA key permission prompt.</li>
                         <li>Verify that <code>adb.exe</code> exists. Cerebrus installs this to your user directory by
                             default.</li>
-                        <li>If it persists, run <code>adb devices</code> in a standard command prompt to reset the
-                            daemon.
+                        <li>If it persists, restart the ADB server via <code>adb kill-server</code> then
+                            <code>adb start-server</code>.
                         </li>
+                        <li><strong>Manual Restart:</strong> Open Task Manager, kill any <code>adb.exe</code> processes,
+                            then run <code>adb devices</code>.</li>
                     </ol>
                     </p>
                     <div class="card warning-red" style="border-left: 4px solid #ef4444; margin-top: 0.25rem;">
@@ -1335,18 +1414,21 @@ t.MaxFPS 30        // Lock framerate for consistency</code></pre>
                     </p>
                 </div>
 
+
                 <div id="troubleshoot-build" class="card warning-red" style="border-left: 4px solid #ef4444;">
                     <h3>Compatibility Warning</h3>
                     <p style="font-size: 0.95rem;">If Cerebrus detects the device but fails to pull any data, check your
                         <code>Build Configuration</code> in Unreal:
                     </p>
                     <ul style="font-size: 0.9rem;">
-                        <li><strong>Development:</strong> Full functionality. Supported for all profiling, logging, and
+                        <li><strong><code>Development</code>:</strong> Full functionality. Supported for all profiling,
+                            logging, and
                             console commands.</li>
-                        <li><strong>Test:</strong> Supports Console Commands and MemReports. <code
-                                class="highlight-orange">Logging is disabled</code> by
+                        <li><strong><code>Test</code>:</strong> Supports Console Commands and MemReports. <code
+                                class="note-orange">Logging is disabled</code> by
                             Unreal in this build type.</li>
-                        <li><strong>Shipping:</strong> <code class="highlight-red">Incompatible</code>. Console and
+                        <li><strong><code>Shipping</code>:</strong> <code class="highlight-red">Incompatible</code>.
+                            Console and
                             Logging are stripped by the engine. Discovery will fail.</li>
                     </ul>
                 </div>
@@ -1364,9 +1446,72 @@ t.MaxFPS 30        // Lock framerate for consistency</code></pre>
                     <p style="font-size: 0.9rem;">You can do this via <code>Cerebrus Help → Provide
                             Feedback</code> in the top Menu toolbar.</p>
                 </div>
-                <!-- Navigation Spacer to ensure bottom nav links work -->
-                <div style="height: 50vh;"></div>
             </section>
+
+            <section id="known-issues">
+                <h2>Known Bugs, Issues & Concerns</h2>
+                <div class="card warning-red"
+                    style="border-left: 4px solid #ef4444; background-color: rgba(239, 68, 68, 0.05);">
+                    <p style="font-size: 1rem; margin-bottom: 0;"><i><strong><code
+                                    class="highlight-red">CRITICAL:</code></strong></i> If
+                        you encounter any bugs, crashes, or data discrepancies other than these documented issues,
+                        please report them to the <code>Tech & Tools team</code> immediately via
+                        <code>Help -> Provide feedback</code>. Also share the <code>generated HTML files</code> where
+                        the bug was encountered, <code>screenshots</code> if possible and or <code>Cerebrus logs</code>
+                        if possible with the <code>Cerebrus App Live Logs Export button</code>.
+                    </p>
+                </div>
+
+                <div class="card warning-red" style="border-left: 4px solid #ef4444;">
+                    <h4 class="highlight-red">1. Unreal Data Inaccuracies</h4>
+                    <p>Calculated data reported by Unreal Engine can sometimes be incorrect in terms of memory usage.
+                        While we implement several safety checks, warnings may not trigger in every scenario.</p>
+                    <p style="font-size: 0.95rem;"><code>Object Summary Stats:</code> The table may
+                        initially appear to be missing thousands of entries in the reported and calculated totals.
+                        Clicking any column header to sort the table will force a refresh that displays all rows and
+                        updates the calculated totals correctly at runtime.</p>
+                    <p style="font-size: 0.95rem;"><code>Note on RHI Memory:</code> We are aware that
+                        <code>RHI memory stats</code> often deviate from actual physical usage. However, if you observe
+                        an <code>error margin greater than 5%</code> compared to native Android profiling tools, please
+                        report it to the <code>Tech & Tools team</code>.
+                    </p>
+                    <p style="font-size: 0.95rem;">If you identify an <code>error margin greater than 5%</code> in other
+                        parsed tabs where warnings did not pop up, please submit the <code>generated HTML file</code> to
+                        the <code>Tech & Tools team</code> via <code>Help -> Provide feedback</code>.</p>
+                </div>
+
+                <div class="card warning-orange" style="border-left: 4px solid #f59e0b;">
+                    <h4 class="highlight-orange">2. Experimental Theme System</h4>
+                    <p style="font-size: 0.95rem; margin-bottom: 0;"><code>Work in Progress:</code> The
+                        application's theme system (Light/Dark/System) is currently undergoing a major overhaul. You
+                        may encounter visual artifacts, inconsistent colors in generated reports, or palette-related
+                        bugs. <code>Full design parity is planned for future updates.</code></p>
+                </div>
+
+                <div class="card warning-blue" style="border-left: 4px solid #3b82f6;">
+                    <h4 class="highlight-blue">3. Android Rotation Settings</h4>
+                    <p>When using the <code>Launch Button</code> to start the game, Cerebrus may override the Android OS
+                        rotation settings. If the device's system setting is currently locked to a specific mode (e.g.,
+                        Portrait), the toolkit may force it back to <code>Auto-Rotate</code> mode to ensure
+                        compatibility with standard Unreal landscape layouts.</p>
+                </div>
+
+                <div class="card warning-red" style="border-left: 4px solid #ef4444; margin-top: 1rem;">
+                    <h4 class="highlight-red">4. Naming & Prefix Features</h4>
+                    <p style="font-size: 0.95rem;">The <code class="highlight-red">Output File Name</code> feature and
+                        <code class="highlight-red">Prefix Only</code> feature currently have known edge cases.
+                    </p>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem; margin-bottom: 0;">
+                        Multi-part CSV renaming has edge cases where
+                        custom names may not apply correctly to all generated artifacts. We recommend using the
+                        default naming convention if you encounter issues.
+                    </p>
+                </div>
+            </section>
+
+            <!-- Navigation Spacer to ensure bottom nav links work -->
+            <div style="height: 50vh;"></div>
+        </section>
     </main>
 
     <script>

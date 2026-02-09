@@ -1,12 +1,15 @@
 from __future__ import annotations
+
 from pathlib import Path
 from tkinter import Tk, filedialog
+
 import dearpygui.dearpygui as dpg
 
-from cerebrus.ui.state import UIState
-from cerebrus.ui.components.shared import log_message, _auto_save_profile
-from cerebrus.ui.themes import get_theme_manager
+from cerebrus.ui.components.shared import _auto_save_profile, log_message
 from cerebrus.ui.components.ui_config import UIConfig
+from cerebrus.ui.state import UIState
+from cerebrus.ui.themes import get_theme_manager
+
 
 def _show_profile_dialog(state: UIState, is_edit: bool = False) -> None:
     if is_edit:
@@ -22,7 +25,7 @@ def _show_profile_dialog(state: UIState, is_edit: bool = False) -> None:
                 config = UIConfig.get_instance()
                 settings = config.get_component_settings("profile_warning_modal")
                 settings["no_resize"] = True
-                
+
                 with dpg.window(**settings):
                     dpg.add_text(
                         "Cannot edit the Default Profile.\nPlease create a New Profile or Open an existing one."
@@ -66,8 +69,8 @@ def _show_profile_dialog(state: UIState, is_edit: bool = False) -> None:
     dialog_settings["no_resize"] = True
     dialog_settings["no_scrollbar"] = True
     dialog_settings["width"] = 500
-    dialog_settings["height"] = 180 # Increased slightly to ensure no scrollbar
-    
+    dialog_settings["height"] = 180  # Increased slightly to ensure no scrollbar
+
     with dpg.window(**dialog_settings):
         # Use a table with fixed widths to avoid wastage
         with dpg.table(header_row=False, policy=dpg.mvTable_SizingFixedFit):
@@ -76,29 +79,33 @@ def _show_profile_dialog(state: UIState, is_edit: bool = False) -> None:
 
             with dpg.table_row():
                 dpg.add_text("Profile Name:")
-                dpg.add_input_text(tag="pd_nickname", default_value=nickname or "", width=-1)
+                dpg.add_input_text(
+                    tag="pd_nickname", default_value=nickname or "", width=-1
+                )
 
             with dpg.table_row():
                 dpg.add_text("Package Name:")
-                dpg.add_input_text(tag="pd_package_name", default_value=package_name, width=-1)
+                dpg.add_input_text(
+                    tag="pd_package_name", default_value=package_name, width=-1
+                )
 
         dpg.add_spacer(height=15)
         dpg.add_separator()
         dpg.add_spacer(height=10)
-        
+
         with dpg.group(horizontal=True):
             # Calculate spacer to center: (window_width - (btn1_width + spacing + btn2_width)) / 2
             # (500 - (80 + 8 + 80)) / 2 = (500 - 168) / 2 = 166
-            dpg.add_spacer(width=166) 
+            dpg.add_spacer(width=166)
             dpg.add_button(
-                label="Save", 
+                label="Save",
                 width=80,
-                callback=lambda: _handle_profile_save(state, is_edit)
+                callback=lambda: _handle_profile_save(state, is_edit),
             )
             dpg.add_button(
-                label="Cancel", 
+                label="Cancel",
                 width=80,
-                callback=lambda: dpg.delete_item("profile_dialog")
+                callback=lambda: dpg.delete_item("profile_dialog"),
             )
 
 
@@ -158,7 +165,6 @@ def _handle_profile_save(state: UIState, is_edit: bool) -> None:
             # Sync Settings are now managed in the Configuration Sync panel
             # We preserve existing values but don't update them from this dialog
 
-
             state.profile_manager.save_current_profile()
             state.profile_nickname = nickname or "None"
 
@@ -171,8 +177,9 @@ def _handle_profile_save(state: UIState, is_edit: bool) -> None:
             # Refresh UI
             if dpg.does_item_exist("profile_nickname_input"):
                 dpg.set_value("profile_nickname_input", state.profile_nickname)
-            
+
             from cerebrus.ui.components.shared import _update_profile_display_colors
+
             _update_profile_display_colors(state)
 
 
@@ -234,7 +241,6 @@ def _finalize_profile_save(state: UIState, path: Path) -> None:
     # Update remote configs from dialog if tags exist
     # Sync Settings logic removed
 
-
     profile.save(path)
 
     log_message(state, "SUCCESS", f"New profile '{nickname}' created at {path}")
@@ -250,8 +256,9 @@ def _finalize_profile_save(state: UIState, path: Path) -> None:
         dpg.set_value("profile_path_input", str(path))
     if dpg.does_item_exist("package_input"):
         dpg.set_value("package_input", package_name)
-    
+
     from cerebrus.ui.components.shared import _update_profile_display_colors
+
     _update_profile_display_colors(state)
 
 
@@ -355,7 +362,10 @@ def _load_profile_from_path(state: UIState, path: Path) -> None:
                 profile.remote_manifest_url or state.remote_manifest_url,
             )
 
-        from cerebrus.ui.components.dialogs.aws.sync_panel import _render_downloaded_configs_list
+        from cerebrus.ui.components.dialogs.aws.sync_panel import (
+            _render_downloaded_configs_list,
+        )
+
         _render_downloaded_configs_list(state)
 
         if dpg.does_item_exist("use_prefix_only"):
@@ -379,6 +389,7 @@ def _load_profile_from_path(state: UIState, path: Path) -> None:
             dpg.set_value("cb_gen_mem", state.generate_memreport_enabled)
 
         from cerebrus.ui.components.shared import _update_profile_display_colors
+
         _update_profile_display_colors(state)
 
     except (ValueError, KeyError, TypeError) as e:

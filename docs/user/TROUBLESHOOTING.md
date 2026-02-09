@@ -33,6 +33,7 @@ This guide lists common issues and suggested resolutions.
   - **Remedy**:
     - Reconnect device and approve the host PC’s RSA key.
     - Restart ADB server: `adb kill-server` then `adb start-server`.
+    - Manual Restart (if above fails): Open Task Manager, kill `adb.exe`, then run `adb computers` or `adb devices`.
 
 ## Capture Failures
 

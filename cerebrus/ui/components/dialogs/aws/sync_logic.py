@@ -1,25 +1,31 @@
 from __future__ import annotations
-import os
+
 import json
+import os
 from pathlib import Path
 from urllib.parse import urlparse
+
 import dearpygui.dearpygui as dpg
 
-from cerebrus.ui.state import UIState
-from cerebrus.ui.components.shared import log_message, _auto_save_profile
 from cerebrus.tools.adb import AdbClient
+from cerebrus.ui.components.shared import _auto_save_profile, log_message
+from cerebrus.ui.state import UIState
+
 
 def is_aws_configured(state: UIState) -> bool:
     """Check if AWS credentials, profile, or Remote URL are configured."""
     profile = state.profile_manager.current_profile
     if not profile:
         return False
-    
+
     # Check for AWS Creds OR AWS Profile OR Base URL (public bucket)
-    has_aws = bool((profile.aws_access_key and profile.aws_secret_key) or profile.aws_profile)
+    has_aws = bool(
+        (profile.aws_access_key and profile.aws_secret_key) or profile.aws_profile
+    )
     has_url = bool(profile.remote_config_base_url)
-    
+
     return has_aws or has_url
+
 
 def update_manifest_url_state(state: UIState, value: str) -> None:
     """Update manifest URL in state and profile."""
@@ -27,6 +33,7 @@ def update_manifest_url_state(state: UIState, value: str) -> None:
     if state.profile_manager.current_profile:
         state.profile_manager.current_profile.remote_manifest_url = value
         _auto_save_profile(state)
+
 
 def smart_download(state: UIState, url: str, dest_path: Path) -> bool:
     """Download a file from an S3 URL or standard HTTP URL."""

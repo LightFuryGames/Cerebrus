@@ -2,6 +2,11 @@
 
 This document explains how to build Cerebrus installers using PyInstaller and Inno Setup.
 
+## Important Note: Publisher Metadata
+All official builds must identify **LeagueX Gaming Private Limited** as the Company Name and Publisher. This is configured in:
+- `scripts/cerebrus.spec`: `CompanyName` and `LegalCopyright` fields in the version info block.
+- `scripts/cerebrus.iss`: `#define MyAppPublisher "LeagueX Gaming"` field.
+
 ## Build System Overview
 
 Our build system uses a two-step process:

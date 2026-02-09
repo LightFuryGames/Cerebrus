@@ -9,23 +9,24 @@ from pathlib import Path
 
 import dearpygui.dearpygui as dpg
 
-from cerebrus.ui.state import UIState
-from cerebrus.ui.themes import get_theme_manager
-from cerebrus.ui.components.shared import log_message, _update_profile_display_colors
-from cerebrus.ui.components.panels.logs.logs_panel import _render_log_entries
-from cerebrus.ui.components.file_manager import _open_profile_folder
-from cerebrus.ui.components.dialogs.profile.profile_dialog import (
-    _show_profile_dialog,
-    _open_profile_native
-)
-from cerebrus.ui.components.dialogs.aws.aws_dialog import _show_aws_config_dialog
 from cerebrus.ui.components.dialogs.app.about_dialog import _show_about_dialog
 from cerebrus.ui.components.dialogs.app.updates_dialog import check_for_updates_ui
+from cerebrus.ui.components.dialogs.aws.aws_dialog import _show_aws_config_dialog
+from cerebrus.ui.components.dialogs.profile.profile_dialog import (
+    _open_profile_native,
+    _show_profile_dialog,
+)
+from cerebrus.ui.components.file_manager import _open_profile_folder
 from cerebrus.ui.components.palette_manager import (
     _show_create_palette_dialog,
     _show_load_palette_dialog,
-    _show_theme_editor
+    _show_theme_editor,
 )
+from cerebrus.ui.components.panels.logs.logs_panel import _render_log_entries
+from cerebrus.ui.components.shared import _update_profile_display_colors, log_message
+from cerebrus.ui.state import UIState
+from cerebrus.ui.themes import get_theme_manager
+
 
 def _safe_run(state: UIState, func) -> None:
     """Safely run a callback and log exceptions."""
@@ -33,49 +34,64 @@ def _safe_run(state: UIState, func) -> None:
         func()
     except Exception as e:
         import traceback
+
         traceback.print_exc()
         try:
-             log_message(state, "ERROR", f"Menu Error: {e}")
+            log_message(state, "ERROR", f"Menu Error: {e}")
         except:
-             pass
+            pass
+
 
 def build_menu_bar(state: UIState) -> None:
     """Render the top menu bar."""
     with dpg.menu_bar():
         with dpg.menu(label="File"):
             dpg.add_menu_item(
-                label="Exit Window", shortcut="Alt+F4", callback=lambda: dpg.stop_dearpygui()
+                label="Exit Window",
+                shortcut="Alt+F4",
+                callback=lambda: dpg.stop_dearpygui(),
             )
 
         with dpg.menu(label="Tools"):
             dpg.add_menu_item(
                 label="Echo Test Command",
-                callback=lambda: _safe_run(state, lambda: log_message(
-                    state, "INFO", "Echo Test Command Executed"
-                )),
+                callback=lambda: _safe_run(
+                    state,
+                    lambda: log_message(state, "INFO", "Echo Test Command Executed"),
+                ),
             )
             dpg.add_menu_item(
                 label="AWS Configuration",
-                callback=lambda: _safe_run(state, lambda: (
-                    log_message(state, "INFO", "Attempting to open AWS Dialog..."),
-                    _show_aws_config_dialog(state)
-                )),
+                callback=lambda: _safe_run(
+                    state,
+                    lambda: (
+                        log_message(state, "INFO", "Attempting to open AWS Dialog..."),
+                        _show_aws_config_dialog(state),
+                    ),
+                ),
             )
 
         with dpg.menu(label="Profile"):
             dpg.add_menu_item(
-                label="New", callback=lambda: _safe_run(state, lambda: _show_profile_dialog(state, is_edit=False))
+                label="New",
+                callback=lambda: _safe_run(
+                    state, lambda: _show_profile_dialog(state, is_edit=False)
+                ),
             )
             dpg.add_menu_item(
-                label="Open", callback=lambda: _safe_run(state, lambda: _open_profile_native(state))
+                label="Open",
+                callback=lambda: _safe_run(state, lambda: _open_profile_native(state)),
             )
             dpg.add_menu_item(
-                label="Edit", callback=lambda: _safe_run(state, lambda: _show_profile_dialog(state, is_edit=True))
+                label="Edit",
+                callback=lambda: _safe_run(
+                    state, lambda: _show_profile_dialog(state, is_edit=True)
+                ),
             )
             dpg.add_separator()
             dpg.add_menu_item(
                 label="Open Profile Folder",
-                callback=lambda: _safe_run(state, lambda: _open_profile_folder(state))
+                callback=lambda: _safe_run(state, lambda: _open_profile_folder(state)),
             )
 
         with dpg.menu(label="Settings"):
@@ -86,21 +102,27 @@ def build_menu_bar(state: UIState) -> None:
                     tag="menu_mode_system",
                     check=True,
                     default_value=(tm.current_mode == "System"),
-                    callback=lambda: _safe_run(state, lambda: _handle_theme_change(state, mode="System")),
+                    callback=lambda: _safe_run(
+                        state, lambda: _handle_theme_change(state, mode="System")
+                    ),
                 )
                 dpg.add_menu_item(
                     label="Light Mode",
                     tag="menu_mode_light",
                     check=True,
                     default_value=(tm.current_mode == "Light"),
-                    callback=lambda: _safe_run(state, lambda: _handle_theme_change(state, mode="Light")),
+                    callback=lambda: _safe_run(
+                        state, lambda: _handle_theme_change(state, mode="Light")
+                    ),
                 )
                 dpg.add_menu_item(
                     label="Dark Mode",
                     tag="menu_mode_dark",
                     check=True,
                     default_value=(tm.current_mode == "Dark"),
-                    callback=lambda: _safe_run(state, lambda: _handle_theme_change(state, mode="Dark")),
+                    callback=lambda: _safe_run(
+                        state, lambda: _handle_theme_change(state, mode="Dark")
+                    ),
                 )
             dpg.add_separator()
             with dpg.menu(label="Color Palette (WIP-Early Access)"):
@@ -108,8 +130,10 @@ def build_menu_bar(state: UIState) -> None:
                 defaults = ["Standard", "High Contrast", "Deuteranopia", "Tritanopia"]
                 all_palettes = sorted(list(tm.themes.keys()))
                 custom_palettes = [p for p in all_palettes if p not in defaults]
-                
-                dpg.add_text("Built-in", color=tm.get_text_color("disabled", (150, 150, 150)))
+
+                dpg.add_text(
+                    "Built-in", color=tm.get_text_color("disabled", (150, 150, 150))
+                )
                 for p in defaults:
                     if p in tm.themes:
                         tag = f"menu_palette_{p.lower().replace(' ', '_')}"
@@ -118,13 +142,17 @@ def build_menu_bar(state: UIState) -> None:
                             tag=tag,
                             check=True,
                             default_value=(tm.current_palette == p),
-                            callback=lambda s, a, u: _safe_run(state, lambda: _handle_theme_change(state, palette=u)),
-                            user_data=p
+                            callback=lambda s, a, u: _safe_run(
+                                state, lambda: _handle_theme_change(state, palette=u)
+                            ),
+                            user_data=p,
                         )
 
                 if custom_palettes:
                     dpg.add_separator()
-                    dpg.add_text("Custom", color=tm.get_text_color("disabled", (150, 150, 150)))
+                    dpg.add_text(
+                        "Custom", color=tm.get_text_color("disabled", (150, 150, 150))
+                    )
                     for p in custom_palettes:
                         tag = f"menu_palette_{p.lower().replace(' ', '_')}"
                         dpg.add_menu_item(
@@ -132,61 +160,78 @@ def build_menu_bar(state: UIState) -> None:
                             tag=tag,
                             check=True,
                             default_value=(tm.current_palette == p),
-                            callback=lambda s, a, u: _safe_run(state, lambda: _handle_theme_change(state, palette=u)),
-                            user_data=p
+                            callback=lambda s, a, u: _safe_run(
+                                state, lambda: _handle_theme_change(state, palette=u)
+                            ),
+                            user_data=p,
                         )
-                
+
                 dpg.add_separator()
                 dpg.add_menu_item(
                     label="Edit Current Palette",
-                    callback=lambda: _safe_run(state, lambda: _show_theme_editor(state))
+                    callback=lambda: _safe_run(
+                        state, lambda: _show_theme_editor(state)
+                    ),
                 )
                 dpg.add_menu_item(
                     label="Create Custom Palette",
-                    callback=lambda: _safe_run(state, lambda: _show_create_palette_dialog(state))
+                    callback=lambda: _safe_run(
+                        state, lambda: _show_create_palette_dialog(state)
+                    ),
                 )
                 dpg.add_menu_item(
                     label="Import Palette JSON",
-                    callback=lambda: _safe_run(state, lambda: _show_load_palette_dialog(state))
+                    callback=lambda: _safe_run(
+                        state, lambda: _show_load_palette_dialog(state)
+                    ),
                 )
                 dpg.add_menu_item(
                     label="Open Palettes Folder",
-                    callback=lambda: _safe_run(state, lambda: os.startfile(tm.palettes_dir))
+                    callback=lambda: _safe_run(
+                        state, lambda: os.startfile(tm.palettes_dir)
+                    ),
                 )
 
         with dpg.menu(label="Help"):
             dpg.add_menu_item(
-                label="Help", shortcut="F1", callback=lambda: _safe_run(state, lambda: _open_user_guide(state))
+                label="Help",
+                shortcut="F1",
+                callback=lambda: _safe_run(state, lambda: _open_user_guide(state)),
             )
             dpg.add_menu_item(
-                label="Check for Updates", callback=lambda: _safe_run(state, lambda: check_for_updates_ui(state))
+                label="Check for Updates",
+                callback=lambda: _safe_run(state, lambda: check_for_updates_ui(state)),
             )
             dpg.add_menu_item(
-                label="Provide Feedback", callback=lambda: _safe_run(state, lambda: _provide_feedback(state))
+                label="Provide Feedback",
+                callback=lambda: _safe_run(state, lambda: _provide_feedback(state)),
             )
-            dpg.add_menu_item(label="About", callback=lambda: _safe_run(state, lambda: _show_about_dialog(state)))
+            dpg.add_menu_item(
+                label="About",
+                callback=lambda: _safe_run(state, lambda: _show_about_dialog(state)),
+            )
 
 
 def _handle_theme_change(state: UIState, palette: str = None, mode: str = None) -> None:
     tm = get_theme_manager()
     tm.apply_theme(palette, mode)
-    
+
     # Update Menu Checkmarks to reflect current selection
     mode_tags = {
         "System": "menu_mode_system",
         "Light": "menu_mode_light",
         "Dark": "menu_mode_dark",
     }
-    
+
     # We should iterate over known palettes for tags
     # But since we generate tags dynamically, we can reconstruct or just unset all?
     # Simpler: just set the specific ones we know or use the TM list
-    
+
     if mode:
         for m, tag in mode_tags.items():
             if dpg.does_item_exist(tag):
                 dpg.set_value(tag, m == mode)
-    
+
     if palette:
         tm.apply_theme(palette=palette)
         # Update Palette checkmarks dynamically

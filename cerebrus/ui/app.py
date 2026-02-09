@@ -6,18 +6,17 @@ from pathlib import Path
 
 import dearpygui.dearpygui as dpg
 
-from cerebrus.ui.state import UIState
-
 from cerebrus.ui.components import (
-    setup_fonts,
+    _open_user_guide,
+    build_device_controls,
+    build_file_actions,
     build_menu_bar,
     build_profile_summary,
-    build_file_actions,
-    build_device_controls,
-    log_message,
     check_for_updates_ui,
-    _open_user_guide
+    log_message,
+    setup_fonts,
 )
+from cerebrus.ui.state import UIState
 
 
 class CerebrusApp:
@@ -56,8 +55,9 @@ class CerebrusApp:
 
     def build(self) -> None:
         from cerebrus.core.logging_setup import setup_logging
+
         setup_logging()
-        
+
         dpg.create_context()
 
         # Initialize theme

@@ -10,30 +10,26 @@ This document describes the design principles for wrapping external tools.
 
 ## Basic Pattern
 
-Example for CSVCollate:
+Example for a command-line tool wrapper:
 
 ```python
-@dataclass
-class CsvCollateConfig:
-    binary_path: pathlib.Path
-    default_search_pattern: str = "*.csv"
+def run_command(binary_path: pathlib.Path, args: list) -> subprocess.CompletedProcess:
+    # Build argument list and execute
+    cmd = [str(binary_path)] + args
+    return subprocess.run(cmd, capture_output=True, text=True)
+```
 
-def run_collate(
-    cfg: CsvCollateConfig,
-    input_dir: pathlib.Path,
-    output_file: pathlib.Path,
-    recurse: bool = True,
-    metadata_filter: str | None = None,
-) -> subprocess.CompletedProcess:
-    # Build argument list
-    args = [str(cfg.binary_path), "-csvDir", str(input_dir), "-searchPattern", cfg.default_search_pattern]
-    if recurse:
-        args.append("-recurse")
-    if metadata_filter:
-        args.extend(["-metadataFilter", metadata_filter])
-    args.extend(["-o", str(output_file)])
-    # Invoke and return completed process
-    ...
+## Class-Based Wrappers (Preferred for Statefull Tools)
+
+For more complex tools like `AdbClient`, use a class to manage state:
+
+```python
+class AdbClient:
+    def __init__(self, adb_path: Path):
+        self.adb_path = adb_path
+        
+    def shell_command(self, device_id: str, command: str) -> str:
+        # Implementation...
 ```
 
 ## Error Handling

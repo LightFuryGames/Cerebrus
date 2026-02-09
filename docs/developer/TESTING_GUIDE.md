@@ -54,6 +54,12 @@ def create_dummy_memreport() -> str:
 
 ## Running Tests
 
+```powershell
+./scripts/run_unittests.ps1
+```
+
+Or manually:
+
 ```bash
 pytest
 ```
@@ -67,15 +73,16 @@ pytest -s -rP
 
 To run the **full pipeline** locally (Lint + Preflight + Test):
 ```powershell
-./scripts/run_tests.ps1  # (If available) OR
+./scripts/run_unittests.ps1  # (If available) OR
 pytest && ./scripts/run_lint.ps1
 ```
 
 Before pushing, ensure you pass the full CI suite locally:
 
 ```powershell
-./scripts/run_lint.ps1
+./run_pipeline.ps1
 ```
+This script combines linting, preflight checks, and unit tests.
 
 ## CI Integration
 

@@ -99,6 +99,10 @@ docs/                       # Documentation
     SETUP.md                # Environment setup guide
     TESTING_GUIDE.md        # Testing strategies
     TOOL_WRAPPER_DESIGN.md  # Design patterns for tool wrappers
+    
+  technical/                # Technical implementation details
+    html_viewer_implementation.md
+    native_file_dialog_implementation.md
 
   installer/                # Installer specifications
     OVERVIEW.md

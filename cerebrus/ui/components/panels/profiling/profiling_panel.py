@@ -4,50 +4,72 @@ from __future__ import annotations
 
 import dearpygui.dearpygui as dpg
 
-from cerebrus.ui.state import UIState
-from cerebrus.ui.themes import get_theme_manager
-from cerebrus.ui.components.shared import log_message, _add_help_button
-from cerebrus.ui.components.file_manager import (
-    _handle_output_file_name_change,
-    _handle_use_prefix_toggle,
-    _open_folder_in_explorer,
+from cerebrus.tools.adb import AdbClient  # Assuming this exists based on context
+
+from ....state import UIState
+from ....themes import get_theme_manager
+from ...dialogs.files.file_dialog import _browse_folder_native
+from ...file_manager import (
     _handle_bulk_action_toggle,
     _handle_generate_actions,
+    _handle_output_file_name_change,
+    _handle_use_prefix_toggle,
     _handle_view_html_logs,
+    _open_folder_in_explorer,
 )
-from cerebrus.ui.components.dialogs.files.file_dialog import _browse_folder_native
-from cerebrus.tools.adb import AdbClient # Assuming this exists based on context
-from cerebrus.ui.components.ui_config import UIConfig
+from ...shared import _add_help_button, log_message
+from ...ui_config import UIConfig
+
 
 def _build_profiling_tab(state: UIState) -> None:
     """Profiling tab content including remote profiling and file actions."""
     tm = get_theme_manager()
     header_color = tm.get_header_color()
     config = UIConfig.get_instance()
-    
+
     with dpg.child_window(**config.get_component_settings("profiling_main_child")):
         # --- Section 1: Remote Execution & Commands (Streamlined Row) ---
         with dpg.group(horizontal=True, horizontal_spacing=12):
-            dpg.bind_item_theme(dpg.add_text("Remote Execution:"), tm.get_header_theme())
+            dpg.bind_item_theme(
+                dpg.add_text("Remote Execution:"), tm.get_header_theme()
+            )
             with dpg.group(horizontal=True, horizontal_spacing=2):
-                dpg.add_button(label="Launch", width=config.get_dimension("button_width_small"), callback=lambda: _handle_launch_package(state))
+                dpg.add_button(
+                    label="Launch",
+                    width=config.get_dimension("button_width_small"),
+                    callback=lambda: _handle_launch_package(state),
+                )
                 _add_help_button("launch_package")
-                
-                dpg.add_button(label="Minimize", width=config.get_dimension("button_width_small"), callback=lambda: _handle_minimize_app(state))
+
+                dpg.add_button(
+                    label="Minimize",
+                    width=config.get_dimension("button_width_small"),
+                    callback=lambda: _handle_minimize_app(state),
+                )
                 _add_help_button("minimize_app")
 
-                dpg.add_button(label="Kill App", width=config.get_dimension("button_width_standard"), callback=lambda: _handle_force_stop_package(state))
+                dpg.add_button(
+                    label="Kill App",
+                    width=config.get_dimension("button_width_standard"),
+                    callback=lambda: _handle_force_stop_package(state),
+                )
                 _add_help_button("kill_app")
-                
-                dpg.add_button(label="Clear App Data", width=config.get_dimension("button_width_standard"), callback=lambda: _handle_clear_app_data(state))
+
+                dpg.add_button(
+                    label="Clear App Data",
+                    width=config.get_dimension("button_width_standard"),
+                    callback=lambda: _handle_clear_app_data(state),
+                )
                 _add_help_button("clear_app_data")
 
             dpg.add_spacer(width=config.get_spacer("section_gap"))
             # Vertical separator
-            dpg.bind_item_theme(dpg.add_text("|"), tm.get_subheader_theme()) 
+            dpg.bind_item_theme(dpg.add_text("|"), tm.get_subheader_theme())
             dpg.add_spacer(width=config.get_spacer("section_gap"))
 
-            dpg.bind_item_theme(dpg.add_text("Console Command:"), tm.get_subheader_theme())
+            dpg.bind_item_theme(
+                dpg.add_text("Console Command:"), tm.get_subheader_theme()
+            )
             with dpg.group(horizontal=True, horizontal_spacing=2):
                 dpg.add_input_text(
                     tag="custom_command_input",
@@ -56,7 +78,11 @@ def _build_profiling_tab(state: UIState) -> None:
                     on_enter=True,
                     callback=lambda: _handle_custom_command(state),
                 )
-                dpg.add_button(label="Send", width=config.get_dimension("button_width_small"), callback=lambda: _handle_custom_command(state))
+                dpg.add_button(
+                    label="Send",
+                    width=config.get_dimension("button_width_small"),
+                    callback=lambda: _handle_custom_command(state),
+                )
                 _add_help_button("custom_command")
 
         dpg.add_spacer(height=config.get_spacer("half"))
@@ -67,25 +93,45 @@ def _build_profiling_tab(state: UIState) -> None:
         with dpg.group(horizontal=True, horizontal_spacing=12):
             # Remote Profiling Group
             with dpg.group(horizontal=True, horizontal_spacing=8):
-                dpg.bind_item_theme(dpg.add_text("Remote Profiling:"), tm.get_header_theme())
+                dpg.bind_item_theme(
+                    dpg.add_text("Remote Profiling:"), tm.get_header_theme()
+                )
                 with dpg.group(horizontal=True, horizontal_spacing=2):
-                    dpg.add_button(label="Start Profiling", width=config.get_dimension("button_width_standard"), callback=lambda: _handle_start_profiling(state))
+                    dpg.add_button(
+                        label="Start Profiling",
+                        width=config.get_dimension("button_width_standard"),
+                        callback=lambda: _handle_start_profiling(state),
+                    )
                     _add_help_button("start_profiling")
-                    dpg.add_button(label="Stop Profiling", width=config.get_dimension("button_width_standard"), callback=lambda: _handle_stop_profiling(state))
+                    dpg.add_button(
+                        label="Stop Profiling",
+                        width=config.get_dimension("button_width_standard"),
+                        callback=lambda: _handle_stop_profiling(state),
+                    )
                     _add_help_button("stop_profiling")
-            
+
             dpg.add_spacer(width=15)
             # Use theme binding for separator
-            dpg.bind_item_theme(dpg.add_text("|"), tm.get_subheader_theme()) 
+            dpg.bind_item_theme(dpg.add_text("|"), tm.get_subheader_theme())
             dpg.add_spacer(width=15)
 
             # Frame Memory Group
             with dpg.group(horizontal=True, horizontal_spacing=8):
-                dpg.bind_item_theme(dpg.add_text("Memory Profiling:"), tm.get_header_theme())
+                dpg.bind_item_theme(
+                    dpg.add_text("Memory Profiling:"), tm.get_header_theme()
+                )
                 with dpg.group(horizontal=True, horizontal_spacing=2):
-                    dpg.add_button(label="Memreport", width=config.get_dimension("button_width_standard"), callback=lambda: _handle_memreport(state))
+                    dpg.add_button(
+                        label="Memreport",
+                        width=config.get_dimension("button_width_standard"),
+                        callback=lambda: _handle_memreport(state),
+                    )
                     _add_help_button("memreport")
-                    dpg.add_button(label="Memreport Full", width=config.get_dimension("button_width_standard"), callback=lambda: _handle_memreport_full(state))
+                    dpg.add_button(
+                        label="Memreport Full",
+                        width=config.get_dimension("button_width_standard"),
+                        callback=lambda: _handle_memreport_full(state),
+                    )
                     _add_help_button("memreport_full")
 
         dpg.add_spacer(height=config.get_spacer("half"))
@@ -94,11 +140,15 @@ def _build_profiling_tab(state: UIState) -> None:
 
         # --- Section 3: Data and Perf Report (Restored Legacy Alignment) ---
         dpg.bind_item_theme(dpg.add_text("Data and Perf Report"), tm.get_header_theme())
-        with dpg.table(header_row=False, policy=config.get_table_policy("policy_stretch")):
+        with dpg.table(
+            header_row=False, policy=config.get_table_policy("policy_stretch")
+        ):
             dpg.add_table_column(width_fixed=True, init_width_or_weight=160)
             dpg.add_table_column(width_stretch=True, init_width_or_weight=1.0)
             dpg.add_table_column(width_fixed=True, init_width_or_weight=260)
-            dpg.add_table_column(width_fixed=True, init_width_or_weight=10) # Minimal padding col
+            dpg.add_table_column(
+                width_fixed=True, init_width_or_weight=10
+            )  # Minimal padding col
 
             with dpg.table_row():
                 with dpg.group(horizontal=True, horizontal_spacing=4):
@@ -146,9 +196,16 @@ def _build_profiling_tab(state: UIState) -> None:
                 dpg.add_spacer()
 
         with dpg.group(horizontal=True, horizontal_spacing=12):
-            with dpg.child_window(**config.get_component_settings("bulk_actions_left_child")):
-                dpg.bind_item_theme(dpg.add_text("Bulk Actions From Selected Phone to PC"), tm.get_subheader_theme())
-                with dpg.table(header_row=False, policy=config.get_table_policy("policy_fixed")):
+            with dpg.child_window(
+                **config.get_component_settings("bulk_actions_left_child")
+            ):
+                dpg.bind_item_theme(
+                    dpg.add_text("Bulk Actions From Selected Phone to PC"),
+                    tm.get_subheader_theme(),
+                )
+                with dpg.table(
+                    header_row=False, policy=config.get_table_policy("policy_fixed")
+                ):
                     dpg.add_table_column(width_fixed=True, init_width_or_weight=210)
                     dpg.add_table_column(width_fixed=True, init_width_or_weight=30)
 
@@ -182,9 +239,15 @@ def _build_profiling_tab(state: UIState) -> None:
                         )
                         _add_help_button("move_logs")
 
-            with dpg.child_window(**config.get_component_settings("bulk_actions_right_child")):
-                dpg.bind_item_theme(dpg.add_text("Bulk Actions From PC to PC"), tm.get_subheader_theme())
-                with dpg.table(header_row=False, policy=config.get_table_policy("policy_fixed")):
+            with dpg.child_window(
+                **config.get_component_settings("bulk_actions_right_child")
+            ):
+                dpg.bind_item_theme(
+                    dpg.add_text("Bulk Actions From PC to PC"), tm.get_subheader_theme()
+                )
+                with dpg.table(
+                    header_row=False, policy=config.get_table_policy("policy_fixed")
+                ):
                     dpg.add_table_column(width_fixed=True, init_width_or_weight=310)
                     dpg.add_table_column(width_fixed=True, init_width_or_weight=30)
 
@@ -299,7 +362,7 @@ def _handle_clear_app_data(state: UIState) -> None:
     if not state.selected_device_serial:
         log_message(state, "ERROR", "No device selected.")
         return
-        
+
     if not state.package_name:
         log_message(state, "ERROR", "Package Name not set.")
         return
@@ -308,7 +371,9 @@ def _handle_clear_app_data(state: UIState) -> None:
     try:
         log_message(state, "INFO", f"Clearing app data for {state.package_name}...")
         client.clear_package_data(state.selected_device_serial, state.package_name)
-        log_message(state, "SUCCESS", f"Cleared app data and cache for {state.package_name}")
+        log_message(
+            state, "SUCCESS", f"Cleared app data and cache for {state.package_name}"
+        )
     except Exception as e:
         log_message(state, "ERROR", f"Failed to clear app data: {e}")
 
@@ -377,10 +442,10 @@ def _send_console_command_wrapper(state: UIState, command: str) -> None:
         return
 
     client = AdbClient()
-    
+
     # Check if running
     if not client.is_package_running(state.selected_device_serial, state.package_name):
-         log_message(
+        log_message(
             state,
             "WARNING",
             f"Package {state.package_name} does not seem to be running. Command might fail.",

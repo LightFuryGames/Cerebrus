@@ -1,14 +1,17 @@
 from __future__ import annotations
+
+import sys
 import threading
 import time
 import webbrowser
-import sys
+
 import dearpygui.dearpygui as dpg
 
-from cerebrus.ui.state import UIState
-from cerebrus.ui.components.shared import log_message
 from cerebrus.core.updater import check_for_updates, download_update, run_installer
+from cerebrus.ui.components.shared import log_message
 from cerebrus.ui.components.ui_config import UIConfig
+from cerebrus.ui.state import UIState
+
 
 def check_for_updates_ui(state: UIState, silent_on_up_to_date: bool = False) -> None:
     """Check for updates and show dialog. Set silent_on_up_to_date=True for startup checks."""
@@ -40,29 +43,41 @@ def _show_up_to_date_dialog(state: UIState, latest_tag: str | None) -> None:
         dpg.delete_item("update_dialog")
 
     config = UIConfig.get_instance()
-    settings = config.get_component_settings("update_dialog") # Re-use same settings?
-    
+    settings = config.get_component_settings("update_dialog")  # Re-use same settings?
+
     viewport_width = dpg.get_viewport_width() or 1280
     viewport_height = dpg.get_viewport_height() or 720
     width = 400
     height = 180
     pos_x = (viewport_width - width) // 2
     pos_y = (viewport_height - height) // 2
-    
-    with dpg.window(label="Updates", pos=(pos_x, pos_y), width=width, height=height, modal=True, no_resize=True, tag="update_dialog"):
+
+    with dpg.window(
+        label="Updates",
+        pos=(pos_x, pos_y),
+        width=width,
+        height=height,
+        modal=True,
+        no_resize=True,
+        tag="update_dialog",
+    ):
         dpg.add_text("You are up to date!", color=(100, 255, 100))
         dpg.add_spacer(height=10)
-        
-        version_text = f"Latest version: {latest_tag}" if latest_tag else "You are on the latest version."
+
+        version_text = (
+            f"Latest version: {latest_tag}"
+            if latest_tag
+            else "You are on the latest version."
+        )
         dpg.add_text(version_text)
-        
+
         dpg.add_spacer(height=20)
         with dpg.group(horizontal=True):
             dpg.add_spacer(width=140)
             dpg.add_button(
-                label="Close", 
-                width=100, 
-                callback=lambda: dpg.delete_item("update_dialog")
+                label="Close",
+                width=100,
+                callback=lambda: dpg.delete_item("update_dialog"),
             )
 
 
@@ -82,11 +97,11 @@ def _show_update_dialog(
     height = settings.get("height", 300)
     pos_x = (viewport_width - width) // 2
     pos_y = (viewport_height - height) // 2
-    
+
     # Merge settings with dynamic pos
     window_args = settings.copy()
     window_args["pos"] = (pos_x, pos_y)
-    
+
     with dpg.window(**window_args):
         dpg.add_text(f"A new version is available: {latest_tag}")
 

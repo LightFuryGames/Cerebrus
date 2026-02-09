@@ -1,13 +1,13 @@
 import os
 from pathlib import Path
 
-import markdown
+import markdown  # type: ignore
 
 
 def generate_html_docs():
     """Convert user_guide.md to a standalone HTML file."""
 
-    project_root = Path(__file__).resolve().parent.parent
+    project_root = Path(__file__).resolve().parent.parent.parent
     md_file = project_root / "docs" / "user_guide.md"
     html_file = project_root / "cerebrus" / "resources" / "user_guide.html"
 

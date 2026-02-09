@@ -18,26 +18,12 @@ The application will:
 
 ## From Source (Developer Mode)
 
-1. Activate your virtual environment:
+1. Activate your virtual environment and run the main entrypoint:
 
    ```bash
-   cd cerebrus
    .venv\Scripts\activate
-   ```
-
-2. Run the main entrypoint (to be implemented):
-
-   ```bash
-   python -m cerebrus
-   ```
-
-or
-
-   ```bash
    python -m cerebrus.main
    ```
-
-depending on the final structure.
 
 The main window will appear and present:
 

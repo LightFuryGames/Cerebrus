@@ -1,18 +1,20 @@
 from __future__ import annotations
+
 import os
 import re
 import subprocess
 import sys
 import webbrowser
 from pathlib import Path
+
 import dearpygui.dearpygui as dpg
 
-from cerebrus.ui.state import UIState
-from cerebrus.ui.themes import get_theme_manager
-from cerebrus.ui.components.shared import log_message, _auto_save_profile
 from cerebrus.tools.adb import AdbClient, AdbError
 from cerebrus.tools.log_to_html import convert_log_to_html
 from cerebrus.tools.memreport.tool import generate_html_report, parse_memreport
+from cerebrus.ui.components.shared import _auto_save_profile, log_message
+from cerebrus.ui.state import UIState
+from cerebrus.ui.themes import get_theme_manager
 
 
 def _handle_output_file_name_change(
@@ -110,13 +112,15 @@ def _handle_view_html_logs(state: UIState) -> None:
     log_message(state, "INFO", f"Found {len(html_files)} HTML file(s) in {output_dir}")
 
     # Show a dialog to select which HTML file to open
-    from cerebrus.ui.components.dialogs.files.file_dialog import _show_html_file_selector
+    from .dialogs.files.file_dialog import _show_html_file_selector
+
     _show_html_file_selector(state, html_files)
 
 
 def _open_html_file(state: UIState, html_file: Path) -> None:
     """Open a single HTML file in the default web browser."""
     import webbrowser
+
     try:
         # Use webbrowser module (part of Python standard library)
         webbrowser.open(f"file:///{html_file.as_posix()}")
@@ -128,6 +132,7 @@ def _open_html_file(state: UIState, html_file: Path) -> None:
 def _open_all_html_files(state: UIState, html_files: list) -> None:
     """Open all HTML files in the default web browser."""
     import webbrowser
+
     opened_count = 0
     for html_file in html_files:
         try:
@@ -246,7 +251,7 @@ def _handle_generate_perf_report(state: UIState) -> None:
         log_message(state, "ERROR", f"CSV directory not found: {csv_dir}")
         return
 
-    output_dir = state.output_path
+    output_dir = state.output_path / "Profiling"
 
     if not output_dir.exists():
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -271,13 +276,9 @@ def _handle_generate_perf_report(state: UIState) -> None:
                 state.output_file_name if state.output_file_name else csv_file.stem
             )
 
-        report_dir_name = output_filename
-        report_dir = output_dir / report_dir_name
-        
-        counter = 1
-        while report_dir.exists():
-            report_dir = output_dir / f"{report_dir_name}_{counter}"
-            counter += 1
+        # User requested output directly in Profiling/ folder, not a subdir.
+        # PerfReportTool with -o <dir> usually creates <dir>/<InputName>.html
+        # We pass output_dir directly.
 
         cmd = [
             str(tool_path),
@@ -286,7 +287,7 @@ def _handle_generate_perf_report(state: UIState) -> None:
             "-reportType",
             "Default60fps",
             "-o",
-            str(report_dir),
+            str(output_dir),
             "-perfLog",
         ]
 
@@ -303,9 +304,51 @@ def _handle_generate_perf_report(state: UIState) -> None:
             )
 
             if result.returncode == 0:
-                generated_html_path = report_dir / f"{csv_file.stem}.html"
-                log_message(state, "SUCCESS", f"Generated report in: {report_dir.name}")
-                
+                # Tool outputs keys off the input filename usually.
+                # If we want to support state.output_file_name (renaming), we must find the generated file.
+                # Standard behavior: Input.csv -> OutputDir/Input.html
+                generated_html_path = output_dir / f"{csv_file.stem}.html"
+
+                if not generated_html_path.exists():
+                    # Fallback check if it used some other naming convention?
+                    # Try finding any HTML created recently?
+                    # For now assume standard behavior.
+                    log_message(
+                        state,
+                        "WARNING",
+                        f"Expected output file not found: {generated_html_path}",
+                    )
+                else:
+                    # Rename if requested via UI state (Prefix/Output Name)
+                    final_name = csv_file.stem
+                    if state.use_prefix_only:
+                        if state.output_file_name:
+                            final_name = f"{state.output_file_name}_{csv_file.stem}"
+                    elif state.output_file_name:
+                        final_name = state.output_file_name
+
+                    if final_name != csv_file.stem:
+                        new_path = output_dir / f"{final_name}.html"
+                        # Handle collision
+                        c = 1
+                        while new_path.exists():
+                            new_path = output_dir / f"{final_name}_{c}.html"
+                            c += 1
+
+                        try:
+                            generated_html_path.rename(new_path)
+                            generated_html_path = new_path
+                        except Exception as e:
+                            log_message(
+                                state, "WARNING", f"Failed to rename output: {e}"
+                            )
+
+                    log_message(
+                        state,
+                        "SUCCESS",
+                        f"Generated report: {generated_html_path.name}",
+                    )
+
                 try:
                     _inject_metadata_into_report(state, csv_file, generated_html_path)
                 except Exception as e:
@@ -320,7 +363,9 @@ def _handle_generate_perf_report(state: UIState) -> None:
                     csv_file.unlink()
                     log_message(state, "INFO", f"Deleted {csv_file.name}")
                 except Exception as e:
-                    log_message(state, "WARNING", f"Failed to delete {csv_file.name}: {e}")
+                    log_message(
+                        state, "WARNING", f"Failed to delete {csv_file.name}: {e}"
+                    )
 
             else:
                 log_message(state, "ERROR", f"Failed to process {csv_file.name}")
@@ -335,25 +380,27 @@ def _handle_generate_perf_report(state: UIState) -> None:
 def _handle_generate_mem_report(state: UIState) -> None:
     """Generate HTML reports from .memreport files."""
     base_path = state.base_output_path if state.base_output_path else state.output_path
-    
+
     # Input defined as where MemReports were moved to: base_path/MemReports
     mem_dir = base_path / "MemReports"
-    
+
     if not mem_dir.exists():
         log_message(state, "ERROR", f"MemReports directory not found: {mem_dir}")
         return
 
-    # Output to current output_path
-    dest_dir = state.output_path
+    # Output to current output_path / MemReports
+    dest_dir = state.output_path / "MemReports"
     if not dest_dir.exists():
         dest_dir.mkdir(parents=True, exist_ok=True)
-        
+
     report_files = list(mem_dir.glob("**/*.memreport"))
     if not report_files:
         log_message(state, "WARNING", f"No .memreport files found in {mem_dir}")
         return
 
-    log_message(state, "INFO", f"Found {len(report_files)} memreport files. Generating...")
+    log_message(
+        state, "INFO", f"Found {len(report_files)} memreport files. Generating..."
+    )
 
     for report_file in report_files:
         try:
@@ -381,6 +428,7 @@ def _handle_generate_mem_report(state: UIState) -> None:
 
         except Exception as e:
             import traceback
+
             traceback.print_exc()
             log_message(state, "ERROR", f"Failed to process {report_file.name}: {e}")
 
@@ -395,7 +443,7 @@ def _handle_generate_colored_logs(state: UIState) -> None:
         log_message(state, "ERROR", f"Logs directory not found: {logs_dir}")
         return
 
-    output_dir = state.output_path
+    output_dir = state.output_path / "Logs"
     if not output_dir.exists():
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -404,7 +452,9 @@ def _handle_generate_colored_logs(state: UIState) -> None:
         log_message(state, "WARNING", f"No log files found in {logs_dir}")
         return
 
-    log_message(state, "INFO", f"Found {len(log_files)} log files. Starting conversion...")
+    log_message(
+        state, "INFO", f"Found {len(log_files)} log files. Starting conversion..."
+    )
 
     for log_file in log_files:
         if state.use_prefix_only:
@@ -413,7 +463,9 @@ def _handle_generate_colored_logs(state: UIState) -> None:
             else:
                 output_filename = log_file.stem
         else:
-            output_filename = state.output_file_name if state.output_file_name else log_file.stem
+            output_filename = (
+                state.output_file_name if state.output_file_name else log_file.stem
+            )
 
         output_file_path = _get_unique_output_path(output_dir, output_filename, ".html")
 
@@ -450,6 +502,7 @@ def _log_debug_to_file(msg: str):
 
         with open(debug_path, "a", encoding="utf-8") as f:
             from datetime import datetime
+
             f.write(f"[{datetime.now()}] {msg}\n")
     except:
         pass
@@ -477,7 +530,9 @@ def _read_csv_metadata(csv_path: Path) -> dict:
     return metadata
 
 
-def _inject_metadata_into_report(state: UIState, csv_file: Path, html_file: Path) -> None:
+def _inject_metadata_into_report(
+    state: UIState, csv_file: Path, html_file: Path
+) -> None:
     if not html_file.exists():
         return
 
@@ -502,7 +557,7 @@ def _inject_metadata_into_report(state: UIState, csv_file: Path, html_file: Path
         features_list = []
         if metadata.get("largeworldcoordinates") == "1":
             features_list.append("Large World Coordinates (LWC) Enabled")
-            
+
         pgo = metadata.get("pgoenabled", "0")
         lto = metadata.get("ltoenabled", "0")
         asan = metadata.get("asan", "0")
@@ -510,9 +565,12 @@ def _inject_metadata_into_report(state: UIState, csv_file: Path, html_file: Path
             features_list.append("PGO/LTO/ASAN Disabled")
         else:
             enabled = []
-            if pgo == "1": enabled.append("PGO")
-            if lto == "1": enabled.append("LTO")
-            if asan == "1": enabled.append("ASAN")
+            if pgo == "1":
+                enabled.append("PGO")
+            if lto == "1":
+                enabled.append("LTO")
+            if asan == "1":
+                enabled.append("ASAN")
             if enabled:
                 features_list.append(f"{'/'.join(enabled)} Enabled")
 
@@ -529,16 +587,26 @@ def _inject_metadata_into_report(state: UIState, csv_file: Path, html_file: Path
         """
 
         content = html_file.read_text(encoding="utf-8")
-        pattern = re.compile(r"(<tr[^>]*>.*?Frame\s*count.*?</tr>)", re.IGNORECASE | re.DOTALL)
+        pattern = re.compile(
+            r"(<tr[^>]*>.*?Frame\s*count.*?</tr>)", re.IGNORECASE | re.DOTALL
+        )
         match = pattern.search(content)
 
         if match:
             insertion_point = match.end()
-            new_content = content[:insertion_point] + extra_rows + content[insertion_point:]
+            new_content = (
+                content[:insertion_point] + extra_rows + content[insertion_point:]
+            )
             html_file.write_text(new_content, encoding="utf-8")
-            log_message(state, "SUCCESS", f"Metadata successfully appended to {html_file.name}")
+            log_message(
+                state, "SUCCESS", f"Metadata successfully appended to {html_file.name}"
+            )
         else:
-            log_message(state, "WARNING", f"Metadata injection failed: Could not find 'Frame count' row.")
+            log_message(
+                state,
+                "WARNING",
+                f"Metadata injection failed: Could not find 'Frame count' row.",
+            )
 
     except Exception as e:
         log_message(state, "ERROR", f"Failed to inject metadata: {e}")
@@ -551,28 +619,41 @@ def _post_process_perf_report(state: UIState, file_path: Path) -> None:
     try:
         content = file_path.read_text(encoding="utf-8")
         chart_start_match = re.search(r"FPSChart", content)
-        if not chart_start_match: return
-        
+        if not chart_start_match:
+            return
+
         table_start_match = re.search(r"<table", content[chart_start_match.end() :])
-        if not table_start_match: return
-        
+        if not table_start_match:
+            return
+
         real_table_start_idx = chart_start_match.end() + table_start_match.start()
         table_end_match = re.search(r"</table>", content[real_table_start_idx:])
-        if not table_end_match: return
-        
+        if not table_end_match:
+            return
+
         real_table_end_idx = real_table_start_idx + table_end_match.end()
         table_content = content[real_table_start_idx:real_table_end_idx]
 
         if "Frametime" in table_content:
-            header_pattern = re.compile(r"(<th[^>]*>.*?Frametime.*?</th>)", re.IGNORECASE | re.DOTALL)
+            header_pattern = re.compile(
+                r"(<th[^>]*>.*?Frametime.*?</th>)", re.IGNORECASE | re.DOTALL
+            )
             if header_pattern.search(table_content):
-                table_content = header_pattern.sub(r"\1<th style=\"background-color:#e0e0e0\">FPS Avg</th>", table_content, count=1)
+                table_content = header_pattern.sub(
+                    r"\1<th style=\"background-color:#e0e0e0\">FPS Avg</th>",
+                    table_content,
+                    count=1,
+                )
 
         def row_processor(match):
             row_html = match.group(0)
-            if "<th" in row_html: return row_html
-            cells_match = list(re.finditer(r"(<td[^>]*>.*?</td>)", row_html, re.IGNORECASE | re.DOTALL))
-            if not cells_match: return row_html
+            if "<th" in row_html:
+                return row_html
+            cells_match = list(
+                re.finditer(r"(<td[^>]*>.*?</td>)", row_html, re.IGNORECASE | re.DOTALL)
+            )
+            if not cells_match:
+                return row_html
 
             target_idx = 5
             if len(cells_match) > target_idx:
@@ -583,7 +664,11 @@ def _post_process_perf_report(state: UIState, file_path: Path) -> None:
 
                     if frametime > 0:
                         fps = 1000.0 / frametime
-                        color = "#87d387" if fps >= 59.99 else "#ff6666" if fps <= 30.0 else "#ffedcc"
+                        color = (
+                            "#87d387"
+                            if fps >= 59.99
+                            else "#ff6666" if fps <= 30.0 else "#ffedcc"
+                        )
                         new_cell = f'<td bgcolor="{color}" style="font-weight:bold;">{fps:.2f}</td>'
                         target_end = cells_match[target_idx].end()
                         return row_html[:target_end] + new_cell + row_html[target_end:]
@@ -591,8 +676,14 @@ def _post_process_perf_report(state: UIState, file_path: Path) -> None:
                     pass
             return row_html
 
-        new_table_content = re.sub(r"<tr[^>]*>.*?</tr>", row_processor, table_content, flags=re.DOTALL)
-        new_content = content[:real_table_start_idx] + new_table_content + content[real_table_end_idx:]
+        new_table_content = re.sub(
+            r"<tr[^>]*>.*?</tr>", row_processor, table_content, flags=re.DOTALL
+        )
+        new_content = (
+            content[:real_table_start_idx]
+            + new_table_content
+            + content[real_table_end_idx:]
+        )
         file_path.write_text(new_content, encoding="utf-8")
         log_message(state, "SUCCESS", "Added FPS Avg column to report.")
 

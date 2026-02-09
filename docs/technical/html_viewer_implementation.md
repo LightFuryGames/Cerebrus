@@ -19,11 +19,11 @@ We specifically avoided:
 
 #### 1. **View HTML Logs Button**
 - Located in the "Bulk Actions From PC to PC" section
-- Opens a dialog showing all HTML files in the Output Folder Path
+- Opens a dialog showing all HTML files in the `Logs/` subdirectory
 - Includes a "?" help button with tooltip
 
 #### 2. **HTML File Selector Dialog**
-- Lists all HTML files found in the output directory
+- Lists all HTML files found in the `Logs/` and `Profiling/` subdirectories within the output directory
 - Shows file modification timestamps
 - Sorted by newest first
 - Options to:
@@ -80,7 +80,7 @@ def _open_all_html_files(state: UIState, html_files: list) -> None:
 
 - Added "View HTML Logs" button to PC to PC section
 - Added tooltip: "Opens the Output Folder Path and allows you to select and view generated HTML log files in your default web browser."
-- Dialog shows file list with modification times
+- Dialog shows file list from the organized subdirectories
 - Proper error handling and user feedback via log messages
 
 ## Testing Recommendations

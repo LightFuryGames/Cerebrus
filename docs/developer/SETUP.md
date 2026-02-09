@@ -38,8 +38,8 @@ Recommended tools:
 
 - To run all tests:
 
-  ```bash
-  pytest
+  ```powershell
+  ./scripts/run_unittests.ps1
   ```
 
 - To run a subset:
@@ -66,7 +66,7 @@ To simplify development, we provide PowerShell scripts that mirror our CI/CD pip
 
 - **Unit Tests**:
   ```powershell
-  ./scripts/run_tests.ps1
+  ./scripts/run_unittests.ps1
   ```
   Runs the `pytest` suite. By default, this runs fast, logic-only unit tests in `tests/unit`. Integration tests are separated.
 

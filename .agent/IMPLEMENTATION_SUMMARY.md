@@ -1,7 +1,7 @@
 # Output File Name & Use as Prefix Implementation Summary
 
 ## Overview
-Implemented proper functionality for the "Output File Name" and "Use as Prefix Only" checkbox to control how generated files (performance reports and colored logs) are named.
+Implemented proper functionality for the "Output File Name" and "Use as Prefix Only" checkbox to control how generated files (performance reports and colored logs) are named. Additionally, implemented organized subdirectory output and feature injection (Dark Mode).
 
 ## Changes Made
 
@@ -53,6 +53,17 @@ def _get_unique_output_path(base_path: Path, filename: str, extension: str) -> P
 **File Protection:**
 - Uses `_get_unique_output_path()` to prevent overwrites
 - Existing files are preserved
+
+### 4. Organized Output Subdirectories
+Generated files are now saved to dedicated subdirectories within the Output Folder:
+- **`Profiling/`**: Stores Performance Reports (`.html`).
+- **`Logs/`**: Stores Colored Logs (`.html`).
+- **`MemReports/`**: Stores Memory Reports (`.html`).
+
+### 5. HTML Feature Injection
+Values-added features are injected into generated Performance Reports:
+- **Dark Mode Toggle**: CSS/JS based theme switching.
+- **Scroll to Top**: Floating button for easy navigation.
 
 ### 4. Updated Tooltips
 **Location:** `cerebrus/ui/components.py` - TOOLTIPS dictionary

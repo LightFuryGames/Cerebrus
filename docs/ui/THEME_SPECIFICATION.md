@@ -25,26 +25,31 @@ Example (conceptual):
 
 ```json
 {
-  "name": "CerebrusDark",
+  "palette": "CerebrusDark",
+  "mode": "Dark",
   "colors": {
-    "window_bg": [0.10, 0.10, 0.12, 1.0],
-    "text": [0.95, 0.95, 0.96, 1.0],
-    "accent": [0.30, 0.55, 0.90, 1.0]
+    "mvThemeCol_WindowBg": [25, 25, 30, 255],
+    "mvThemeCol_Text": [240, 240, 245, 255],
+    "mvThemeCol_Button": [40, 40, 50, 255]
   },
-  "rounding": {
-    "frame": 6.0,
-    "window": 8.0
+  "label_colors": {
+    "header": [120, 180, 255],
+    "subheader": [200, 200, 200]
   },
-  "spacing": {
-    "item": [8.0, 4.0],
-    "window_padding": [10.0, 10.0]
+  "profile_status_colors": {
+    "DEFAULT": [255, 210, 120],
+    "LOADED": [15, 240, 15]
+  },
+  "log_colors": {
+    "INFO": [120, 200, 255],
+    "ERROR": [255, 120, 120]
   }
 }
 ```
 
 ## Application
 
-- Theme loader module in `cerebrus/ui/theme.py`:
+- Theme loader module in `cerebrus/ui/themes.py`:
   - Loads theme config.
   - Applies settings to ImGui style object on startup.
   - Exposes a function to switch themes at runtime.

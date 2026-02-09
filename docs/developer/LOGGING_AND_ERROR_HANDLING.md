@@ -15,6 +15,13 @@ Log levels:
 - `WARNING` – recoverable issues that may need attention.
 - `ERROR` – failures that likely affect user workflows.
 
+## UI-Centric Logging
+
+In the UI layer (`cerebrus/ui/components/`), use the `log_message(state: UIState, level: str, message: str)` helper. This ensures:
+- The message appears in the application's **Logging Panel**.
+- It is appropriately color-coded (SUCCESS, INFO, WARNING, ERROR).
+- It is saved to the production log file if persistent logging is enabled.
+
 ## Error Handling Strategy
 
 - Validate critical configuration at startup and fail fast.

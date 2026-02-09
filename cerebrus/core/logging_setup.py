@@ -1,25 +1,26 @@
 import logging
-import sys
 import os
-from pathlib import Path
+import sys
 from datetime import datetime
+from pathlib import Path
+
 
 def setup_logging():
     """Configure logging to write errors to DebugInfo/error_log.txt"""
-    
+
     # Create DebugInfo directory if it doesn't exist
     debug_dir = Path("DebugInfo")
     debug_dir.mkdir(exist_ok=True)
-    
+
     log_file = debug_dir / "error_log.txt"
-    
+
     # Configure logging
     logging.basicConfig(
         filename=str(log_file),
         level=logging.ERROR,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
-    
+
     # Redirect stderr to the log file as well
     class StderrLogger(object):
         def __init__(self):
