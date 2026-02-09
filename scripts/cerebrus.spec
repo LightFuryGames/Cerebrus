@@ -20,11 +20,22 @@ resources_dir = cerebrus_dir / "resources"
 # Collect all resource files
 datas = []
 
-# Add resources (icons, etc.)
+# Add resources (icons, user guide, etc.)
 if resources_dir.exists():
-    for resource_file in resources_dir.iterdir():
+    for resource_file in resources_dir.rglob('*'):
         if resource_file.is_file() and not resource_file.name.endswith('~'):
-            datas.append((str(resource_file), 'cerebrus/resources'))
+            rel_path = resource_file.relative_to(resources_dir)
+            dest_dir = f'cerebrus/resources/{rel_path.parent}' if str(rel_path.parent) != '.' else 'cerebrus/resources'
+            datas.append((str(resource_file), dest_dir))
+
+# Add UI resources (themes, layouts, tooltips)
+ui_resources_dir = cerebrus_dir / "ui" / "resources"
+if ui_resources_dir.exists():
+    for resource_file in ui_resources_dir.rglob('*'):
+        if resource_file.is_file() and not resource_file.name.endswith('~'):
+            rel_path = resource_file.relative_to(ui_resources_dir)
+            dest_dir = f'cerebrus/ui/resources/{rel_path.parent}' if str(rel_path.parent) != '.' else 'cerebrus/ui/resources'
+            datas.append((str(resource_file), dest_dir))
             
 # Collect AWS data files (essential for boto3/botocore to work in frozen app)
 datas += collect_data_files('boto3')
