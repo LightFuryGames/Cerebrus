@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import dearpygui.dearpygui as dpg
 from pathlib import Path
+
+import dearpygui.dearpygui as dpg
 
 from cerebrus.ui.components.shared import _auto_save_profile, log_message
 from cerebrus.ui.components.ui_config import UIConfig
@@ -15,6 +16,7 @@ def _update_aws_credential(state: UIState, key: str, value: str) -> None:
         return
 
     from cerebrus.core.aws_config import AWSConfig
+
     if not profile.aws_config:
         profile.aws_config = AWSConfig()
 
@@ -41,7 +43,7 @@ def _update_aws_credential(state: UIState, key: str, value: str) -> None:
             cfg.save(Path(profile.aws_config_path))
         except Exception as e:
             log_message(state, "ERROR", f"Failed to save AWS Config: {e}")
-            
+
     _auto_save_profile(state)
 
 
@@ -79,6 +81,7 @@ def _show_aws_config_dialog(state: UIState) -> None:
         dpg.focus_item("aws_config_dialog")
 
         from cerebrus.ui.themes import get_theme_manager
+
         tm = get_theme_manager()
 
         dpg.add_text(
@@ -90,7 +93,7 @@ def _show_aws_config_dialog(state: UIState) -> None:
         # --- AWS Config File Manager ---
         dpg.add_text("AWS External Config Link", color=tm.get_subheader_color())
         dpg.add_separator()
-        
+
         path_val = profile.aws_config_path
         path_exists = Path(path_val).exists() if path_val else True
 
@@ -114,7 +117,7 @@ def _show_aws_config_dialog(state: UIState) -> None:
                 default_value=path_val or "",
                 hint="No external file linked.",
                 readonly=True,
-                width=450
+                width=450,
             )
             if not path_exists and path_val:
                 with dpg.tooltip("dlg_aws_config_path"):
@@ -122,31 +125,31 @@ def _show_aws_config_dialog(state: UIState) -> None:
 
         with dpg.group(horizontal=True):
             dpg.add_button(
-                label="Link Existing File", 
+                label="Link Existing File",
                 width=150,
-                callback=lambda: _link_aws_config_file(state)
+                callback=lambda: _link_aws_config_file(state),
             )
             dpg.add_button(
-                label="Create New Config", 
+                label="Create New Config",
                 width=150,
-                callback=lambda: _create_new_aws_config_file(state)
+                callback=lambda: _create_new_aws_config_file(state),
             )
             if path_val:
                 dpg.add_button(
-                    label="Unlink", 
+                    label="Unlink",
                     width=80,
-                    callback=lambda: _unlink_aws_config_file(state)
+                    callback=lambda: _unlink_aws_config_file(state),
                 )
 
         if not path_exists and path_val:
             dpg.add_text(
-                f"WARNING: The linked AWS Config file is MISSING.\nChanges will NOT be saved to disk until you Link/Create a new one.", 
-                color=(255, 100, 100)
+                f"WARNING: The linked AWS Config file is MISSING.\nChanges will NOT be saved to disk until you Link/Create a new one.",
+                color=(255, 100, 100),
             )
         elif not path_val and profile.aws_config:
-             dpg.add_text(
-                "NOTE: These settings are not yet decoupled into a separate file.\nClick 'Create New Config' to move them to a dedicated JSON.", 
-                color=(255, 200, 100)
+            dpg.add_text(
+                "NOTE: These settings are not yet decoupled into a separate file.\nClick 'Create New Config' to move them to a dedicated JSON.",
+                color=(255, 200, 100),
             )
 
         dpg.add_spacer(height=config.get_spacer("large"))
@@ -156,7 +159,7 @@ def _show_aws_config_dialog(state: UIState) -> None:
         dpg.add_separator()
 
         cfg = profile.aws_config or None
-        
+
         with dpg.table(
             header_row=False, policy=config.get_table_policy("policy_stretch")
         ):
@@ -227,7 +230,8 @@ def _show_aws_config_dialog(state: UIState) -> None:
                 dpg.add_text("Region:")
                 dpg.add_input_text(
                     tag="dlg_aws_region",
-                    default_value=(cfg.aws_region if cfg else "ap-south-1") or "ap-south-1",
+                    default_value=(cfg.aws_region if cfg else "ap-south-1")
+                    or "ap-south-1",
                     callback=lambda s, a: _update_aws_credential(state, "region", a),
                 )
 
@@ -257,8 +261,9 @@ def _show_aws_config_dialog(state: UIState) -> None:
 def _link_aws_config_file(state: UIState) -> None:
     """Link an existing AWS JSON config file."""
     from tkinter import Tk, filedialog
+
     from cerebrus.core.aws_config import AWSConfig
-    
+
     root = Tk()
     root.withdraw()
     root.attributes("-topmost", True)
@@ -267,14 +272,14 @@ def _link_aws_config_file(state: UIState) -> None:
         filetypes=[("JSON Files", "*.json")],
     )
     root.destroy()
-    
+
     if not file_path:
         return
-        
+
     try:
         path = Path(file_path)
         cfg = AWSConfig.load(path)
-        
+
         profile = state.profile_manager.current_profile
         if profile:
             profile.aws_config_path = str(path.absolute())
@@ -290,8 +295,9 @@ def _link_aws_config_file(state: UIState) -> None:
 def _create_new_aws_config_file(state: UIState) -> None:
     """Create a new AWS JSON config file and link it."""
     from tkinter import Tk, filedialog
+
     from cerebrus.core.aws_config import AWSConfig
-    
+
     profile = state.profile_manager.current_profile
     if not profile:
         return
@@ -306,16 +312,16 @@ def _create_new_aws_config_file(state: UIState) -> None:
         initialfile="aws_config.json",
     )
     root.destroy()
-    
+
     if not file_path:
         return
-        
+
     try:
         path = Path(file_path)
         # Use existing in-memory config if available (migration) or new one
         cfg = profile.aws_config or AWSConfig()
         cfg.save(path)
-        
+
         profile.aws_config_path = str(path.absolute())
         profile.aws_config = cfg
         _auto_save_profile(state)
@@ -334,4 +340,8 @@ def _unlink_aws_config_file(state: UIState) -> None:
         # We keep the in-memory aws_config so they don't lose current edits immediately
         _auto_save_profile(state)
         _show_aws_config_dialog(state)
-        log_message(state, "INFO", "Unlinked AWS Config file. Settings are now local to session.")
+        log_message(
+            state,
+            "INFO",
+            "Unlinked AWS Config file. Settings are now local to session.",
+        )

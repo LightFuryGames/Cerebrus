@@ -26,7 +26,7 @@ class AWSConfig:
             raise FileNotFoundError(f"AWS Config not found at {path}")
         with open(path, "r") as f:
             data = json.load(f)
-        
+
         # Filter fields for backward compatibility
         valid_fields = {
             "remote_configs",

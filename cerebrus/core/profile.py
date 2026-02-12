@@ -2,7 +2,10 @@ import json
 import os
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+
+if TYPE_CHECKING:
+    from cerebrus.core.aws_config import AWSConfig
 
 from cerebrus.core.paths import get_app_data_dir
 
@@ -27,9 +30,9 @@ class Profile:
     generate_perf_report_enabled: bool = True
     generate_memreport_enabled: bool = False
     generate_colored_logs_enabled: bool = True
-    
+
     aws_config_path: Optional[str] = None
-    
+
     # Runtime only, not saved to JSON via asdict
     aws_config: Optional["AWSConfig"] = field(default=None, repr=False, compare=False)
 
@@ -46,7 +49,7 @@ class Profile:
         # Never save the runtime config object into the profile JSON
         if "aws_config" in data:
             del data["aws_config"]
-            
+
         with open(path, "w") as f:
             json.dump(data, f, indent=4)
 
@@ -56,7 +59,7 @@ class Profile:
             raise FileNotFoundError(f"Profile not found at {path}")
         with open(path, "r") as f:
             data = json.load(f)
-            
+
         # Filter to only use fields that exist in current Profile class (backward compatibility)
         valid_fields = {
             "nickname",
@@ -74,7 +77,7 @@ class Profile:
             "generate_colored_logs_enabled",
             "aws_config_path",
         }
-        
+
         # Check for legacy AWS fields to help with migration
         legacy_aws_fields = {
             "remote_configs",
@@ -85,21 +88,22 @@ class Profile:
             "aws_profile",
             "remote_manifest_url",
         }
-        
+
         has_legacy = any(k in data for k in legacy_aws_fields)
-        
+
         filtered_data = {k: v for k, v in data.items() if k in valid_fields}
         profile = cls(**filtered_data)
-        
+
         # If we have legacy data and NO aws_config_path, we might want to store it temporarily
         # or handle it in the ProfileManager. For now, let's just make sure it's accessible
         # if needed during a migration step, but we won't keep it in the Profile class.
         if has_legacy and not profile.aws_config_path:
             from cerebrus.core.aws_config import AWSConfig
+
             legacy_data = {k: v for k, v in data.items() if k in legacy_aws_fields}
             profile.aws_config = AWSConfig(**legacy_data)
             # Note: aws_config_path remains None until user saves it to a file
-            
+
         return profile
 
 
@@ -221,8 +225,9 @@ class ProfileManager:
         """Load AWS config from path if configured."""
         if not profile.aws_config_path:
             return
-            
+
         from cerebrus.core.aws_config import AWSConfig
+
         try:
             path = Path(profile.aws_config_path)
             if path.exists():
@@ -230,7 +235,7 @@ class ProfileManager:
             else:
                 msg = f"AWS Config file not found at {profile.aws_config_path}"
                 print(f"Warning: {msg}")
-                # We can initialize an empty config so the UI doesn't crash, 
+                # We can initialize an empty config so the UI doesn't crash,
                 # but it won't have the path set in the config object itself if we had one there.
                 # For now, let's just make sure the user knows.
                 if not profile.aws_config:

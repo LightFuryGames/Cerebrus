@@ -198,9 +198,7 @@ class RenderTargetPoolTab(ReportTab):
             title, subtext, total_mb, used_mb, unused_mb, count, prefix, card_type
         ):
             used_str = (
-                f"{used_mb:.3f} MB"
-                if used_mb is not None
-                else "Cannot COMPUTE (See ⚠️)"
+                f"{used_mb:.3f} MB" if used_mb is not None else "Cannot COMPUTE (See ⚠️)"
             )
             unused_str = (
                 f"{unused_mb:.3f} MB"

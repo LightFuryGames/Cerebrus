@@ -2,9 +2,10 @@ import json
 import os
 import winreg
 from pathlib import Path
-from cerebrus.core.paths import get_app_data_dir
 
 import dearpygui.dearpygui as dpg
+
+from cerebrus.core.paths import get_app_data_dir
 
 
 class ThemeManager:
@@ -16,13 +17,15 @@ class ThemeManager:
         self.current_palette = "Standard"
         self.current_mode = "Dark"
         self._initialize_aux_themes()
-        
+
         # We look for themes in two places:
         # 1. Bundled with the app (read-only)
         # 2. In the user's AppData (writable)
-        self.bundled_palettes_dir = Path(__file__).parent / "resources" / "AppColorPalettes"
+        self.bundled_palettes_dir = (
+            Path(__file__).parent / "resources" / "AppColorPalettes"
+        )
         self.user_palettes_dir = get_app_data_dir() / "Themes"
-        
+
         self._discover_and_load_themes()
 
     def _discover_and_load_themes(self):
@@ -30,14 +33,16 @@ class ThemeManager:
         # Load bundled themes first (so user themes can override them)
         if self.bundled_palettes_dir.exists():
             self._load_from_dir(self.bundled_palettes_dir)
-            
+
         # Load user themes
         try:
             if not self.user_palettes_dir.exists():
                 self.user_palettes_dir.mkdir(parents=True, exist_ok=True)
             self._load_from_dir(self.user_palettes_dir)
         except (PermissionError, OSError) as e:
-            print(f"Warning: Could not access or create user themes directory at {self.user_palettes_dir}: {e}")
+            print(
+                f"Warning: Could not access or create user themes directory at {self.user_palettes_dir}: {e}"
+            )
 
     def _load_from_dir(self, directory: Path):
         """Load all JSON themes from a specific directory."""
@@ -439,7 +444,7 @@ class ThemeManager:
         # So filename should be unique per variant.
 
         filename = f"{palette.lower().replace(' ', '_')}_{mode.lower()}.json"
-        
+
         # Always save to the user's writable palettes directory
         file_path = self.user_palettes_dir / filename
 
@@ -447,7 +452,7 @@ class ThemeManager:
             # Ensure the directory exists before saving (if it didn't exist or was deleted)
             if not self.user_palettes_dir.exists():
                 self.user_palettes_dir.mkdir(parents=True, exist_ok=True)
-                
+
             with open(file_path, "w") as f:
                 json.dump(data, f, indent=4)
             print(f"Saved theme to {file_path}")
