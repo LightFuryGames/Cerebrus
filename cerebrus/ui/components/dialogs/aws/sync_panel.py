@@ -65,8 +65,10 @@ def build_remote_config_sync(state: UIState) -> None:
 
         # Show current source
         profile = state.profile_manager.current_profile
-        if profile and profile.remote_config_base_url:
-            source_msg = f"Source: Custom Base URL ({profile.remote_config_base_url})"
+        aws_cfg = profile.aws_config if profile else None
+        
+        if aws_cfg and aws_cfg.remote_config_base_url:
+            source_msg = f"Source: Custom Base URL ({aws_cfg.remote_config_base_url})"
             msg_color = status_colors.get("DEFAULT")
         else:
             source_msg = "Source: Default S3 Bucket"
@@ -103,8 +105,8 @@ def build_remote_config_sync(state: UIState) -> None:
             dpg.add_input_text(
                 tag="remote_manifest_url_input",
                 default_value=(
-                    profile.remote_manifest_url
-                    if profile and profile.remote_manifest_url
+                    aws_cfg.remote_manifest_url
+                    if aws_cfg and aws_cfg.remote_manifest_url
                     else state.remote_manifest_url
                 ),
                 width=-1,

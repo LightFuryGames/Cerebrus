@@ -357,10 +357,11 @@ def _load_profile_from_path(state: UIState, path: Path) -> None:
             dpg.set_value("config_output_path_label", str(state.config_output_path))
 
         if dpg.does_item_exist("remote_manifest_url_input"):
-            dpg.set_value(
-                "remote_manifest_url_input",
-                profile.remote_manifest_url or state.remote_manifest_url,
-            )
+            manifest_url = state.remote_manifest_url
+            if profile.aws_config and profile.aws_config.remote_manifest_url:
+                manifest_url = profile.aws_config.remote_manifest_url
+            
+            dpg.set_value("remote_manifest_url_input", manifest_url)
 
         from cerebrus.ui.components.dialogs.aws.sync_panel import (
             _render_downloaded_configs_list,

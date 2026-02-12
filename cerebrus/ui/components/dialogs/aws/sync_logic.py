@@ -15,14 +15,13 @@ from cerebrus.ui.state import UIState
 def is_aws_configured(state: UIState) -> bool:
     """Check if AWS credentials, profile, or Remote URL are configured."""
     profile = state.profile_manager.current_profile
-    if not profile:
+    if not profile or not profile.aws_config:
         return False
 
+    cfg = profile.aws_config
     # Check for AWS Creds OR AWS Profile OR Base URL (public bucket)
-    has_aws = bool(
-        (profile.aws_access_key and profile.aws_secret_key) or profile.aws_profile
-    )
-    has_url = bool(profile.remote_config_base_url)
+    has_aws = bool((cfg.aws_access_key and cfg.aws_secret_key) or cfg.aws_profile)
+    has_url = bool(cfg.remote_config_base_url)
 
     return has_aws or has_url
 
@@ -30,8 +29,13 @@ def is_aws_configured(state: UIState) -> bool:
 def update_manifest_url_state(state: UIState, value: str) -> None:
     """Update manifest URL in state and profile."""
     state.remote_manifest_url = value
-    if state.profile_manager.current_profile:
-        state.profile_manager.current_profile.remote_manifest_url = value
+    profile = state.profile_manager.current_profile
+    if profile:
+        if profile.aws_config:
+            profile.aws_config.remote_manifest_url = value
+            # Note: We should probably save the AWS config here too if it has a path
+            if profile.aws_config_path:
+                profile.aws_config.save(Path(profile.aws_config_path))
         _auto_save_profile(state)
 
 
@@ -62,28 +66,35 @@ def smart_download(state: UIState, url: str, dest_path: Path) -> bool:
             session_kwargs = {}
             region = "ap-south-1"
 
-            if profile:
-                if profile.aws_access_key and profile.aws_secret_key:
+            if profile and profile.aws_config:
+                cfg = profile.aws_config
+                if cfg.aws_access_key and cfg.aws_secret_key:
                     log_message(
                         state, "INFO", "Using AWS Access Keys for authentication..."
                     )
-                    session_kwargs["aws_access_key_id"] = profile.aws_access_key
-                    session_kwargs["aws_secret_access_key"] = profile.aws_secret_key
-                    region = profile.aws_region or region
-                elif profile.aws_profile:
+                    session_kwargs["aws_access_key_id"] = cfg.aws_access_key
+                    session_kwargs["aws_secret_access_key"] = cfg.aws_secret_key
+                    region = cfg.aws_region or region
+                elif cfg.aws_profile:
                     log_message(
                         state,
                         "INFO",
-                        f"Using AWS Profile '{profile.aws_profile}' for authentication...",
+                        f"Using AWS Profile '{cfg.aws_profile}' for authentication...",
                     )
-                    session_kwargs["profile_name"] = profile.aws_profile
-                    region = profile.aws_region or region
+                    session_kwargs["profile_name"] = cfg.aws_profile
+                    region = cfg.aws_region or region
                 else:
                     log_message(
                         state,
                         "WARNING",
-                        "No Keys or Profile provided in UI. Attempting default machine auth...",
+                        "No Keys or Profile provided in AWS Config. Attempting default machine auth...",
                     )
+            else:
+                log_message(
+                    state,
+                    "WARNING",
+                    "No AWS Config found for profile. Attempting default machine auth...",
+                )
 
             session_kwargs["region_name"] = region
             session = boto3.Session(**session_kwargs)
