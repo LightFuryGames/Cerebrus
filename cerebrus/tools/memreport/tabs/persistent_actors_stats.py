@@ -105,7 +105,7 @@ class PersistentActorsStatsTab(ReportTab):
 
         # 1. Flat List Body
         flat_tbody = ""
-        for actor in actors:
+        for r_idx, actor in enumerate(actors):
             unseen = actor["time_unseen"]
             alive = actor["time_alive"]
             pct = (unseen / alive * 100.0) if alive > 0 else 0
@@ -113,7 +113,7 @@ class PersistentActorsStatsTab(ReportTab):
                 pct = 100.0
 
             flat_tbody += f"""
-            <tr data-unseen="{unseen}" data-alive="{alive}" data-pct="{pct}">
+            <tr data-index="{r_idx}" data-unseen="{unseen}" data-alive="{alive}" data-pct="{pct}">
                 <td class="count-cell"></td>
                 <td>{actor['class']}</td>
                 <td class="name-cell" title="{actor['name']}">{actor['name']}</td>
@@ -431,7 +431,7 @@ class PersistentActorsStatsTab(ReportTab):
             <div class="search-bar-row">
                 <div class="search-container" data-no-reset="true" style="margin-top: 0; background: transparent; padding: 0; display: flex; gap: 10px; align-items: center; flex: 1; margin-bottom: 0;">
                     <input type="text" id="srch-{self.id}" placeholder="Search actors..." onkeyup="updateActors_{safe_id}()" style="flex: 1;">
-                    <button class="action-btn" onclick="resetView_{safe_id}()">Default View</button>
+                    <button class="action-btn active-sub" id="btn-default-{self.id}" onclick="resetView_{safe_id}()">Default View</button>
                 </div>
             </div>
 
@@ -491,17 +491,20 @@ class PersistentActorsStatsTab(ReportTab):
                     const btnFlat = document.getElementById('btn-flat-{self.id}');
                     const btnTree = document.getElementById('btn-tree-{self.id}');
                     const treeCtrls = document.getElementById('tree-controls-{self.id}');
+                    const btnDefault = document.getElementById('btn-default-{self.id}');
 
                     if (mode === 'flat') {{
                         flat.style.display = '';
                         tree.style.display = 'none';
                         treeCtrls.style.display = 'none';
+                        if (btnDefault) btnDefault.style.display = '';
                         btnFlat.classList.add('active-sub');
                         btnTree.classList.remove('active-sub');
                     }} else {{
                         flat.style.display = 'none';
                         tree.style.display = 'block';
                         treeCtrls.style.display = 'flex';
+                        if (btnDefault) btnDefault.style.display = 'none';
                         btnFlat.classList.remove('active-sub');
                         btnTree.classList.add('active-sub');
                     }}
@@ -555,6 +558,28 @@ class PersistentActorsStatsTab(ReportTab):
                 function resetView_{safe_id}() {{
                     document.getElementById('slider-{self.id}').value = 70;
                     document.getElementById('srch-{self.id}').value = '';
+                    
+                    const defBtn = document.getElementById('btn-default-{self.id}');
+                    if (defBtn) defBtn.classList.add('active-sub');
+
+                    // Reset Table Sorting
+                    const table = document.getElementById('tbl-{self.id}');
+                    if (table) {{
+                        const tbody = table.querySelector('tbody');
+                        const rows = Array.from(tbody.querySelectorAll('tr'));
+                        rows.sort((a, b) => {{
+                           const ai = parseInt(a.getAttribute('data-index')) || 0;
+                           const bi = parseInt(b.getAttribute('data-index')) || 0;
+                           return ai - bi;
+                        }});
+                        rows.forEach(r => tbody.appendChild(r));
+                        
+                        table.querySelectorAll('th').forEach(th => {{
+                            th.classList.remove('sort-asc', 'sort-desc');
+                            th.removeAttribute('data-asc');
+                        }});
+                    }}
+
                     updateActors_{safe_id}();
                 }}
 

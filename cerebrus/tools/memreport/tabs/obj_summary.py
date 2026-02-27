@@ -206,18 +206,31 @@ class ObjectSummaryTab(ReportTab):
 
                 function updateObjAggregates() {{
                     const table = document.getElementById('obj-summary-table');
-                    const rows = Array.from(table.tBodies[0].rows);
+                    if (!table) return;
                     
+                    const headerRow = table.querySelector('thead tr');
+                    if (!headerRow) return;
+                    
+                    const headers = Array.from(headerRow.cells).map(th => th.innerText.trim());
+                    const idxInst = headers.indexOf('Instance Count');
+                    const idxNumKB = headers.indexOf('NumKB');
+                    const idxMaxKB = headers.indexOf('MaxKB');
+                    const idxResKB = headers.indexOf('ResExcKB');
+                    
+                    if (idxInst === -1) return; // Wait for headers to be ready or counter to be added if needed
+                    
+                    const rows = Array.from(table.tBodies[0].rows);
                     let calcInstances = 0, calcNumKB = 0, calcMaxKB = 0, calcResKB = 0;
                     let filtCount = 0, filtInstances = 0, filtNumKB = 0, filtMaxKB = 0, filtResKB = 0;
                     
                     rows.forEach(row => {{
                         const cells = row.cells;
-                        // Index 0 is # (counter), 1 is Class, 2 is Instance Count, 3 is NumKB...
-                        const inst = parseInt(cells[2].innerText.replace(/,/g, '')) || 0;
-                        const nkb = parseObjSize(cells[3].innerText);
-                        const mkb = parseObjSize(cells[4].innerText);
-                        const rkb = parseObjSize(cells[5].innerText);
+                        if (cells.length <= Math.max(idxInst, idxNumKB, idxMaxKB, idxResKB)) return;
+                        
+                        const inst = parseInt(cells[idxInst].innerText.replace(/,/g, '')) || 0;
+                        const nkb = parseObjSize(cells[idxNumKB].innerText);
+                        const mkb = parseObjSize(cells[idxMaxKB].innerText);
+                        const rkb = parseObjSize(cells[idxResKB].innerText);
 
                         calcInstances += inst;
                         calcNumKB += nkb;
@@ -246,10 +259,13 @@ class ObjectSummaryTab(ReportTab):
                 }}
 
                 function filterObjTable(term) {{
-                    filterTable('obj-summary-table', 0, term); // colIndex 0 means Class (skipped counter)
+                    filterTable('obj-summary-table', 0, term); 
                     updateObjAggregates();
-                    document.getElementById('btn-default-{self.id}').classList.remove('active-sub');
-                    if(!term) document.getElementById('btn-default-{self.id}').classList.add('active-sub');
+                    const defBtn = document.getElementById('btn-default-{self.id}');
+                    if (defBtn) {{
+                        defBtn.classList.remove('active-sub');
+                        if(!term) defBtn.classList.add('active-sub');
+                    }}
                 }}
 
                 function resetObjTable() {{
@@ -272,15 +288,18 @@ class ObjectSummaryTab(ReportTab):
                 }}
 
                 document.addEventListener('DOMContentLoaded', () => {{
-                    updateObjAggregates();
+                    setTimeout(updateObjAggregates, 100);
                     // Hook into sorting
                     const table = document.getElementById('obj-summary-table');
-                    table.querySelectorAll('th').forEach(th => {{
-                        th.addEventListener('click', () => {{
-                            setTimeout(updateObjAggregates, 10);
-                            document.getElementById('btn-default-{self.id}').classList.remove('active-sub');
+                    if (table) {{
+                        table.querySelectorAll('th').forEach(th => {{
+                            th.addEventListener('click', () => {{
+                                setTimeout(updateObjAggregates, 10);
+                                const defBtn = document.getElementById('btn-default-{self.id}');
+                                if (defBtn) defBtn.classList.remove('active-sub');
+                            }});
                         }});
-                    }});
+                    }}
                 }});
             </script>
         </div>

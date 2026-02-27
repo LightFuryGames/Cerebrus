@@ -165,6 +165,7 @@ To support extensibility and automated analysis, all parsing logic must follow t
     - Handle partial/malformed lines gracefully (log warning, skip, continue).
 3.  **Analyzer/Transformer**: `DataModel -> ReportViewModel`.
     - Implementation of sorting, filtering, and aggregation.
+    - **Robust Header Mapping**: Frontend logic must dynamically identify column indices by name (e.g., `indexOf('Instance Count')`) rather than hardcoding indices. This prevents data drift when columns (like row counters) are added dynamically.
 4.  **Renderer**: `ReportViewModel -> HTML/UI`.
     - **Strict Separation**: HTML generation must never call parsers directly.
 

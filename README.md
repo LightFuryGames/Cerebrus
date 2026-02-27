@@ -96,9 +96,11 @@ The **MemReport** tool has been overhauled to provide deep insights into Unreal 
 
 **Key Analysis Features:**
 - **Smart Filtering**: Search and sort millions of objects instantly.
-- **Hierarchy View**: Visualize actor attachment hierarchies.
-- **Health Checks**: Automatic warnings for duplicate render targets and huge assets.
-- **Comparison**: Calculated vs. Reported memory metrics to find hidden overhead.
+- **Interactive Exports**: Save filtered lists as standalone HTML files that support **sub-filtering**, complete with preserved search bars and action buttons.
+- **Hierarchy View**: Visualize actor attachment hierarchies with context-aware reset controls.
+- **Health Checks**: Automatic warnings for duplicate render targets, huge assets.
+- **Data Integrity**: Precise "Reported vs. Calculated" memory metrics (with fixed column-index drift logic).
+- **Unit Intelligence**: Automatic scaling of memory to **KB, MB, GB** for easier high-tier device analysis.
 
 ### 📊 Performance Reporting
 Powered by **PerfReportTool**, Cerebrus offers robust performance analysis:

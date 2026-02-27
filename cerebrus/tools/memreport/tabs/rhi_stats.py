@@ -41,6 +41,21 @@ class RhiMemoryTab(ReportTab):
             size_raw = total_match.group(1).strip()
             context["rhi_memory_total_val"] = try_format_cell_value("Size", size_raw)
 
+    def _parse_to_mb(self, val: str) -> float:
+        val = val.replace(",", "").lower()
+        match = re.search(r"([\d\.]+)\s*(kb|mb|gb|b)?", val)
+        if not match:
+            return 0.0
+        num = float(match.group(1))
+        unit = match.group(2)
+        if unit == "gb":
+            return num * 1024.0
+        if unit == "kb":
+            return num / 1024.0
+        if unit == "b":
+            return num / (1024.0 * 1024.0)
+        return num
+
     def render(self, context: Dict[str, Any], is_active: bool = False) -> str:
         data = context.get("rhi_memory_data", [])
         total_val = context.get("rhi_memory_total_val", "")
@@ -55,9 +70,35 @@ class RhiMemoryTab(ReportTab):
         )
         tbody = "<tbody>"
 
-        for row in data:
-            tbody += f'<tr><td>{row[0]}</td><td>{row[1]}</td><td class="numeric">{row[2]}</td></tr>'
+        # Track total size for warning comparison
+        calc_total_mb = 0.0
+        for r_idx, row in enumerate(data):
+            # Convert to GB if needed for better readability
+            size_val = row[2]
+            size_mb = self._parse_to_mb(size_val)
+            calc_total_mb += size_mb
+
+            display_size = size_val
+            if size_mb >= 1024:
+                display_size = f"{size_mb/1024.0:.2f} GB"
+
+            tbody += f'<tr data-index="{r_idx}"><td>{row[0]}</td><td>{row[1]}</td><td class="numeric">{display_size}</td></tr>'
         tbody += "</tbody>"
+
+        # Warning Logic
+        phys_peak_mb = context.get("platform_phys_mem_peak_mb", 0)
+        warning_html = ""
+        # If RHI reported > Peak Phys Mem, it's a likely reporting error
+        if phys_peak_mb > 0 and calc_total_mb > phys_peak_mb:
+            warning_html = f"""
+            <div class="alert alert-warning" style="margin-bottom: 20px;">
+                <div class="alert-icon">⚠️</div>
+                <div class="alert-content">
+                    <strong>Report Warning:</strong> Calculated RHI Memory (<b>{calc_total_mb/1024.0:.2f} GB</b>) exceeds reported Peak Process Physical Memory (<b>{phys_peak_mb/1024.0:.2f} GB</b>). 
+                    Unreal may be over-reporting tracked RHI resources or double-counting overlapping allocations.
+                </div>
+            </div>
+            """
 
         dashboard_html = ""
         dashboard_html = f"""
@@ -70,7 +111,8 @@ class RhiMemoryTab(ReportTab):
                         <span class="unreal-red" style="font-size: 0.85em;">(UNREAL REPORTED)</span>
                     </h4>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.85em; text-align: left; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
-                        <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Reported Size:</span></div><div style="color: #ce9178; text-align: right;"><b>{total_val}</b></div>
+                        <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Reported Size:</span></div>
+                        <div style="color: #ce9178; text-align: right;"><b>{f"{self._parse_to_mb(total_val)/1024.0:.2f} GB" if self._parse_to_mb(total_val) >= 1024 else total_val}</b></div>
                     </div>
                 </div>
 
@@ -79,7 +121,7 @@ class RhiMemoryTab(ReportTab):
                     <h4 style="margin: 0 0 10px 0; color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated Total</h4>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.85em; text-align: left; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
                         <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated Count:</span></div><div style="color: #4ec9b0; text-align: right;"><b id="rhi-calc-count">0</b></div>
-                        <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated Size:</span></div><div style="color: #4ec9b0; text-align: right;"><b id="rhi-calc-size">0.00 MB</b></div>
+                        <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated Size:</span></div><div style="color: #4ec9b0; text-align: right;"><b id="rhi-calc-size">{f"{calc_total_mb/1024.0:.2f} GB" if calc_total_mb >= 1024 else f"{calc_total_mb:.2f} MB"}</b></div>
                     </div>
                 </div>
 
@@ -88,7 +130,7 @@ class RhiMemoryTab(ReportTab):
                     <h4 style="margin: 0 0 10px 0; color: var(--accent-color); font-size: 0.8em; text-transform: uppercase;">Filtered Statistics</h4>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.85em; text-align: left; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
                         <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Filtered Count:</span></div><div style="color: var(--accent-color); text-align: right;"><b id="rhi-filt-count">0</b></div>
-                        <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Filtered Size:</span></div><div style="color: var(--accent-color); text-align: right;"><b id="rhi-filt-sum">0.00 MB</b></div>
+                        <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Filtered Size:</span></div><div style="color: var(--accent-color); text-align: right;"><b id="rhi-filt-sum">{f"{calc_total_mb/1024.0:.2f} GB" if calc_total_mb >= 1024 else f"{calc_total_mb:.2f} MB"}</b></div>
                     </div>
                 </div>
             </div>
@@ -99,21 +141,16 @@ class RhiMemoryTab(ReportTab):
         <div id="{self.id}" class="tab-content{active_cls}">
             <h3>RHI Memory Statistics</h3>
             {dashboard_html}
-            <div class="search-container">
+            {warning_html}
+            <div class="search-container" data-no-reset="true">
                 <input type="text" placeholder="Search RHI Memory Statistics..." onkeyup="filterRhiTable(this.value)">
+                <span style="font-size: 10px; color: #666; font-weight: 600; text-transform: uppercase; margin-left: 10px;">Sort By:</span>
+                <button class="action-btn active-sub" id="btn-default-{self.id}" onclick="resetRhiView()">Default View</button>
             </div>
             <div class="table-container">
                 <table id="tbl-{self.id}">{thead}{tbody}</table>
             </div>
             <script>
-                function parseRhiSize(val) {{
-                    val = val.replace(/,/g, '').toLowerCase();
-                    let num = parseFloat(val) || 0;
-                    if (val.includes('mb')) return num;
-                    if (val.includes('kb')) return num / 1024.0;
-                    if (val.includes('gb')) return num * 1024.0;
-                    return num / 1024.0;
-                }}
                 function updateRhiAggregates() {{
                     const table = document.getElementById('tbl-{self.id}');
                     const rows = Array.from(table.tBodies[0].rows);
@@ -122,7 +159,7 @@ class RhiMemoryTab(ReportTab):
                     
                     rows.forEach(row => {{
                         const isVisible = row.style.display !== 'none' && row.getAttribute('data-pinned') !== 'true';
-                        const size = parseRhiSize(row.cells[row.cells.length-1].innerText);
+                        const size = _parseSizeToMb(row.cells[row.cells.length-1].innerText);
                         
                         calcCount++;
                         calcSum += size;
@@ -134,14 +171,60 @@ class RhiMemoryTab(ReportTab):
                     }});
                     
                     document.getElementById('rhi-calc-count').innerText = calcCount;
-                    document.getElementById('rhi-calc-size').innerText = calcSum.toFixed(2) + " MB";
+                    document.getElementById('rhi-calc-size').innerText = calcSum >= 1024 ? (calcSum/1024).toFixed(2) + " GB" : calcSum.toFixed(2) + " MB";
                     document.getElementById('rhi-filt-count').innerText = filtCount;
-                    document.getElementById('rhi-filt-sum').innerText = filtSum.toFixed(2) + " MB";
+                    document.getElementById('rhi-filt-sum').innerText = filtSum >= 1024 ? (filtSum/1024).toFixed(2) + " GB" : filtSum.toFixed(2) + " MB";
                 }}
+
                 function filterRhiTable(term) {{
                     filterTable('tbl-{self.id}', -1, term);
                     updateRhiAggregates();
+                    
+                    const defBtn = document.getElementById('btn-default-{self.id}');
+                    if (defBtn) {{
+                        if (term) defBtn.classList.remove('active-sub');
+                        else defBtn.classList.add('active-sub');
+                    }}
                 }}
+
+                function resetRhiView() {{
+                    const searchInput = document.querySelector('#{self.id} .search-container input');
+                    if (searchInput) {{
+                        searchInput.value = '';
+                    }}
+                    filterRhiTable('');
+
+                    const defBtn = document.getElementById('btn-default-{self.id}');
+                    if (defBtn) defBtn.classList.add('active-sub');
+
+                    // Reset Table Sorting
+                    const table = document.getElementById('tbl-{self.id}');
+                    if (table) {{
+                        const tbody = table.querySelector('tbody');
+                        const rows = Array.from(tbody.querySelectorAll('tr'));
+                        rows.sort((a, b) => {{
+                           const ai = parseInt(a.getAttribute('data-index')) || 0;
+                           const bi = parseInt(b.getAttribute('data-index')) || 0;
+                           return ai - bi;
+                        }});
+                        rows.forEach(r => tbody.appendChild(r));
+                        
+                        table.querySelectorAll('th').forEach(th => {{
+                            th.classList.remove('sort-asc', 'sort-desc');
+                            th.removeAttribute('data-asc');
+                        }});
+                    }}
+                }}
+
+                function _parseSizeToMb(val) {{
+                    val = val.replace(/,/g, '').toLowerCase();
+                    let num = parseFloat(val) || 0;
+                    if (val.includes('gb')) return num * 1024.0;
+                    if (val.includes('mb')) return num;
+                    if (val.includes('kb')) return num / 1024.0;
+                    return num / 1024.0;
+                }}
+
                 document.addEventListener('DOMContentLoaded', updateRhiAggregates);
             </script>
         </div>
@@ -194,6 +277,21 @@ class RhiResourceMemoryTab(ReportTab):
 
         if "MemReport:" not in line and line.strip():
             context["rhi_resource_memory_data"]["raw_lines"].append(line)
+
+    def _parse_to_mb(self, val: str) -> float:
+        val = val.replace(",", "").lower()
+        match = re.search(r"([\d\.]+)\s*(kb|mb|gb|b)?", val)
+        if not match:
+            return 0.0
+        num = float(match.group(1))
+        unit = match.group(2)
+        if unit == "gb":
+            return num * 1024.0
+        if unit == "kb":
+            return num / 1024.0
+        if unit == "b":
+            return num / (1024.0 * 1024.0)
+        return num
 
     def render(self, context: Dict[str, Any], is_active: bool = False) -> str:
         data = context.get("rhi_resource_memory_data", {})

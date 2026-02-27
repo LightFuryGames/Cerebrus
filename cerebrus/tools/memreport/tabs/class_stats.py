@@ -141,6 +141,16 @@ class ClassStatsTab(ReportTab):
                     for i, c in enumerate(cols)
                 ]
                 current_data["rows"].append(fmt_row)
+            elif (
+                len(cols) == len(current_data["headers"]) - 1
+                and current_data["headers"][0] == "Class"
+            ):
+                # Row is missing Class column, inject current_class
+                fmt_row = [self.current_class] + [
+                    try_format_cell_value(current_data["headers"][i + 1], c)
+                    for i, c in enumerate(cols)
+                ]
+                current_data["rows"].append(fmt_row)
 
     def get_buttons(self, context: Dict[str, Any]) -> str:
         buttons_html = ""
@@ -253,6 +263,30 @@ class ClassStatsTab(ReportTab):
             </div>
             """
 
+            # Filter Buttons (similar to Texture Stats)
+            unique_classes = set()
+            for v_key in ["resource_size", "alpha_sort"]:
+                v_data = stats.get(v_key)
+                if v_data:
+                    for row in v_data["rows"]:
+                        if row:
+                            unique_classes.add(row[0])
+
+            sorted_unique_classes = sorted(list(unique_classes))
+            filter_buttons = ""
+            if len(sorted_unique_classes) > 1:
+                btns = ""
+                for c_val in sorted_unique_classes:
+                    btns += f'<button class="action-btn filter-btn" data-tab-id="{tab_id}" data-val="{c_val}" onclick="toggleTabClassFilter(this)">{c_val}</button>'
+                filter_buttons = f"""
+                <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; margin-bottom: 20px;">
+                    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 5px;">
+                        <span style="font-size: 10px; color: #666; font-weight: 600; text-transform: uppercase; width: 80px; flex-shrink: 0;">Class:</span>
+                        <div style="flex-grow: 1; display: flex; flex-wrap: wrap; gap: 5px;">{btns}</div>
+                    </div>
+                </div>
+                """
+
             summary_html = f"""
             <div class="analytics-wrapper" style="background: var(--row-even); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color);">
                 <div class="analytics-row" style="display: flex; gap: 20px; flex-wrap: wrap;">
@@ -348,7 +382,10 @@ class ClassStatsTab(ReportTab):
             search_row_html = f"""
             <div class="search-container" data-no-reset="true">
                 <input type="text" placeholder="Search objects..." onkeyup="filterClassTable('{tab_id}', this.value)">
-                <span style="font-size: 10px; color: #666; font-weight: 600; text-transform: uppercase; margin-left: 10px;">Sort By:</span>
+                
+                <button class="action-btn" onclick="clearClassFilters('{tab_id}')" style="margin-left: 10px;">Clear Filters</button>
+                
+                <span style="font-size: 10px; color: #666; font-weight: 600; text-transform: uppercase; margin-left: 20px;">Sort By:</span>
                 {sort_btns_html}
             </div>
             """
@@ -367,6 +404,7 @@ class ClassStatsTab(ReportTab):
                 {header_html}
                 {summary_html}
                 {search_row_html}
+                {filter_buttons}
                 {content_html}
             </div>
             """
@@ -444,10 +482,66 @@ class ClassStatsTab(ReportTab):
                 toggleBox('filt-box-reskb-' + tabId, idxResKB !== -1);
             }
 
+            var activeClassFilters = {};
+
+            function toggleTabClassFilter(btn) {
+                const tabId = btn.getAttribute('data-tab-id');
+                const val = btn.getAttribute('data-val');
+                
+                if (!activeClassFilters[tabId]) activeClassFilters[tabId] = [];
+                
+                const idx = activeClassFilters[tabId].indexOf(val);
+                if (idx > -1) {
+                    activeClassFilters[tabId].splice(idx, 1);
+                    btn.classList.remove('active-sub');
+                } else {
+                    activeClassFilters[tabId].push(val);
+                    btn.classList.add('active-sub');
+                }
+                
+                if (activeClassFilters[tabId].length === 0) delete activeClassFilters[tabId];
+                
+                // Re-apply common search filtering if any
+                const container = btn.closest('.tab-content');
+                const searchInput = container.querySelector('.search-container input');
+                filterClassTable(tabId, searchInput ? searchInput.value : "");
+            }
+
+            function clearClassFilters(tabId) {
+                activeClassFilters[tabId] = [];
+                const container = document.getElementById(tabId);
+                if (container) {
+                    container.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active-sub'));
+                    const searchInput = container.querySelector('.search-container input');
+                    if (searchInput) searchInput.value = '';
+                }
+                filterClassTable(tabId, "");
+            }
+
             function filterClassTable(tabId, term) {
                 const activeSub = document.querySelector(`#${tabId} .sub-tab-content[style*="block"]`);
                 if (activeSub) {
-                    filterTable(activeSub.querySelector('table').id, -1, term);
+                    const table = activeSub.querySelector('table');
+                    const tableId = table.id;
+                    const rows = table.querySelectorAll('tbody tr');
+                    const filters = activeClassFilters[tabId] || [];
+                    const termLower = term.toLowerCase();
+                    
+                    // Robustly find the Class column index
+                    const headers = Array.from(table.tHead.rows[0].cells);
+                    const classColIdx = headers.findIndex(th => th.innerText.trim() === 'Class');
+                    
+                    rows.forEach(row => {
+                        const classText = classColIdx !== -1 ? row.cells[classColIdx].innerText.trim() : "";
+                        const rowText = row.innerText.toLowerCase();
+                        
+                        let visible = true;
+                        if (filters.length > 0 && !filters.includes(classText)) visible = false;
+                        if (visible && termLower && !rowText.includes(termLower)) visible = false;
+                        
+                        row.style.display = visible ? '' : 'none';
+                    });
+                    
                     updateClassAggregates(tabId);
                 }
             }

@@ -1125,11 +1125,14 @@
                     spotting memory regressions <strong>before</strong> they hit production builds.</p>
 
                 <div class="card warning-cyan" style="border-left: 4px solid #06b6d4; margin-top: 1rem;">
-                    <h4 class="highlight-blue">✨ New: Filtered Tab Export</h4>
-                    <p style="font-size: 0.95rem; margin-bottom: 0;">You can now export <strong>filtered lists</strong>
-                        for individual tabs. After applying search terms or threshold filters, click the 💾 button to
-                        save a standalone HTML snippet of the current view—perfect for sharing specific memory
-                        regressions or asset audits with your team.</p>
+                    <h4 class="highlight-blue">✨ New: Interactive Sub-Filtering Export</h4>
+                    <p style="font-size: 0.95rem; margin-bottom: 0;">You can now export <strong>interactive filtered
+                            lists</strong>
+                        for individual tabs. Unlike raw snapshots, these 💾 exports preserve all search bars, action
+                        buttons, and filtering logic. After saving, you can open the standalone file to perform further
+                        <strong>sub-filtering</strong> and audits offline, with all calculated totals updating in
+                        real-time.
+                    </p>
                 </div>
 
                 <div class="card" id="memreport-tabs">
@@ -1163,10 +1166,11 @@
                         <div class="card" style="padding: 1.5rem; border-style: dashed;">
                             <h4 class="highlight">Rendering & VFX</h4>
                             <ul style="font-size: 0.9rem; margin-top: 0.5rem; margin-left: 1.2rem;">
-                                <li><strong>Texture Stats:</strong> Resolution, Format, and VRAM.</li>
-                                <li><strong>RHI Resource Stats:</strong> Draw calls, Vertices, Indices.</li>
-                                <li><strong>Render Target Pool:</strong> GPU buffer allocations.</li>
-                                <li><strong>Particle Systems:</strong> Component counts and VFX memory.</li>
+                                <li><strong>Texture Stats:</strong> Resolution, Format, and VRAM pool.</li>
+                                <li><strong>RHI Resource Stats:</strong> VRAM, draw calls, Vertices, and Indices.</li>
+                                <li><strong>Render Target Pool:</strong> GPU buffer allocations and leak detection.</li>
+                                <li><strong>Particle Systems:</strong> Component counts and VFX memory. Static vs.
+                                    Dynamic memory footprint audits.</li>
                             </ul>
                             <div
                                 style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 0.75rem;">
@@ -1237,8 +1241,15 @@
                             validate data integrity.
                         </li>
                         <li><span class="highlight">Global Search:</span> Instant fuzzy filtering across tens of
-                            thousands
-                            of rows.</li>
+                            thousands of rows.</li>
+                        <li><span class="highlight">Smart RHI Audits:</span> Automatic unit conversion to <code
+                                class="highlight-blue">GB</code> for large pools</li>
+                        <li><span class="highlight">State-Aware UI:</span> <code
+                                class="highlight-blue">Default View (Sometimes called Resource Size)</code> controls and
+                            <code class="highlight-blue">Alpha Sort</code>
+                            buttons provide real-time visual feedback (highlighted/disabled) based on your current view
+                            state.
+                        </li>
                     </ul>
                 </div>
             </section>
@@ -1396,10 +1407,13 @@ t.MaxFPS 30        // Lock framerate for consistency</code></pre>
                     <div class="card warning-red" style="border-left: 3px solid #ef4444; margin-top: 1rem;">
                         <h4 class="highlight-red">Dependencies Fail to Install (Setup.exe)</h4>
                         <p style="font-size: 0.95rem;">If Cerebrus installs successfully but dependencies like
-                            <code>.NET</code> fail to install (often a silent failure):</p>
+                            <code>.NET, python, adb</code> fail to install <code class="highlight-red">(often a
+                            silent failure)</code>:
+                        </p>
                         <p style="font-size: 0.9rem;"><strong>Solution:</strong> Right-click on <code>Setup.exe</code>
                             and select <code class="highlight-red">Run as Administrator</code>. This prevents security
-                            software like <strong>Crowdstrike</strong> from silently blocking the dependency installers.
+                            software like <code class="highlight-orange">Crowdstrike</code> from silently blocking the
+                            dependency installers.
                         </p>
                     </div>
                     <div class="card warning-red" style="border-left: 4px solid #ef4444; margin-top: 1rem;">
@@ -1483,10 +1497,6 @@ t.MaxFPS 30        // Lock framerate for consistency</code></pre>
                     <h4 class="highlight-red">1. Unreal Data Inaccuracies</h4>
                     <p>Calculated data reported by Unreal Engine can sometimes be incorrect in terms of memory usage.
                         While we implement several safety checks, warnings may not trigger in every scenario.</p>
-                    <p style="font-size: 0.95rem;"><code>Object Summary Stats:</code> The table may
-                        initially appear to be missing thousands of entries in the reported and calculated totals.
-                        Clicking any column header to sort the table will force a refresh that displays all rows and
-                        updates the calculated totals correctly at runtime.</p>
                     <p style="font-size: 0.95rem;"><code>Note on RHI Memory:</code> We are aware that
                         <code>RHI memory stats</code> often deviate from actual physical usage. However, if you observe
                         an <code>error margin greater than 5%</code> compared to native Android profiling tools, please
@@ -1508,8 +1518,10 @@ t.MaxFPS 30        // Lock framerate for consistency</code></pre>
                 <div class="card warning-blue" style="border-left: 4px solid #3b82f6;">
                     <h4 class="highlight-blue">3. Kill App Overview Screen</h4>
                     <p>The <code>Kill App</code> button successfully terminates the game process, but the Android
-                        <strong>Overview screen (Recents)</strong> may fail to reflect this state immediately, leaving
-                        the app card visible.</p>
+                        <code class="highlight-blue">Overview screen (Recents)</code> may fail to reflect this state
+                        immediately, leaving
+                        the app card visible.
+                    </p>
                     <p style="font-size: 0.95rem;">Launching the app from the Overview screen in this state will cause
                         the app to restart completely from the splash screen, as it was correctly terminated despite the
                         UI artifact.</p>
