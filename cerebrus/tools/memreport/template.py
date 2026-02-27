@@ -713,12 +713,16 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             const table = th.closest('table');
             if (!table) return;
             
-            // Search for the container in the nearest tab-content root
-            const tabRoot = table.closest('.tab-content');
-            const container = tabRoot ? tabRoot.querySelector('.search-container') : null;
+            // Search for the associated search container (usually just above the table container)
+            const tableContainer = table.closest('.table-container');
+            let container = tableContainer ? tableContainer.previousElementSibling : null;
+            if (container && container.classList.contains('search-bar-row')) {{
+                container = container.querySelector('.search-container');
+            }}
+            const isSearchContainer = container && container.classList.contains('search-container');
             
-            // When sorting by column, clear all 'active' buttons (Resource Size, Default View etc)
-            if(container) {{
+            // When sorting by column, clear all 'active' buttons in the relevant container
+            if(isSearchContainer) {{
                 container.querySelectorAll('.action-btn').forEach(b => b.classList.remove('active-sub'));
             }}
 
@@ -845,20 +849,18 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                }} 
             }});
             
-            const searchCon = tabClone.querySelector('.search-container');
-            if (searchCon) searchCon.parentNode.removeChild(searchCon);
-            
-            tabClone.querySelectorAll('.action-btn, .filter-btn').forEach(btn => btn.parentNode.removeChild(btn));
-            
-            const filterRow = tabClone.querySelector('div[style*="background: rgba(0,0,0,0.2)"]');
-            if (filterRow) filterRow.parentNode.removeChild(filterRow);
-            
             const isLightMode = document.body.classList.contains('light-mode');
             const modeClass = isLightMode ? 'light-mode' : '';
             
             let styles = '';
             document.querySelectorAll('style').forEach(s => styles += s.outerHTML);
             
+            // Include all script tags to preserve filtering/sorting logic
+            let scripts = '';
+            document.querySelectorAll('script').forEach(s => {{
+                scripts += s.outerHTML;
+            }});
+
             const htmlContent = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -866,9 +868,10 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     <title>Exported - ${{tabName}}</title>
     ${{styles}}
     <style>
-        body {{ padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text-color); }}
+        body {{ padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text-color); min-height: 100vh; }}
         .tab-content {{ display: block !important; background-color: transparent; box-shadow: none; padding: 0; }}
-        .action-btn {{ display: none !important; }}
+        .export-btn, .theme-toggle, .tabs, #scrollTopBtn {{ display: none !important; }}
+        .container {{ max-width: 100% !important; }}
     </style>
 </head>
 <body class="${{modeClass}}">
@@ -876,6 +879,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     <div class="container">
         ${{tabClone.outerHTML}}
     </div>
+    ${{scripts}}
 </body>
 </html>`;
             

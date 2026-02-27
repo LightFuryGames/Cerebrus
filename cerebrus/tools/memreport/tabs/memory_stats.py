@@ -212,7 +212,7 @@ class MemoryStatsTab(ReportTab):
 
                 # Format spacing: 123MB -> 123 MB
                 fmt_match = re.search(
-                    r"^([\d\.]+)\s*(MB|KB|GB|mb|kb|gb)(.*)$", v, re.IGNORECASE
+                    r"^([\d\.,]+)\s*(MB|KB|GB|mb|kb|gb)(.*)$", v, re.IGNORECASE
                 )
                 if fmt_match:
                     val_str_num = fmt_match.group(1)
@@ -241,7 +241,7 @@ class MemoryStatsTab(ReportTab):
             # Format spacing: 123MB -> 123 MB
             # Also normalize casing? User just said "have a space"
             fmt_match = re.search(
-                r"^([\d\.]+)\s*(MB|KB|GB|mb|kb|gb)(.*)$", v, re.IGNORECASE
+                r"^([\d\.,]+)\s*(MB|KB|GB|mb|kb|gb)(.*)$", v, re.IGNORECASE
             )
             if fmt_match:
                 val_str_num = fmt_match.group(1)
@@ -255,12 +255,71 @@ class MemoryStatsTab(ReportTab):
                 tree.insert(0, gen_node)
             gen_node["children"].append({"name": k, "value": v, "children": []})
 
+            # Extract Physical Memory for RHI Warning
+            if "process physical memory" in k.lower():
+                # Value format: "1286.88 MB used, 1363.36 MB peak"
+                m = re.search(r"([\d\.,]+)\s*MB\s*used", v, re.IGNORECASE)
+                if m:
+                    context["platform_phys_mem_used_mb"] = float(
+                        m.group(1).replace(",", "")
+                    )
+                m_peak = re.search(r"([\d\.,]+)\s*MB\s*peak", v, re.IGNORECASE)
+                if m_peak:
+                    context["platform_phys_mem_peak_mb"] = float(
+                        m_peak.group(1).replace(",", "")
+                    )
+
+    def _parse_to_mb(self, val: str) -> float:
+        val = val.replace(",", "").lower()
+        match = re.search(r"([\d\.]+)\s*(kb|mb|gb|b)?", val)
+        if not match:
+            return 0.0
+        num = float(match.group(1))
+        unit = match.group(2)
+        if unit == "gb":
+            return num * 1024.0
+        if unit == "kb":
+            return num / 1024.0
+        if unit == "b":
+            return num / (1024.0 * 1024.0)
+        return num
+
     def render(self, context: Dict[str, Any], is_active: bool = False) -> str:
         active_cls = " active" if is_active else ""
+
+        # Calculate RHI Total for warnings
+        rhi_total_mb = 0.0
+        rhi_node = None
+        tree = context.get("memory_tree", [])
+
+        # Find RHI Node in Advanced (Category="Advanced", Group="RHI")
+        adv_node = next((n for n in tree if n["name"] == "Advanced"), None)
+        if adv_node:
+            rhi_node = next(
+                (n for n in adv_node["children"] if n["name"] == "RHI"), None
+            )
+            if rhi_node:
+                for child in rhi_node["children"]:
+                    rhi_total_mb += self._parse_to_mb(child["value"])
+
+        phys_peak_mb = context.get("platform_phys_mem_peak_mb", 0)
+        warning_html = ""
+        if phys_peak_mb > 0 and rhi_total_mb > phys_peak_mb:
+            warning_html = f"""
+            <div class="alert alert-warning" style="margin-bottom: 20px;">
+                <div class="alert-icon">⚠️</div>
+                <div class="alert-content">
+                    <strong>RHI Reporting Discrepancy:</strong> Calculated Advanced RHI Memory (<b>{rhi_total_mb/1024.0:.2f} GB</b>) exceeds reported Peak Process Physical Memory (<b>{phys_peak_mb/1024.0:.2f} GB</b>). 
+                    Unreal may be over-reporting RHI resources.
+                </div>
+            </div>
+            """
+
         html = f"""
         <div id="{self.id}" class="tab-content{active_cls}">
             <h3>Memory Statistics</h3>
-             <div class="search-container" data-no-reset="true">
+            {warning_html}
+            <div class="search-container" data-no-reset="true">
                 <input type="text" placeholder="Search stats..." onkeyup="filterTree('mem-stats-tree', this.value)">
                 <button class="action-btn" onclick="expandAll('mem-stats-tree')">Expand All</button>
                 <button class="action-btn" onclick="collapseAll('mem-stats-tree')">Collapse All</button>
@@ -268,8 +327,16 @@ class MemoryStatsTab(ReportTab):
             <div id="mem-stats-tree">
         """
 
-        tree = context.get("memory_tree", [])
         for node in tree:
+            # Inject unit conversion for RHI Children
+            if node["name"] == "Advanced":
+                for group in node["children"]:
+                    if group["name"] == "RHI":
+                        for child in group["children"]:
+                            mb = self._parse_to_mb(child["value"])
+                            if mb >= 1024:
+                                child["value"] = f"{mb/1024.0:.2f} GB"
+
             html += self._render_tree_node(node)
 
         html += "</div></div>"

@@ -739,7 +739,7 @@ class TextureStatsTab(ReportTab):
  
                       for (const [col, requiredVals] of Object.entries(textureFilters)) {
                           if (requiredVals.length > 0) {
-                              const cellText = getCell(col);
+                              const cellText = getCell(col).toUpperCase();
                               if (!requiredVals.includes(cellText)) {
                                   visible = false;
                                   break;
