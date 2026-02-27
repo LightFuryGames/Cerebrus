@@ -169,7 +169,10 @@ def _auto_save_profile(state: UIState) -> None:
         # Save manifest URL
         if dpg.does_item_exist("remote_manifest_url_input"):
             state.remote_manifest_url = dpg.get_value("remote_manifest_url_input")
-            profile.remote_manifest_url = state.remote_manifest_url
+            if profile.aws_config:
+                profile.aws_config.remote_manifest_url = state.remote_manifest_url
+                if profile.aws_config_path:
+                    profile.aws_config.save(Path(profile.aws_config_path))
 
         if state.profile_manager.current_profile_path:
             state.profile_manager.save_current_profile()

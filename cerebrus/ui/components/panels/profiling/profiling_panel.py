@@ -19,6 +19,7 @@ from ...file_manager import (
 )
 from ...shared import _add_help_button, log_message
 from ...ui_config import UIConfig
+from ..device.device_panel import _populate_devices
 
 
 def _build_profiling_tab(state: UIState) -> None:
@@ -322,6 +323,8 @@ def _handle_launch_package(state: UIState) -> None:
         log_message(state, "INFO", f"Launching {state.package_name}...")
         client.launch_package(state.selected_device_serial, state.package_name)
         log_message(state, "SUCCESS", f"Sent launch command for {state.package_name}")
+        # Refresh device table to show Running status
+        _populate_devices(state)
     except Exception as e:
         log_message(state, "ERROR", f"Failed to launch package: {e}")
 
@@ -339,7 +342,17 @@ def _handle_force_stop_package(state: UIState) -> None:
     try:
         log_message(state, "INFO", f"Killing {state.package_name}...")
         client.force_stop_package(state.selected_device_serial, state.package_name)
-        log_message(state, "SUCCESS", f"Killed processes for {state.package_name}")
+        # Clear from Recents/Overview screen
+        client.remove_task_from_recents(
+            state.selected_device_serial, state.package_name
+        )
+        log_message(
+            state,
+            "SUCCESS",
+            f"Killed processes and cleared {state.package_name} from recents",
+        )
+        # Refresh device table to show Stopped status
+        _populate_devices(state)
     except Exception as e:
         log_message(state, "ERROR", f"Failed to kill package: {e}")
 
@@ -371,9 +384,17 @@ def _handle_clear_app_data(state: UIState) -> None:
     try:
         log_message(state, "INFO", f"Clearing app data for {state.package_name}...")
         client.clear_package_data(state.selected_device_serial, state.package_name)
-        log_message(
-            state, "SUCCESS", f"Cleared app data and cache for {state.package_name}"
+        # Also clear from recents if it was there
+        client.remove_task_from_recents(
+            state.selected_device_serial, state.package_name
         )
+        log_message(
+            state,
+            "SUCCESS",
+            f"Cleared app data and removed {state.package_name} from recents",
+        )
+        # Refresh device status
+        _populate_devices(state)
     except Exception as e:
         log_message(state, "ERROR", f"Failed to clear app data: {e}")
 

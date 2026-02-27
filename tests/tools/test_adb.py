@@ -89,7 +89,12 @@ def test_launch_package(run_mock: MagicMock) -> None:
     run_mock.return_value = _completed("")
     client = AdbClient()
     client.launch_package("serial", "com.test.app")
-    run_mock.assert_called_once_with(
+
+    # Now makes 2 calls: get_main_activity (dumpsys) and fallback (monkey)
+    assert run_mock.call_count == 2
+
+    # Verify fallback call
+    run_mock.assert_any_call(
         [
             "adb",
             "-s",

@@ -421,14 +421,19 @@ class TextureStatsTab(ReportTab):
 
         filter_html = '<div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; margin-bottom: 20px;">'
 
-        # 1. Flags
+        # 1. Flags (Tri-state)
+        # We use a plain string here to avoid nested f-string issues when injected into filter_html
         flags_btns = f"""
-        <button class="action-btn filter-btn" data-col="{idx_streaming}" data-val="YES" onclick="toggleTextureFilter(this)">Streaming</button>
-        <button class="action-btn filter-btn" data-col="{idx_vt}" data-val="YES" onclick="toggleTextureFilter(this)">VT</button>
-        <button class="action-btn filter-btn" data-col="{idx_unkref}" data-val="YES" onclick="toggleTextureFilter(this)">Unknown Ref</button>
-        <button class="action-btn filter-btn" data-col="{idx_uncomp}" data-val="YES" onclick="toggleTextureFilter(this)">Uncompressed</button>
+        <button class="action-btn filter-btn tri-state-btn" data-col="{idx_streaming}" data-state="off" data-base="Streaming" onclick="toggleTriStateFilter(this, 'Streaming')" title="Click to cycle: Any -> YES -> NO">○ Streaming</button>
+        <button class="action-btn filter-btn tri-state-btn" data-col="{idx_vt}" data-state="off" data-base="VT" onclick="toggleTriStateFilter(this, 'VT')" title="Click to cycle: Any -> YES -> NO">○ VT</button>
+        <button class="action-btn filter-btn tri-state-btn" data-col="{idx_unkref}" data-state="off" data-base="Unknown Ref" onclick="toggleTriStateFilter(this, 'Unknown Ref')" title="Click to cycle: Any -> YES -> NO">○ Unknown Ref</button>
+        <button class="action-btn filter-btn tri-state-btn" data-col="{idx_uncomp}" data-state="off" data-base="Uncompressed" onclick="toggleTriStateFilter(this, 'Uncompressed')" title="Click to cycle: Any -> YES -> NO">○ Uncompressed</button>
+        <button class="action-btn filter-btn tri-state-special" data-special="power-of-2" data-state="off" data-base="Power of 2" onclick="toggleSpecialTriStateFilter(this, 'Power of 2')" title="Click to cycle: Any -> YES -> NO">○ Power of 2</button>
         <button class="action-btn filter-btn" data-special="size-mismatch" onclick="toggleTextureSpecial(this)">Size Mismatch</button>
-        """
+        <div style="font-size: 10px; color: var(--text-muted); font-style: italic; margin-left: 10px; display: inline-flex; align-items: center;">
+            <span style="margin-right: 10px;">Cycle: ○ Any → ✅ YES → ❌ NO</span>
+        </div>
+        """.strip()
         filter_html += f"""
         <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.05);">
             <span style="font-size: 10px; color: #666; font-weight: 600; text-transform: uppercase; width: 80px; flex-shrink: 0;">Flags:</span>
@@ -475,7 +480,11 @@ class TextureStatsTab(ReportTab):
                 usage_val = int(t["usage"])
             except:
                 usage_val = 0
-            if usage_val == 0 and t["streaming"] == "NO":
+            if (
+                usage_val == 0
+                and t["streaming"] == "NO"
+                and t["group"] != "TEXTUREGROUP_UI"
+            ):
                 row_class = "highlight-red-row"
 
             row_html = f"<tr class='{row_class}'>"
@@ -555,6 +564,76 @@ class TextureStatsTab(ReportTab):
                 
                 applyTextureFilters();
             }
+
+            function toggleTriStateFilter(btn, baseName) {
+                const col = btn.getAttribute('data-col');
+                let state = btn.getAttribute('data-state');
+                
+                if (state === 'off') {
+                    state = 'yes';
+                    btn.innerText = '✅ ' + baseName;
+                    btn.classList.add('active-sub');
+                } else if (state === 'yes') {
+                    state = 'no';
+                    btn.innerText = '❌ ' + baseName;
+                    btn.classList.add('active-sub');
+                    btn.style.backgroundColor = '#f44336';
+                    btn.style.borderColor = '#f44336';
+                    btn.style.color = 'white';
+                } else {
+                    state = 'off';
+                    btn.innerText = '○ ' + baseName;
+                    btn.classList.remove('active-sub');
+                    btn.style.backgroundColor = '';
+                    btn.style.borderColor = '';
+                    btn.style.color = '';
+                }
+                
+                btn.setAttribute('data-state', state);
+                
+                if (state === 'off') {
+                    delete textureFilters[col];
+                } else {
+                    textureFilters[col] = [state.toUpperCase()];
+                }
+                
+                applyTextureFilters();
+            }
+            
+            function toggleSpecialTriStateFilter(btn, baseName) {
+                const key = btn.getAttribute('data-special');
+                let state = btn.getAttribute('data-state');
+                
+                if (state === 'off') {
+                    state = 'yes';
+                    btn.innerText = '✅ ' + baseName;
+                    btn.classList.add('active-sub');
+                } else if (state === 'yes') {
+                    state = 'no';
+                    btn.innerText = '❌ ' + baseName;
+                    btn.classList.add('active-sub');
+                    btn.style.backgroundColor = '#f44336';
+                    btn.style.borderColor = '#f44336';
+                    btn.style.color = 'white';
+                } else {
+                    state = 'off';
+                    btn.innerText = '○ ' + baseName;
+                    btn.classList.remove('active-sub');
+                    btn.style.backgroundColor = '';
+                    btn.style.borderColor = '';
+                    btn.style.color = '';
+                }
+                
+                btn.setAttribute('data-state', state);
+                
+                if (state === 'off') {
+                    delete textureSpecialFilters[key];
+                } else {
+                    textureSpecialFilters[key] = state; // 'yes' or 'no'
+                }
+                
+                applyTextureFilters();
+            }
             
             function toggleTextureSpecial(btn) {
                 const key = btn.getAttribute('data-special');
@@ -572,7 +651,17 @@ class TextureStatsTab(ReportTab):
             + self.id
             + """');
                 if(tab) {
-                     tab.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active-sub'));
+                     tab.querySelectorAll('.filter-btn, .tri-state-special, .tri-state-btn').forEach(b => {
+                         b.classList.remove('active-sub');
+                         b.style.backgroundColor = '';
+                         b.style.borderColor = '';
+                         b.style.color = '';
+                         if (b.hasAttribute('data-state')) {
+                             b.setAttribute('data-state', 'off');
+                             const base = b.getAttribute('data-base') || b.innerText.replace(/^[✅❌○]\\s*/, '');
+                             b.innerText = '○ ' + base;
+                         }
+                     });
                      const searchInput = tab.querySelector('input');
                      if(searchInput) searchInput.value = '';
                 }
@@ -678,6 +767,22 @@ class TextureStatsTab(ReportTab):
                            
                            // Mismatch if either sizes (MB) or dimensions (Width) differ
                            if (Math.abs(ramMB - diskMB) < 0.01 && ramW === diskW) {
+                               visible = false;
+                           }
+                       }
+                       
+                       // Special Filters: Power of 2
+                       if (visible && textureSpecialFilters['power-of-2']) {
+                           const ramW = parseInt(getCell(IDX_RAM_W)) || 0;
+                           const ramH = parseInt(getCell(2)) || 0; // IDX_RAM_H is column 2
+                           
+                           const isPotW = (ramW > 0) && ((ramW & (ramW - 1)) === 0);
+                           const isPotH = (ramH > 0) && ((ramH & (ramH - 1)) === 0);
+                           const isPot = isPotW && isPotH;
+                           
+                           if (textureSpecialFilters['power-of-2'] === 'yes' && !isPot) {
+                               visible = false;
+                           } else if (textureSpecialFilters['power-of-2'] === 'no' && isPot) {
                                visible = false;
                            }
                        }

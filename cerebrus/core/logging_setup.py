@@ -8,9 +8,11 @@ from pathlib import Path
 def setup_logging():
     """Configure logging to write errors to DebugInfo/error_log.txt"""
 
+    from cerebrus.core.paths import get_debug_dir
+
     # Create DebugInfo directory if it doesn't exist
-    debug_dir = Path("DebugInfo")
-    debug_dir.mkdir(exist_ok=True)
+    debug_dir = get_debug_dir()
+    debug_dir.mkdir(parents=True, exist_ok=True)
 
     log_file = debug_dir / "error_log.txt"
 

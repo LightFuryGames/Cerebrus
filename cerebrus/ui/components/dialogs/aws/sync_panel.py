@@ -65,8 +65,10 @@ def build_remote_config_sync(state: UIState) -> None:
 
         # Show current source
         profile = state.profile_manager.current_profile
-        if profile and profile.remote_config_base_url:
-            source_msg = f"Source: Custom Base URL ({profile.remote_config_base_url})"
+        aws_cfg = profile.aws_config if profile else None
+
+        if aws_cfg and aws_cfg.remote_config_base_url:
+            source_msg = f"Source: Custom Base URL ({aws_cfg.remote_config_base_url})"
             msg_color = status_colors.get("DEFAULT")
         else:
             source_msg = "Source: Default S3 Bucket"
@@ -103,8 +105,8 @@ def build_remote_config_sync(state: UIState) -> None:
             dpg.add_input_text(
                 tag="remote_manifest_url_input",
                 default_value=(
-                    profile.remote_manifest_url
-                    if profile and profile.remote_manifest_url
+                    aws_cfg.remote_manifest_url
+                    if aws_cfg and aws_cfg.remote_manifest_url
                     else state.remote_manifest_url
                 ),
                 width=-1,
@@ -363,6 +365,7 @@ def _download_configs_from_manifest(state: UIState) -> None:
 
 def _render_downloaded_configs_list(state: UIState) -> None:
     """Render the list of downloaded .ini files."""
+    config = UIConfig.get_instance()
     if not dpg.does_item_exist("config_files_list_container"):
         return
 
@@ -450,6 +453,7 @@ def _push_single_file_to_device(state: UIState, filename: str) -> None:
 
 def _render_device_configs_list(state: UIState) -> None:
     """Render the list of .ini files present on the device's persistent storage."""
+    config = UIConfig.get_instance()
     tm = get_theme_manager()
     if not dpg.does_item_exist("device_config_files_list_container"):
         return

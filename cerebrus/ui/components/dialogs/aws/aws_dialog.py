@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import dearpygui.dearpygui as dpg
 
 from cerebrus.ui.components.shared import _auto_save_profile, log_message
@@ -8,26 +10,39 @@ from cerebrus.ui.state import UIState
 
 
 def _update_aws_credential(state: UIState, key: str, value: str) -> None:
-    """Update AWS credential in current profile and auto-save."""
+    """Update AWS credential in current profile's AWS config and auto-save."""
     profile = state.profile_manager.current_profile
     if not profile:
         return
 
+    from cerebrus.core.aws_config import AWSConfig
+
+    if not profile.aws_config:
+        profile.aws_config = AWSConfig()
+
+    cfg = profile.aws_config
     if key == "access_key":
-        profile.aws_access_key = value
+        cfg.aws_access_key = value
     elif key == "secret_key":
-        profile.aws_secret_key = value
+        cfg.aws_secret_key = value
     elif key == "region":
-        profile.aws_region = value
+        cfg.aws_region = value
     elif key == "profile":
-        profile.aws_profile = value
+        cfg.aws_profile = value
     elif key == "base_url":
-        profile.remote_config_base_url = value
+        cfg.remote_config_base_url = value
     elif key.startswith("url_"):
         env = key.split("_")[1]
-        if not profile.remote_configs:
-            profile.remote_configs = {}
-        profile.remote_configs[env] = value
+        if not cfg.remote_configs:
+            cfg.remote_configs = {}
+        cfg.remote_configs[env] = value
+
+    # Save AWS config if it has a path
+    if profile.aws_config_path:
+        try:
+            cfg.save(Path(profile.aws_config_path))
+        except Exception as e:
+            log_message(state, "ERROR", f"Failed to save AWS Config: {e}")
 
     _auto_save_profile(state)
 
@@ -48,19 +63,17 @@ def _show_aws_config_dialog(state: UIState) -> None:
 
     config = UIConfig.get_instance()
     settings = config.get_component_settings("aws_config_dialog")
-    width = settings.get("width", 500)
-    height = settings.get("height", 300)
+    width = 650
+    height = 800
 
     pos = [(viewport_width - width) // 2, (viewport_height - height) // 2]
 
-    # Merge settings with dynamic pos
-    # Merge settings with dynamic pos
     window_args = settings.copy()
     window_args["pos"] = pos
-    window_args["width"] = 600
-    window_args["height"] = 500
-    window_args["autosize"] = False
-    window_args["min_size"] = [500, 400]
+    window_args["width"] = width
+    window_args["height"] = height
+    window_args["autosize"] = True
+    window_args["min_size"] = [600, 800]
     window_args["no_collapse"] = True
 
     with dpg.window(**window_args):
@@ -72,14 +85,80 @@ def _show_aws_config_dialog(state: UIState) -> None:
         tm = get_theme_manager()
 
         dpg.add_text(
-            "Configure Remote Config URLs and AWS credentials.",
+            "Configure Decoupled AWS S3 Configuration.",
             color=tm.get_header_color(),
         )
         dpg.add_spacer(height=config.get_spacer("standard"))
 
+        # --- AWS Config File Manager ---
+        dpg.add_text("AWS External Config Link", color=tm.get_subheader_color())
+        dpg.add_separator()
+
+        path_val = profile.aws_config_path
+        path_exists = Path(path_val).exists() if path_val else True
+
+        with dpg.group(horizontal=True):
+            dpg.add_text("Status:", color=(200, 200, 200))
+            if not path_val:
+                status_text = "NOT LINKED (Local Cache Only)"
+                status_color = (255, 150, 0)
+            elif path_exists:
+                status_text = "LINKED"
+                status_color = (100, 255, 100)
+            else:
+                status_text = "ERROR: FILE NOT FOUND"
+                status_color = (255, 50, 50)
+            dpg.add_text(status_text, color=status_color, tag="aws_status_label")
+
+        with dpg.group(horizontal=True):
+            dpg.add_text("Path:")
+            dpg.add_input_text(
+                tag="dlg_aws_config_path",
+                default_value=path_val or "",
+                hint="No external file linked.",
+                readonly=True,
+                width=450,
+            )
+            if not path_exists and path_val:
+                with dpg.tooltip("dlg_aws_config_path"):
+                    dpg.add_text(f"File missing at: {path_val}", color=(255, 100, 100))
+
+        with dpg.group(horizontal=True):
+            dpg.add_button(
+                label="Link Existing File",
+                width=150,
+                callback=lambda: _link_aws_config_file(state),
+            )
+            dpg.add_button(
+                label="Create New Config",
+                width=150,
+                callback=lambda: _create_new_aws_config_file(state),
+            )
+            if path_val:
+                dpg.add_button(
+                    label="Unlink",
+                    width=80,
+                    callback=lambda: _unlink_aws_config_file(state),
+                )
+
+        if not path_exists and path_val:
+            dpg.add_text(
+                f"WARNING: The linked AWS Config file is MISSING.\nChanges will NOT be saved to disk until you Link/Create a new one.",
+                color=(255, 100, 100),
+            )
+        elif not path_val and profile.aws_config:
+            dpg.add_text(
+                "NOTE: These settings are not yet decoupled into a separate file.\nClick 'Create New Config' to move them to a dedicated JSON.",
+                color=(255, 200, 100),
+            )
+
+        dpg.add_spacer(height=config.get_spacer("large"))
+
         # --- Remote Config Section ---
         dpg.add_text("Remote Config Setup", color=tm.get_subheader_color())
         dpg.add_separator()
+
+        cfg = profile.aws_config or None
 
         with dpg.table(
             header_row=False, policy=config.get_table_policy("policy_stretch")
@@ -91,13 +170,12 @@ def _show_aws_config_dialog(state: UIState) -> None:
                 dpg.add_text("Base URL:")
                 dpg.add_input_text(
                     tag="dlg_base_url",
-                    default_value=profile.remote_config_base_url or "",
+                    default_value=cfg.remote_config_base_url if cfg else "",
                     hint="Leave empty to use default S3 Bucket",
                     callback=lambda s, a: _update_aws_credential(state, "base_url", a),
                 )
 
-            remote_configs = profile.remote_configs or {}
-            # Added Test env and updated labels
+            remote_configs = cfg.remote_configs if cfg and cfg.remote_configs else {}
             for env, label in [
                 ("Development", "Development Override"),
                 ("Test", "Test Override"),
@@ -130,7 +208,7 @@ def _show_aws_config_dialog(state: UIState) -> None:
                 dpg.add_text("Access Key:")
                 dpg.add_input_text(
                     tag="dlg_aws_access_key",
-                    default_value=profile.aws_access_key,
+                    default_value=cfg.aws_access_key if cfg else "",
                     password=True,
                     callback=lambda s, a: _update_aws_credential(
                         state, "access_key", a
@@ -141,7 +219,7 @@ def _show_aws_config_dialog(state: UIState) -> None:
                 dpg.add_text("Secret Key:")
                 dpg.add_input_text(
                     tag="dlg_aws_secret_key",
-                    default_value=profile.aws_secret_key,
+                    default_value=cfg.aws_secret_key if cfg else "",
                     password=True,
                     callback=lambda s, a: _update_aws_credential(
                         state, "secret_key", a
@@ -152,7 +230,8 @@ def _show_aws_config_dialog(state: UIState) -> None:
                 dpg.add_text("Region:")
                 dpg.add_input_text(
                     tag="dlg_aws_region",
-                    default_value=profile.aws_region or "ap-south-1",
+                    default_value=(cfg.aws_region if cfg else "ap-south-1")
+                    or "ap-south-1",
                     callback=lambda s, a: _update_aws_credential(state, "region", a),
                 )
 
@@ -160,7 +239,7 @@ def _show_aws_config_dialog(state: UIState) -> None:
                 dpg.add_text("AWS Profile:")
                 dpg.add_input_text(
                     tag="dlg_aws_profile",
-                    default_value=profile.aws_profile,
+                    default_value=cfg.aws_profile if cfg else "",
                     hint="e.g. default",
                     callback=lambda s, a: _update_aws_credential(state, "profile", a),
                 )
@@ -176,148 +255,93 @@ def _show_aws_config_dialog(state: UIState) -> None:
                 callback=lambda: dpg.delete_item("aws_config_dialog"),
             )
             dpg.add_spacer(width=20)
-
-            dpg.add_button(
-                label="Export Config",
-                width=100,
-                callback=lambda: _export_aws_config(state),
-            )
-            dpg.add_button(
-                label="Import Config",
-                width=100,
-                callback=lambda: _import_aws_config_dialog(state),
-            )
-
-            dpg.add_text("(Auto-saved)", color=(150, 150, 150))
+            dpg.add_text("(Auto-saved to linked file)", color=(150, 150, 150))
 
 
-def _export_aws_config(state: UIState) -> None:
-    """Export current AWS/Remote configurations to a JSON file."""
-    import base64
-    import json
+def _link_aws_config_file(state: UIState) -> None:
+    """Link an existing AWS JSON config file."""
     from tkinter import Tk, filedialog
+
+    from cerebrus.core.aws_config import AWSConfig
+
+    root = Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+    file_path = filedialog.askopenfilename(
+        title="Select AWS Configuration File",
+        filetypes=[("JSON Files", "*.json")],
+    )
+    root.destroy()
+
+    if not file_path:
+        return
+
+    try:
+        path = Path(file_path)
+        cfg = AWSConfig.load(path)
+
+        profile = state.profile_manager.current_profile
+        if profile:
+            profile.aws_config_path = str(path.absolute())
+            profile.aws_config = cfg
+            _auto_save_profile(state)
+            # Refresh dialog
+            _show_aws_config_dialog(state)
+            log_message(state, "SUCCESS", f"Linked AWS Config: {path.name}")
+    except Exception as e:
+        log_message(state, "ERROR", f"Failed to link AWS Config: {e}")
+
+
+def _create_new_aws_config_file(state: UIState) -> None:
+    """Create a new AWS JSON config file and link it."""
+    from tkinter import Tk, filedialog
+
+    from cerebrus.core.aws_config import AWSConfig
 
     profile = state.profile_manager.current_profile
     if not profile:
         return
 
-    try:
-        root = Tk()
-        root.withdraw()
-        root.attributes("-topmost", True)
+    root = Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+    file_path = filedialog.asksaveasfilename(
+        title="Create New AWS Configuration",
+        defaultextension=".json",
+        filetypes=[("JSON Files", "*.json")],
+        initialfile="aws_config.json",
+    )
+    root.destroy()
 
-        file_path = filedialog.asksaveasfilename(
-            title="Export AWS Configuration",
-            defaultextension=".json",
-            filetypes=[("JSON Files", "*.json")],
-            initialfile="aws_config.json",
-        )
-        root.destroy()
-
-        if not file_path:
-            return
-
-        # Prepare data with simple obfuscation for keys
-        data = {
-            "remote_config_base_url": profile.remote_config_base_url,
-            "remote_configs": profile.remote_configs,
-            "aws_region": profile.aws_region,
-            "aws_profile": profile.aws_profile,
-        }
-
-        if profile.aws_access_key:
-            data["aws_access_key_b64"] = base64.b64encode(
-                profile.aws_access_key.encode()
-            ).decode()
-
-        if profile.aws_secret_key:
-            data["aws_secret_key_b64"] = base64.b64encode(
-                profile.aws_secret_key.encode()
-            ).decode()
-
-        with open(file_path, "w") as f:
-            json.dump(data, f, indent=4)
-
-        log_message(state, "SUCCESS", f"AWS Config exported to {file_path}")
-
-    except Exception as e:
-        log_message(state, "ERROR", f"Failed to export config: {e}")
-
-
-def _import_aws_config_dialog(state: UIState) -> None:
-    """Import AWS/Remote configurations from a JSON file."""
-    import base64
-    import json
-    from tkinter import Tk, filedialog
+    if not file_path:
+        return
 
     try:
-        root = Tk()
-        root.withdraw()
-        root.attributes("-topmost", True)
+        path = Path(file_path)
+        # Use existing in-memory config if available (migration) or new one
+        cfg = profile.aws_config or AWSConfig()
+        cfg.save(path)
 
-        file_path = filedialog.askopenfilename(
-            title="Import AWS Configuration",
-            filetypes=[("JSON Files", "*.json")],
-        )
-        root.destroy()
-
-        if not file_path:
-            return
-
-        with open(file_path, "r") as f:
-            data = json.load(f)
-
-        profile = state.profile_manager.current_profile
-        if not profile:
-            return
-
-        # Restore values
-        if "remote_config_base_url" in data:
-            profile.remote_config_base_url = data["remote_config_base_url"]
-            if dpg.does_item_exist("dlg_base_url"):
-                dpg.set_value("dlg_base_url", profile.remote_config_base_url or "")
-
-        if "remote_configs" in data:
-            profile.remote_configs = data["remote_configs"]
-            if profile.remote_configs:
-                for env, val in profile.remote_configs.items():
-                    tag = f"dlg_url_{env}"
-                    if dpg.does_item_exist(tag):
-                        dpg.set_value(tag, val)
-
-        if "aws_region" in data:
-            profile.aws_region = data["aws_region"]
-            if dpg.does_item_exist("dlg_aws_region"):
-                dpg.set_value("dlg_aws_region", profile.aws_region)
-
-        if "aws_profile" in data:
-            profile.aws_profile = data["aws_profile"]
-            if dpg.does_item_exist("dlg_aws_profile"):
-                dpg.set_value("dlg_aws_profile", profile.aws_profile)
-
-        # De-obfuscate keys
-        if "aws_access_key_b64" in data:
-            try:
-                profile.aws_access_key = base64.b64decode(
-                    data["aws_access_key_b64"]
-                ).decode()
-                if dpg.does_item_exist("dlg_aws_access_key"):
-                    dpg.set_value("dlg_aws_access_key", profile.aws_access_key)
-            except:
-                pass
-
-        if "aws_secret_key_b64" in data:
-            try:
-                profile.aws_secret_key = base64.b64decode(
-                    data["aws_secret_key_b64"]
-                ).decode()
-                if dpg.does_item_exist("dlg_aws_secret_key"):
-                    dpg.set_value("dlg_aws_secret_key", profile.aws_secret_key)
-            except:
-                pass
-
+        profile.aws_config_path = str(path.absolute())
+        profile.aws_config = cfg
         _auto_save_profile(state)
-        log_message(state, "SUCCESS", f"AWS Config imported from {file_path}")
-
+        # Refresh dialog
+        _show_aws_config_dialog(state)
+        log_message(state, "SUCCESS", f"Created and Linked AWS Config: {path.name}")
     except Exception as e:
-        log_message(state, "ERROR", f"Failed to import config: {e}")
+        log_message(state, "ERROR", f"Failed to create AWS Config: {e}")
+
+
+def _unlink_aws_config_file(state: UIState) -> None:
+    """Unlink the AWS JSON config file from the profile."""
+    profile = state.profile_manager.current_profile
+    if profile:
+        profile.aws_config_path = None
+        # We keep the in-memory aws_config so they don't lose current edits immediately
+        _auto_save_profile(state)
+        _show_aws_config_dialog(state)
+        log_message(
+            state,
+            "INFO",
+            "Unlinked AWS Config file. Settings are now local to session.",
+        )

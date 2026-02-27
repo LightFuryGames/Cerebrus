@@ -1124,6 +1124,14 @@
                     dashboard. Essential for
                     spotting memory regressions <strong>before</strong> they hit production builds.</p>
 
+                <div class="card warning-cyan" style="border-left: 4px solid #06b6d4; margin-top: 1rem;">
+                    <h4 class="highlight-blue">✨ New: Filtered Tab Export</h4>
+                    <p style="font-size: 0.95rem; margin-bottom: 0;">You can now export <strong>filtered lists</strong>
+                        for individual tabs. After applying search terms or threshold filters, click the 💾 button to
+                        save a standalone HTML snippet of the current view—perfect for sharing specific memory
+                        regressions or asset audits with your team.</p>
+                </div>
+
                 <div class="card" id="memreport-tabs">
                     <h3 style="margin-bottom: 0.5rem;">Expert Tab Breakdown</h3>
                     <p style="margin-bottom: 1.5rem;">Cerebrus parses every major Stat Group from the MemReport output,
@@ -1385,7 +1393,16 @@ t.MaxFPS 30        // Lock framerate for consistency</code></pre>
                             then run <code>adb devices</code>.</li>
                     </ol>
                     </p>
-                    <div class="card warning-red" style="border-left: 4px solid #ef4444; margin-top: 0.25rem;">
+                    <div class="card warning-red" style="border-left: 3px solid #ef4444; margin-top: 1rem;">
+                        <h4 class="highlight-red">Dependencies Fail to Install (Setup.exe)</h4>
+                        <p style="font-size: 0.95rem;">If Cerebrus installs successfully but dependencies like
+                            <code>.NET</code> fail to install (often a silent failure):</p>
+                        <p style="font-size: 0.9rem;"><strong>Solution:</strong> Right-click on <code>Setup.exe</code>
+                            and select <code class="highlight-red">Run as Administrator</code>. This prevents security
+                            software like <strong>Crowdstrike</strong> from silently blocking the dependency installers.
+                        </p>
+                    </div>
+                    <div class="card warning-red" style="border-left: 4px solid #ef4444; margin-top: 1rem;">
                         <h3><code class="highlight-red">Tool Not Found</code></h3>
                         <p style="font-size: 0.95rem;">Verify that <code>PerfreportTool.exe</code> path is
                             correctly configured in your environment or global settings if performance reports fail to
@@ -1489,11 +1506,13 @@ t.MaxFPS 30        // Lock framerate for consistency</code></pre>
                 </div>
 
                 <div class="card warning-blue" style="border-left: 4px solid #3b82f6;">
-                    <h4 class="highlight-blue">3. Android Rotation Settings</h4>
-                    <p>When using the <code>Launch Button</code> to start the game, Cerebrus may override the Android OS
-                        rotation settings. If the device's system setting is currently locked to a specific mode (e.g.,
-                        Portrait), the toolkit may force it back to <code>Auto-Rotate</code> mode to ensure
-                        compatibility with standard Unreal landscape layouts.</p>
+                    <h4 class="highlight-blue">3. Kill App Overview Screen</h4>
+                    <p>The <code>Kill App</code> button successfully terminates the game process, but the Android
+                        <strong>Overview screen (Recents)</strong> may fail to reflect this state immediately, leaving
+                        the app card visible.</p>
+                    <p style="font-size: 0.95rem;">Launching the app from the Overview screen in this state will cause
+                        the app to restart completely from the splash screen, as it was correctly terminated despite the
+                        UI artifact.</p>
                 </div>
 
                 <div class="card warning-red" style="border-left: 4px solid #ef4444; margin-top: 1rem;">

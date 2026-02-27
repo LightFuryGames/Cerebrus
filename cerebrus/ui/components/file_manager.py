@@ -489,12 +489,9 @@ def _handle_generate_colored_logs(state: UIState) -> None:
 
 def _log_debug_to_file(msg: str):
     try:
-        if getattr(sys, "frozen", False):
-            root_path = Path(sys.executable).parent
-        else:
-            root_path = Path(__file__).resolve().parent.parent.parent.parent
+        from cerebrus.core.paths import get_debug_dir
 
-        debug_dir = root_path / "DebugInfo"
+        debug_dir = get_debug_dir()
         if not debug_dir.exists():
             debug_dir.mkdir(parents=True, exist_ok=True)
 

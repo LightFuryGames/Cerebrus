@@ -217,6 +217,31 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             border-color: var(--accent-color);
         }}
 
+        .export-btn {{
+            position: absolute;
+            top: 20px;
+            right: 70px;
+            background: var(--header-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }}
+
+        .export-btn:hover {{
+            transform: scale(1.1);
+            border-color: var(--accent-color);
+        }}
+
         /* Alerts & Feedback */
         .alert {{
             padding: 15px 20px;
@@ -446,6 +471,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     <div class="container" style="position: relative;">
         <button class="theme-toggle" id="theme-toggle" title="Toggle Light/Dark Mode">
             <span id="theme-icon">🌙</span>
+        </button>
+        <button class="export-btn" id="export-html-btn" title="Export Current Tab (Filtered)">
+            <span>💾</span>
         </button>
         <h1>{report_title}</h1>
 
@@ -794,6 +822,73 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             const container = document.getElementById(containerId);
             container.querySelectorAll('details').forEach(d => d.open = false);
         }}
+
+        document.getElementById('export-html-btn').addEventListener('click', function() {{
+            const activeTab = document.querySelector('.tab-content.active') || document.querySelector('.tab-content[style*="block"]');
+            if (!activeTab) {{
+                alert("No active tab found to export.");
+                return;
+            }}
+            
+            let tabName = "exported_tab";
+            const activeTabBtn = document.querySelector('.tab-btn.active');
+            if (activeTabBtn) {{
+                tabName = activeTabBtn.innerText.trim().replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            }}
+            
+            const tabClone = activeTab.cloneNode(true);
+            
+            const rows = tabClone.querySelectorAll('tr');
+            rows.forEach(row => {{
+               if (row.style.display === 'none') {{
+                   row.parentNode.removeChild(row);
+               }} 
+            }});
+            
+            const searchCon = tabClone.querySelector('.search-container');
+            if (searchCon) searchCon.parentNode.removeChild(searchCon);
+            
+            tabClone.querySelectorAll('.action-btn, .filter-btn').forEach(btn => btn.parentNode.removeChild(btn));
+            
+            const filterRow = tabClone.querySelector('div[style*="background: rgba(0,0,0,0.2)"]');
+            if (filterRow) filterRow.parentNode.removeChild(filterRow);
+            
+            const isLightMode = document.body.classList.contains('light-mode');
+            const modeClass = isLightMode ? 'light-mode' : '';
+            
+            let styles = '';
+            document.querySelectorAll('style').forEach(s => styles += s.outerHTML);
+            
+            const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Exported - ${{tabName}}</title>
+    ${{styles}}
+    <style>
+        body {{ padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text-color); }}
+        .tab-content {{ display: block !important; background-color: transparent; box-shadow: none; padding: 0; }}
+        .action-btn {{ display: none !important; }}
+    </style>
+</head>
+<body class="${{modeClass}}">
+    <h1>Exported - ${{activeTabBtn ? activeTabBtn.innerText : 'Data'}}</h1>
+    <div class="container">
+        ${{tabClone.outerHTML}}
+    </div>
+</body>
+</html>`;
+            
+            const blob = new Blob([htmlContent], {{ type: 'text/html' }});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${{tabName}}_export.html`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }});
     </script>
 </body>
 </html>

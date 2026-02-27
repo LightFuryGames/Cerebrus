@@ -16,6 +16,7 @@ class DeviceInfo:
     android_version: str
     sdk_level: str
     package_found: bool
+    is_running: bool = False
 
 
 def collect_device_info(
@@ -47,6 +48,7 @@ def _read_device(serial: str, package_name: str, client: AdbClient) -> DeviceInf
     android_version = _safe_property(client, serial, "ro.build.version.release")
     sdk_level = _safe_property(client, serial, "ro.build.version.sdk")
     package_found = client.is_package_installed(serial, package_name)
+    is_running = client.is_package_running(serial, package_name)
 
     return DeviceInfo(
         make=make,
@@ -55,6 +57,7 @@ def _read_device(serial: str, package_name: str, client: AdbClient) -> DeviceInf
         android_version=android_version,
         sdk_level=sdk_level,
         package_found=package_found,
+        is_running=is_running,
     )
 
 
