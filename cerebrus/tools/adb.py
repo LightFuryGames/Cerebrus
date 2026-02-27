@@ -89,14 +89,47 @@ class AdbClient:
         except AdbError:
             return []
 
+    def get_main_activity(self, serial: str, package_name: str) -> str | None:
+        """Find the main launcher activity for a package."""
+        try:
+            result = self._run(
+                ["-s", serial, "shell", "dumpsys", "package", package_name]
+            )
+            # Look for categories containing LAUNCHER
+            # Example: 42b667e com.test.app/com.epicgames.ue4.GameActivity filter 5c91f5
+            #          Action: "android.intent.action.MAIN"
+            #          Category: "android.intent.category.LAUNCHER"
+
+            lines = result.stdout.splitlines()
+            for i, line in enumerate(lines):
+                if "android.intent.category.LAUNCHER" in line:
+                    # Search backwards for the activity name
+                    for j in range(i - 1, max(0, i - 10), -1):
+                        curr_line = lines[j].strip()
+                        if package_name in curr_line and "/" in curr_line:
+                            # It's likely formatted like: a1b2c3d <pkg>/<activity>
+                            parts = curr_line.split()
+                            for p in parts:
+                                if "/" in p:
+                                    return p
+            return None
+        except Exception:
+            return None
+
     def launch_package(self, serial: str, package_name: str) -> None:
         """
         Launch the application or bring it to foreground if already running.
-        Uses monkey command which is robust for launching without knowing Activity name.
+        First tries 'am start' with explicit activity, falls back to monkey.
         """
-        # -p <package>
-        # -c android.intent.category.LAUNCHER
-        # 1 (event count)
+        activity = self.get_main_activity(serial, package_name)
+        if activity:
+            try:
+                self._run(["-s", serial, "shell", "am", "start", "-n", activity])
+                return
+            except Exception:
+                pass
+
+        # Fallback to monkey if activity not found or start fails
         result = self._run(
             [
                 "-s",
@@ -110,7 +143,6 @@ class AdbClient:
                 "1",
             ]
         )
-        # Check output for errors commonly returned by monkey
         if "No activities found" in result.stdout:
             raise AdbError(f"No launchable activity found for {package_name}")
 
@@ -179,6 +211,82 @@ class AdbClient:
     def clear_package_data(self, serial: str, package_name: str) -> None:
         """Clear the application data and cache using pm clear."""
         self._run(["-s", serial, "shell", "pm", "clear", package_name])
+
+    def toggle_auto_rotate(self, serial: str, enabled: bool) -> None:
+        """Enable or disable system-wide auto-rotate (accelerometer_rotation)."""
+        value = "1" if enabled else "0"
+        self._run(
+            [
+                "-s",
+                serial,
+                "shell",
+                "settings",
+                "put",
+                "system",
+                "accelerometer_rotation",
+                value,
+            ]
+        )
+
+    def remove_task_from_recents(self, serial: str, package_name: str) -> None:
+        """Find the TaskId for the given package and remove it from Recents/Overview."""
+        if not package_name:
+            return
+
+        try:
+            # Query the recents stack
+            result = self._run(
+                ["-s", serial, "shell", "dumpsys", "activity", "recents"]
+            )
+            lines = result.stdout.splitlines()
+
+            # Tasks in dumpsys are often grouped.
+            # We look for lines containing '#' followed by a Task ID or taskId=ID,
+            # then check the metadata in that block for the package name.
+
+            current_task_id = None
+            found_package_in_block = False
+
+            import re
+
+            # Regex to find task ID like #123 or taskId=123
+            task_pattern = re.compile(r"(?:#|taskId=)(\d+)")
+
+            for line in lines:
+                task_match = task_pattern.search(line)
+
+                if task_match:
+                    # If the previous block belonged to our package, remove it
+                    if current_task_id and found_package_in_block:
+                        self._run(
+                            [
+                                "-s",
+                                serial,
+                                "shell",
+                                "am",
+                                "task",
+                                "remove",
+                                current_task_id,
+                            ]
+                        )
+
+                    # Start tracking a new task block
+                    current_task_id = task_match.group(1)
+                    found_package_in_block = False
+
+                # If we're inside a task block, check if the package name appears in the metadata
+                if package_name in line:
+                    found_package_in_block = True
+
+            # Final check for the last task block in the output
+            if current_task_id and found_package_in_block:
+                self._run(
+                    ["-s", serial, "shell", "am", "task", "remove", current_task_id]
+                )
+
+        except Exception:
+            # Silently fail if parsing or command fails, as it's a non-critical cleanup step
+            pass
 
     def clear_package_cache_only(self, serial: str, package_name: str) -> None:
         """Attempt to clear UE Saved and cache folders on SD card."""

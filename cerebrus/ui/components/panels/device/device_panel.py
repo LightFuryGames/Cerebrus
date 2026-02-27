@@ -104,6 +104,9 @@ def _render_device_table(state: UIState) -> None:
         dpg.add_table_column(
             label="Package Found", width_stretch=True, init_width_or_weight=0.15
         )
+        dpg.add_table_column(
+            label="App Status", width_stretch=True, init_width_or_weight=0.10
+        )
 
         state.device_cell_tags = []
 
@@ -126,15 +129,20 @@ def _render_device_row(row_index: int, device: DeviceInfo, state: UIState) -> No
             device.android_version,
             device.sdk_level,
             "True" if device.package_found else "False",
+            "Running" if device.is_running else "Stopped",
         ]
 
         row_tags: list[str] = []
         for column_index, value in enumerate(values):
             cell_tag = f"device_cell_{row_index}_{column_index}"
-            # Color code the Package Found column (last column)
-            if column_index == len(values) - 1:  # Package Found column
+            # Color code specific columns
+            if column_index == len(values) - 2:  # Package Found column
                 status = "SUCCESS" if device.package_found else "ERROR"
-                # Use text with color instead of selectable for this column
+                dpg.bind_item_theme(
+                    dpg.add_text(value, tag=cell_tag), tm.get_log_theme(status)
+                )
+            elif column_index == len(values) - 1:  # App Status column
+                status = "SUCCESS" if device.is_running else "DEFAULT"
                 dpg.bind_item_theme(
                     dpg.add_text(value, tag=cell_tag), tm.get_log_theme(status)
                 )
@@ -226,16 +234,16 @@ def _select_device_row(row_index: int, state: UIState) -> None:
 
     for cell_tags in state.device_cell_tags:
         for col_idx, tag in enumerate(cell_tags):
-            # Skip the last column (Package Found) as it's a text widget, not selectable
-            if col_idx < len(cell_tags) - 1 and dpg.does_item_exist(tag):
+            # Skip the last two columns (Package Found, App Status) as they're text widgets, not selectable
+            if col_idx < len(cell_tags) - 2 and dpg.does_item_exist(tag):
                 dpg.set_value(tag, False)
 
     if 0 <= row_index < len(state.device_cell_tags):
         for col_idx, tag in enumerate(state.device_cell_tags[row_index]):
-            # Skip the last column (Package Found) as it's a text widget, not selectable
+            # Skip the last two columns (Package Found, App Status) as they're text widgets, not selectable
             if col_idx < len(
                 state.device_cell_tags[row_index]
-            ) - 1 and dpg.does_item_exist(tag):
+            ) - 2 and dpg.does_item_exist(tag):
                 dpg.set_value(tag, True)
 
 

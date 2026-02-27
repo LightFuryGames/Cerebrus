@@ -9,6 +9,7 @@ class FakeAdbClient:
         self.installed_packages = installed_packages or set()
         self.properties: dict[tuple[str, str], str] = {}
         self.serials: list[str] = []
+        self.running_packages: set[str] = set()  # serial -> set of running pkgs
 
     def list_devices(self) -> list[str]:
         return list(self.serials)
@@ -21,6 +22,9 @@ class FakeAdbClient:
 
     def is_package_installed(self, serial: str, package_name: str) -> bool:
         return package_name in self.installed_packages
+
+    def is_package_running(self, serial: str, package_name: str) -> bool:
+        return package_name in self.running_packages
 
 
 def test_collect_device_info_returns_entries_for_serials() -> None:
@@ -40,8 +44,8 @@ def test_collect_device_info_returns_entries_for_serials() -> None:
     devices = collect_device_info("com.test.app", adb_client=client)
 
     assert devices == [
-        DeviceInfo("Google", "Pixel", "abc", "14", "34", True),
-        DeviceInfo("Samsung", "Galaxy", "def", "13", "33", True),
+        DeviceInfo("Google", "Pixel", "abc", "14", "34", True, False),
+        DeviceInfo("Samsung", "Galaxy", "def", "13", "33", True, False),
     ]
 
 
@@ -56,7 +60,7 @@ def test_collect_device_info_handles_missing_properties() -> None:
 
     devices = collect_device_info("com.missing.app", adb_client=client)
 
-    assert devices == [DeviceInfo("Unknown", "ModelX", "abc", "12", "31", False)]
+    assert devices == [DeviceInfo("Unknown", "ModelX", "abc", "12", "31", False, False)]
 
 
 def test_collect_device_info_returns_empty_when_listing_fails() -> None:
