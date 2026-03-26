@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import csv
+import math
 import os
 import re
 import subprocess
@@ -360,6 +362,20 @@ def _handle_generate_perf_report(state: UIState) -> None:
                     log_message(state, "WARNING", f"Post-processing failed: {e}")
 
                 try:
+                    _inject_percentile_gauges_into_report(
+                        state, csv_file, generated_html_path
+                    )
+                except Exception as e:
+                    log_message(
+                        state, "WARNING", f"Percentile gauges injection failed: {e}"
+                    )
+
+                try:
+                    _inject_raw_csv_into_report(state, csv_file, generated_html_path)
+                except Exception as e:
+                    log_message(state, "WARNING", f"Raw CSV injection failed: {e}")
+
+                try:
                     csv_file.unlink()
                     log_message(state, "INFO", f"Deleted {csv_file.name}")
                 except Exception as e:
@@ -686,3 +702,315 @@ def _post_process_perf_report(state: UIState, file_path: Path) -> None:
 
     except Exception as e:
         log_message(state, "ERROR", f"Failed to post-process report: {e}")
+
+
+def _inject_percentile_gauges_into_report(
+    state: UIState, csv_file: Path, html_file: Path
+) -> None:
+    if not html_file.exists() or not csv_file.exists():
+        return
+
+    fps_values = []
+    try:
+        with open(csv_file, "r", encoding="utf-8", errors="ignore") as f:
+            reader = csv.reader(f)
+            header = next(reader, None)
+            if not header:
+                return
+
+            frame_time_idx = -1
+            for i, col in enumerate(header):
+                if col.strip().lower() == "frametime":
+                    frame_time_idx = i
+                    break
+
+            if frame_time_idx == -1:
+                log_message(
+                    state,
+                    "WARNING",
+                    "FrameTime column not found in CSV. Cannot generate percentiles.",
+                )
+                return
+
+            for row in reader:
+                if len(row) > frame_time_idx:
+                    try:
+                        ft = float(row[frame_time_idx].strip())
+                        if ft > 0:
+                            fps_values.append(1000.0 / ft)
+                    except ValueError:
+                        pass
+    except Exception as e:
+        log_message(state, "ERROR", f"Failed to read CSV for percentiles: {e}")
+        return
+
+    if not fps_values:
+        log_message(state, "WARNING", "No valid FrameTime data found for percentiles.")
+        return
+
+    fps_values.sort()
+    n = len(fps_values)
+
+    p1 = fps_values[int(n * 0.01)]
+    p5 = fps_values[int(n * 0.05)]
+    p50 = fps_values[int(n * 0.50)]
+    p90 = fps_values[int(n * 0.90)]
+    p95 = fps_values[int(n * 0.95)]
+    p99 = fps_values[int(n * 0.99)]
+
+    import statistics
+
+    try:
+        sd_val = statistics.stdev(fps_values) if n > 1 else 0.0
+    except statistics.StatisticsError:
+        sd_val = 0.0
+
+    p75 = fps_values[int(n * 0.75)]
+    p25 = fps_values[int(n * 0.25)]
+    iqr_val = p75 - p25
+
+    metadata = _read_csv_metadata(csv_file)
+    target_fps_str = metadata.get("targetframerate", "60")
+    try:
+        target_fps = float(target_fps_str)
+    except ValueError:
+        target_fps = 60.0
+
+    def generate_svg(title, value, target):
+        max_val = max(90.0, target * 1.5)
+        radius = 80
+        stroke_width = 20
+        circumference = math.pi * radius
+
+        val_clamped = min(max(value, 0), max_val)
+        fill_percentage = val_clamped / max_val
+        fill_length = fill_percentage * circumference
+
+        target_percentage = min(target / max_val, 1.0)
+        angle = math.pi * (1.0 - target_percentage)
+        outer_r = radius + stroke_width / 2.0
+        inner_r = radius - stroke_width / 2.0
+
+        x_target = 100 + outer_r * math.cos(angle)
+        y_target = 90 - outer_r * math.sin(angle)
+        x_target_inner = 100 + inner_r * math.cos(angle)
+        y_target_inner = 90 - inner_r * math.sin(angle)
+
+        fill_color = "#a67f59"
+        bg_color = "#d9d9d9"
+
+        svg = f"""
+        <div class="gauge-wrapper" style="text-align: center; width: 250px; margin: 10px;">
+            <div class="gauge-title" style="font-size: 14px; margin-bottom: 10px; color: #333;">{title}</div>
+            <svg class="gauge-svg" viewBox="0 0 200 110" style="width: 100%; height: auto;">
+                <path d="M 20 90 A 80 80 0 0 1 180 90" fill="none" stroke="{bg_color}" stroke-width="{stroke_width}" stroke-linecap="butt"/>
+                <path d="M 20 90 A 80 80 0 0 1 180 90" fill="none" stroke="{fill_color}" stroke-width="{stroke_width}" stroke-linecap="butt" 
+                      stroke-dasharray="{circumference}" stroke-dashoffset="{circumference - fill_length}"/>
+                <line x1="{x_target_inner}" y1="{y_target_inner}" x2="{x_target}" y2="{y_target}" stroke="black" stroke-width="3"/>
+                <text x="100" y="60" style="font-size: 12px; fill: #666; text-anchor: middle;">{title.split(',')[0]}</text>
+                <text x="100" y="85" style="font-size: 24px; fill: #333; text-anchor: middle;">{value:.1f}</text>
+                <text x="20" y="105" style="font-size: 12px; fill: #666; text-anchor: middle;">0</text>
+                <text x="180" y="105" style="font-size: 12px; fill: #666; text-anchor: middle;">{int(max_val)}</text>
+            </svg>
+        </div>
+        """
+        return svg
+
+    gauges_html = '<div class="gauges-container" style="border: 1px solid #ccc; border-radius: 8px; padding: 20px; margin: 20px 0; font-family: sans-serif; background-color: #fcfcfc;">'
+    gauges_html += '<div style="display: flex; justify-content: space-around; margin-bottom: 20px; flex-wrap: wrap;">'
+    gauges_html += generate_svg(
+        f"99th Percentile, Target is {int(target_fps)}", p99, target_fps
+    )
+    gauges_html += generate_svg(
+        f"95th Percentile, Target is {int(target_fps)}", p95, target_fps
+    )
+    gauges_html += '</div><div style="display: flex; justify-content: space-around; margin-bottom: 20px; flex-wrap: wrap;">'
+    gauges_html += generate_svg(
+        f"1st Percentile, Target is {int(target_fps)}", p1, target_fps
+    )
+    gauges_html += generate_svg(
+        f"5th Percentile, Target is {int(target_fps)}", p5, target_fps
+    )
+    gauges_html += generate_svg(
+        f"50th Percentile, Target is {int(target_fps)}", p50, target_fps
+    )
+    gauges_html += generate_svg(
+        f"90th Percentile, Target is {int(target_fps)}", p90, target_fps
+    )
+    gauges_html += "</div>"
+
+    stats_html = f"""
+    <div style="margin-top: 20px;">
+        <h3 style="margin-top: 0; margin-bottom: 15px; color: #333; font-family: 'Segoe UI', Tahoma, sans-serif;">Statistical Metrics Breakdown</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; font-family: 'Segoe UI', Tahoma, sans-serif;">
+            
+            <div style="background: #e3f2fd; border-left: 5px solid #1e88e5; padding: 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <h4 style="margin-top: 0; color: #1565c0; font-size: 16px;">📉 Standard Deviation (SD): {sd_val:.2f} FPS</h4>
+                <p style="font-size: 13px; color: #333; margin-bottom: 6px;"><strong>What it is:</strong> Measures the amount of variation or dispersion of FPS values from the average.</p>
+                <p style="font-size: 13px; color: #333; margin-bottom: 6px;"><strong>Why it matters:</strong> A high SD indicates erratic performance (stuttering). Even if the average FPS is high, visual stutters make the experience feel poor.</p>
+                <p style="font-size: 13px; color: #333; margin-bottom: 0;"><strong>How to utilize:</strong> Use SD to compare the overall stability between builds. The build with the lower SD always provides a progressively smoother gameplay experience.</p>
+            </div>
+
+            <div style="background: #f3e5f5; border-left: 5px solid #8e24aa; padding: 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <h4 style="margin-top: 0; color: #6a1b9a; font-size: 16px;">⚖️ Interquartile Range (IQR): {iqr_val:.2f} FPS</h4>
+                <p style="font-size: 13px; color: #333; margin-bottom: 6px;"><strong>What it is:</strong> The spread of the middle 50% of frames (75th percentile minus 25th percentile).</p>
+                <p style="font-size: 13px; color: #333; margin-bottom: 6px;"><strong>Why it matters:</strong> Unlike SD, IQR ignores extreme statistical outliers (random rare hitches) and tells you how consistent the "typical" gameplay feels.</p>
+                <p style="font-size: 13px; color: #333; margin-bottom: 0;"><strong>How to utilize:</strong> Target a low IQR. If SD is high but IQR is low, you have isolated, large hitches. If IQR is high, the game's core base performance simply fluctuates too much.</p>
+            </div>
+
+            <div style="background: #fff3e0; border-left: 5px solid #e53935; padding: 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <h4 style="margin-top: 0; color: #c62828; font-size: 16px;">⏱️ Percentiles (1st, 5th, 50th, 95th, 99th)</h4>
+                <p style="font-size: 13px; color: #333; margin-bottom: 6px;"><strong>What they are:</strong> The <strong>1st/5th Percentile</strong> graphs show the FPS of the worst 1% and 5% of frames (the "lows"). The <strong>50th</strong> is your median FPS. The <strong>95th/99th</strong> show your peak smoothness.</p>
+                <p style="font-size: 13px; color: #333; margin-bottom: 6px;"><strong>Why they matter:</strong> Look at the <strong>1st Percentile gauge</strong> to see your true baseline performance. High average FPS can successfully hide game-breaking hitches, but 1st/5th Percentiles completely expose them.</p>
+                <p style="font-size: 13px; color: #333; margin-bottom: 0;"><strong>How to utilize:</strong> Prioritize optimizing the <strong>1st and 5th Percentile gauges</strong> to meet your target FPS. Raising the frame-rate floor (lows) is much more critical for perceived smoothness than raising the ceiling (99th).</p>
+            </div>
+
+        </div>
+    </div>
+    """
+    gauges_html += stats_html
+    gauges_html += "</div>"
+
+    try:
+        content = html_file.read_text(encoding="utf-8")
+        hitches_match = re.search(
+            r"(<h\d[^>]*>.*?Hitches.*?</h\d>.*?</table>)",
+            content,
+            re.IGNORECASE | re.DOTALL,
+        )
+
+        if hitches_match:
+            insertion_point = hitches_match.end()
+            new_content = (
+                content[:insertion_point] + gauges_html + content[insertion_point:]
+            )
+            html_file.write_text(new_content, encoding="utf-8")
+            log_message(state, "SUCCESS", "Injected Percentile Gauges.")
+        else:
+            tables = list(re.finditer(r"</table>", content, re.IGNORECASE))
+            if tables:
+                insertion_point = tables[-1].end()
+                new_content = (
+                    content[:insertion_point] + gauges_html + content[insertion_point:]
+                )
+                html_file.write_text(new_content, encoding="utf-8")
+                log_message(state, "SUCCESS", "Injected Percentile Gauges (Fallback).")
+    except Exception as e:
+        log_message(state, "ERROR", f"Failed to inject gauges into HTML: {e}")
+
+
+def _inject_raw_csv_into_report(
+    state: UIState, csv_file: Path, html_file: Path
+) -> None:
+    if not html_file.exists() or not csv_file.exists():
+        return
+
+    try:
+        content = html_file.read_text(encoding="utf-8")
+        csv_content = csv_file.read_text(encoding="utf-8", errors="ignore")
+
+        import html
+
+        escaped_csv = html.escape(csv_content)
+
+        tab_css_and_js = """
+<style>
+.perf-tabs { display: flex; border-bottom: 2px solid #3b82f6; background: #2d2d2d; padding: 10px 10px 0 10px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; position: sticky; top: 0; z-index: 100; }
+.perf-tab-btn { padding: 10px 20px; background: none; border: none; color: #aaa; cursor: pointer; font-size: 15px; transition: 0.3s; margin-right: 5px; border-radius: 6px 6px 0 0; font-weight: 500; }
+.perf-tab-btn:hover { color: #fff; background-color: rgba(255, 255, 255, 0.05); }
+.perf-tab-btn.active { background-color: #3b82f6; color: white; }
+.perf-tab-content { display: none; padding: 20px; }
+.perf-tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+.download-btn { background-color: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold; transition: 0.2s; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+.download-btn:hover { background-color: #2563eb; transform: translateY(-1px); }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+</style>
+<script>
+function openPerfTab(evt, tabName) {
+  var i, tabcontent, tablinks;
+  tabcontent = document.getElementsByClassName("perf-tab-content");
+  for (i = 0; i < tabcontent.length; i++) { tabcontent[i].classList.remove("active"); }
+  tablinks = document.getElementsByClassName("perf-tab-btn");
+  for (i = 0; i < tablinks.length; i++) { tablinks[i].classList.remove("active"); }
+  document.getElementById(tabName).classList.add("active");
+  evt.currentTarget.classList.add("active");
+}
+function downloadRawCSV() {
+    var csvText = document.getElementById("rawCsvDataHidden").textContent;
+    // Decode HTML entities safely just in case although it's pre formatted
+    var textarea = document.createElement("textarea");
+    textarea.innerHTML = csvText;
+    
+    var blob = new Blob([textarea.value], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement("a");
+    link.href = url;
+    link.download = "RAW_EXPORT.csv";
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+</script>
+<div class="perf-tabs">
+  <button class="perf-tab-btn active" onclick="openPerfTab(event, 'PerfReportTab')">Performance Report</button>
+  <button class="perf-tab-btn" onclick="openPerfTab(event, 'RawCSVTab')">Raw CSV Data</button>
+</div>
+<div id="PerfReportTab" class="perf-tab-content active">
+"""
+
+        # Replace <body> with <body> + tab_css_and_js so original content goes into PerfReportTab
+        body_idx = content.lower().find("<body")
+        if body_idx != -1:
+            end_body_idx = content.find(">", body_idx) + 1
+            new_content = (
+                content[:end_body_idx] + "\n" + tab_css_and_js + content[end_body_idx:]
+            )
+        else:
+            new_content = content
+
+        original_filename = csv_file.name
+
+        csv_tab = f"""
+</div>
+<div id="RawCSVTab" class="perf-tab-content">
+    <h2 style="font-family: sans-serif;">Raw Profiling Data</h2>
+    <p style="font-family: sans-serif; color: #555; margin-bottom: 20px;">This tab contains the raw CSV data originally generated by the Unreal Engine. You can extract it back out for external analysis using the button below.</p>
+    <button class="download-btn" onclick="downloadRawCSV()">⬇️ Download CSV File</button>
+    <pre id="rawCsvDataHidden" style="display:none;">{escaped_csv}</pre>
+    <div style="background: #1e1e1e; padding: 15px; border-radius: 6px; overflow-x: auto; max-height: 80vh; overflow-y: auto; border: 1px solid #444;">
+        <pre style="color: #d4d4d4; font-family: Consolas, monospace; font-size: 12px; margin: 0;">{escaped_csv}</pre>
+    </div>
+</div>
+<script>
+    // Update the download link with the actual filename dynamically to bypass f-string limits if needed
+    var dlBtn = document.querySelector(".download-btn");
+    dlBtn.onclick = function() {{
+        var csvText = document.getElementById("rawCsvDataHidden").textContent;
+        var textarea = document.createElement("textarea");
+        textarea.innerHTML = csvText;
+        var blob = new Blob([textarea.value], {{ type: 'text/csv;charset=utf-8;' }});
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement("a");
+        link.href = url;
+        link.download = "{original_filename}";
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }};
+</script>
+"""
+        # Find the closing </body> tag to end the tabs before it
+        insertion_point = new_content.rfind("</body>")
+        if insertion_point != -1:
+            new_content = (
+                new_content[:insertion_point] + csv_tab + new_content[insertion_point:]
+            )
+            html_file.write_text(new_content, encoding="utf-8")
+            log_message(state, "SUCCESS", "Injected RAW CSV Tab.")
+        else:
+            log_message(state, "WARNING", "Could not find </body> to inject RAW CSV.")
+
+    except Exception as e:
+        log_message(state, "ERROR", f"Failed to inject RAW CSV: {e}")

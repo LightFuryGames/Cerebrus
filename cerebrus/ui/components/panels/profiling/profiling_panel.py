@@ -8,6 +8,7 @@ from cerebrus.tools.adb import AdbClient  # Assuming this exists based on contex
 
 from ....state import UIState
 from ....themes import get_theme_manager
+from ...dialogs.files.compare_dialog import _show_ab_compare_dialog
 from ...dialogs.files.file_dialog import _browse_folder_native
 from ...file_manager import (
     _handle_bulk_action_toggle,
@@ -297,6 +298,14 @@ def _build_profiling_tab(state: UIState) -> None:
                             callback=lambda: _handle_view_html_logs(state),
                         )
                         _add_help_button("view_html_logs")
+
+                    with dpg.table_row():
+                        dpg.add_button(
+                            label="Generate A/B Compare Report (WIP)",
+                            width=300,
+                            callback=lambda: _show_ab_compare_dialog(state),
+                        )
+                        _add_help_button("generate_ab_compare")
 
 
 def _handle_launch_package(state: UIState) -> None:
