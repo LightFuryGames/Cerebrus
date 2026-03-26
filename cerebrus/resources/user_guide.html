@@ -604,13 +604,20 @@
                                 Features</a></li>
                     </ul>
                 </li>
-                <li class="toc-item"><a href="#console" class="toc-link"><span>9. Remote Console</span></a></li>
-                <li class="toc-item"><a href="#tools-settings" class="toc-link"><span>10. Tools & Settings</span></a>
+                <li class="toc-item"><a href="#perfreport" class="toc-link"><span>9. Performance Report Analyzer</span></a>
+                    <ul class="toc-list">
+                        <li class="toc-item"><a href="#perfreport-tabs" class="toc-link toc-sub-link">Tab System</a></li>
+                        <li class="toc-item"><a href="#perfreport-stats" class="toc-link toc-sub-link">Statistical Metrics</a></li>
+                        <li class="toc-item"><a href="#perfreport-ab" class="toc-link toc-sub-link">A/B Comparisons</a></li>
+                    </ul>
                 </li>
-                <li class="toc-item"><a href="#advanced" class="toc-link"><span>11. Advanced Features</span></a></li>
-                <li class="toc-item"><a href="#best-practices" class="toc-link"><span>12. Best Practices &
+                <li class="toc-item"><a href="#console" class="toc-link"><span>10. Remote Console</span></a></li>
+                <li class="toc-item"><a href="#tools-settings" class="toc-link"><span>11. Tools & Settings</span></a>
+                </li>
+                <li class="toc-item"><a href="#advanced" class="toc-link"><span>12. Advanced Features</span></a></li>
+                <li class="toc-item"><a href="#best-practices" class="toc-link"><span>13. Best Practices &
                             Accuracy</span></a></li>
-                <li class="toc-item"><a href="#troubleshoot" class="toc-link"><span>13. Troubleshooting</span></a>
+                <li class="toc-item"><a href="#troubleshoot" class="toc-link"><span>14. Troubleshooting</span></a>
                     <ul class="toc-list">
                         <li class="toc-item"><a href="#troubleshoot-adb" class="toc-link toc-sub-link">ADB &
                                 Connectivity</a></li>
@@ -621,7 +628,7 @@
                         <li class="toc-item"><a href="#troubleshoot-parsing" class="toc-link toc-sub-link">Parsing
                                 Failures</a></li>
                     </ul>
-                <li class="toc-item"><a href="#known-issues" class="toc-link"><span>14. Known Issues & Bugs</span></a>
+                <li class="toc-item"><a href="#known-issues" class="toc-link"><span>15. Known Issues & Bugs</span></a>
                 </li>
             </ul>
         </nav>
@@ -1251,6 +1258,40 @@
                             state.
                         </li>
                     </ul>
+                </div>
+            </section>
+
+            <section id="perfreport">
+                <span class="badge badge-new">Latest Enhancement</span>
+                <h2>Performance Report Analyzer</h2>
+                <p>Performance Profiling Reports now feature an advanced offline HTML dashboard designed to turn raw FPS time-series data into actionable goals for optimization.</p>
+
+                <div class="features-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 1rem;">
+                    <div id="perfreport-tabs" class="card" style="padding: 1.5rem; border-style: dashed;">
+                        <h4 class="highlight">Tabbed Reporting Interface</h4>
+                        <ul style="font-size: 0.9rem; margin-top: 0.5rem; margin-left: 1.2rem;">
+                            <li><strong>Performance Report:</strong> Original interactive hitches and stats graphs.</li>
+                            <li><strong>Raw CSV Data:</strong> Directly embeds your original <code class="highlight-blue">.csv</code> data into the HTML codebase directly.</li>
+                            <li><strong>Offline Download:</strong> One-click frontend tool to securely extract and save the embedded telemetry data straight to your local PC.</li>
+                        </ul>
+                    </div>
+
+                    <div id="perfreport-stats" class="card" style="padding: 1.5rem; border-style: dashed;">
+                        <h4 class="highlight">Statistical Dashboards</h4>
+                        <ul style="font-size: 0.9rem; margin-top: 0.5rem; margin-left: 1.2rem;">
+                            <li><strong>Standard Deviation (SD):</strong> Displays average spread of frame times to analyze general consistency.</li>
+                            <li><strong>Interquartile Range (IQR):</strong> Ignores crazy outliers to analyze the core 50% gameplay stability block.</li>
+                            <li><strong>Percentile Lows:</strong> The <code class="highlight-orange">1st</code> and <code class="highlight-orange">5th</code> percentiles dynamically emphasize catastrophic stutters vs smooth gameplay.</li>
+                        </ul>
+                    </div>
+
+                    <div id="perfreport-ab" class="card" style="padding: 1.5rem; border-style: dashed;">
+                        <h4 class="highlight">A/B Comparisons <span class="badge badge-core" style="margin-bottom: 0px; font-size: 0.6rem; padding: 0.15rem 0.6rem;">WIP</span></h4>
+                        <ul style="font-size: 0.9rem; margin-top: 0.5rem; margin-left: 1.2rem;">
+                            <li><strong>Intelligent Validation:</strong> Actively reads <code class="highlight-blue">DeviceProfile</code> telemetry from both runs.</li>
+                            <li><strong>Match Guard:</strong> Blocks generating an A/B Stat report if hardware <code class="highlight-red">metadata mismatches</code> to preserve data integrity.</li>
+                        </ul>
+                    </div>
                 </div>
             </section>
 

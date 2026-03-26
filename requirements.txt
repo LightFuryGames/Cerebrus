@@ -8,5 +8,7 @@ pytest
 mypy
 black
 isort
+scipy
+numpy
 
 boto3
