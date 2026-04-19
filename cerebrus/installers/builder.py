@@ -66,7 +66,7 @@ set APP_DIR=%BASE_DIR%app
 set PY_EXE=%APP_DIR%\\python\\python.exe
 
 if not exist "%PY_EXE%" (
-    echo No bundled Python found. Please place a Python 3.12+ build in "%APP_DIR%\python".
+    echo No bundled Python found. Please place a Python 3.12+ build in "%APP_DIR%\\python".
     exit /b 1
 )
 
@@ -89,7 +89,8 @@ def _write_bootstrapper(staging_root: Path) -> None:
     bootstrap_script = staging_root / "install.ps1"
     bootstrap_cmd = staging_root / "install.cmd"
 
-    bootstrap_script.write_text("""param(
+    bootstrap_script.write_text(
+        """param(
     [string]$Destination = "$env:ProgramFiles\\Cerebrus"
 )
 
@@ -178,13 +179,16 @@ catch {
     Write-Error $_
     exit 1
 }
-""")
+"""
+    )
 
-    bootstrap_cmd.write_text("""@echo off
+    bootstrap_cmd.write_text(
+        """@echo off
 setlocal
 set SCRIPT_DIR=%~dp0
 powershell -ExecutionPolicy Bypass -File "%SCRIPT_DIR%install.ps1" %*
-""")
+"""
+    )
 
 
 def _write_manifest(staging_root: Path, items: Iterable[str | Path]) -> None:

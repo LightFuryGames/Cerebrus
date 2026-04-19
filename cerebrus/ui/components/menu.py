@@ -9,14 +9,15 @@ from pathlib import Path
 
 import dearpygui.dearpygui as dpg
 
+from cerebrus.core.plugins import PluginManager
 from cerebrus.ui.components.dialogs.app.about_dialog import _show_about_dialog
 from cerebrus.ui.components.dialogs.app.updates_dialog import check_for_updates_ui
-from cerebrus.ui.components.dialogs.aws.aws_dialog import _show_aws_config_dialog
 from cerebrus.ui.components.dialogs.profile.profile_dialog import (
     _open_profile_native,
     _show_profile_dialog,
 )
 from cerebrus.ui.components.file_manager import _open_profile_folder
+from cerebrus.ui.components.layout import render_tabs
 from cerebrus.ui.components.palette_manager import (
     _show_create_palette_dialog,
     _show_load_palette_dialog,
@@ -58,16 +59,6 @@ def build_menu_bar(state: UIState) -> None:
                 callback=lambda: _safe_run(
                     state,
                     lambda: log_message(state, "INFO", "Echo Test Command Executed"),
-                ),
-            )
-            dpg.add_menu_item(
-                label="AWS Configuration",
-                callback=lambda: _safe_run(
-                    state,
-                    lambda: (
-                        log_message(state, "INFO", "Attempting to open AWS Dialog..."),
-                        _show_aws_config_dialog(state),
-                    ),
                 ),
             )
 
@@ -192,6 +183,19 @@ def build_menu_bar(state: UIState) -> None:
                     ),
                 )
 
+            dpg.add_separator()
+            with dpg.menu(label="Plugins"):
+                for plugin in PluginManager.get_all_plugins():
+                    dpg.add_menu_item(
+                        label=plugin.name,
+                        check=True,
+                        default_value=PluginManager.is_enabled(plugin.id),
+                        callback=lambda s, a, u: _safe_run(
+                            state, lambda: _handle_plugin_toggle(state, u, a)
+                        ),
+                        user_data=plugin.id,
+                    )
+
         with dpg.menu(label="Help"):
             dpg.add_menu_item(
                 label="Help",
@@ -210,6 +214,11 @@ def build_menu_bar(state: UIState) -> None:
                 label="About",
                 callback=lambda: _safe_run(state, lambda: _show_about_dialog(state)),
             )
+
+
+def _handle_plugin_toggle(state: UIState, plugin_id: str, enabled: bool) -> None:
+    PluginManager.set_enabled(plugin_id, enabled)
+    render_tabs(state)
 
 
 def _handle_theme_change(state: UIState, palette: str = None, mode: str = None) -> None:

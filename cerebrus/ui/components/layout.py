@@ -6,6 +6,7 @@ from pathlib import Path
 
 import dearpygui.dearpygui as dpg
 
+from cerebrus.core.plugins import PluginManager
 from cerebrus.ui.components.dialogs.files.file_dialog import (
     _browse_folder_native,
     _register_file_dialogs,
@@ -28,7 +29,6 @@ from cerebrus.ui.components.ui_config import UIConfig
 from cerebrus.ui.state import UIState
 from cerebrus.ui.themes import get_theme_manager
 
-from .dialogs.aws.sync_panel import build_remote_config_sync
 from .panels.device.device_panel import _populate_devices, _render_device_table
 from .panels.logs_panel.logs_panel import (
     _clear_logs,
@@ -36,7 +36,17 @@ from .panels.logs_panel.logs_panel import (
     _handle_log_filter,
     _render_log_entries,
 )
-from .panels.profiling.profiling_panel import _build_profiling_tab
+
+
+def render_tabs(state: UIState) -> None:
+    """Render or re-render all enabled tabs based on plugins."""
+    if dpg.does_item_exist("main_tab_bar"):
+        dpg.delete_item("main_tab_bar", children_only=True)
+
+        plugins = PluginManager.get_enabled_plugins()
+        for plugin in plugins:
+            with dpg.tab(label=plugin.name, parent="main_tab_bar"):
+                plugin.build_tab(state)
 
 
 def setup_fonts() -> None:
@@ -109,11 +119,11 @@ def build_file_actions(state: UIState) -> None:
         height=config.get_dimension("tab_container_height", 450),
         border=False,
     ):
-        with dpg.tab_bar():
-            with dpg.tab(label="Profiling"):
-                _build_profiling_tab(state)
-            with dpg.tab(label="Configuration Sync"):
-                build_remote_config_sync(state)
+        with dpg.tab_bar(tag="main_tab_bar"):
+            pass
+
+        # Initial render
+        render_tabs(state)
 
     dpg.add_separator()
     tm = get_theme_manager()

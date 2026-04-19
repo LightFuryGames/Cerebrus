@@ -60,8 +60,12 @@ class CerebrusApp:
 
         dpg.create_context()
 
-        # Initialize theme
+        from cerebrus.core.plugins import PluginManager
+        from cerebrus.plugins.profiling_plugin import ProfilingPlugin
         from cerebrus.ui.themes import get_theme_manager
+
+        PluginManager.register(ProfilingPlugin())
+        PluginManager.initialize()
 
         get_theme_manager().apply_theme(mode="Dark")
 

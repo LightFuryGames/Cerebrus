@@ -41,7 +41,3 @@ class UIState:
     generate_colored_logs_enabled: bool = True
     move_memreport_enabled: bool = True
     generate_memreport_enabled: bool = True
-    remote_config_custom_name: str = ""
-    remote_manifest_url: str = (
-        "https://titan-cerebrus-configurations.s3.ap-south-1.amazonaws.com/config_manifest.json"
-    )
