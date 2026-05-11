@@ -25,6 +25,7 @@ cerebrus/                   # Main package directory
   core/                     # Core application logic
     __init__.py
     devices.py              # Device management and ADB interaction
+    plugins.py              # Plugin manager logic
     preflight.py            # Startup checks
     profile.py              # User profile management
     setup.py                # Environment setup
@@ -33,6 +34,17 @@ cerebrus/                   # Main package directory
   installers/               # Installer generation logic
     __init__.py
     builder.py              # Logic to build installers (Inno Setup)
+
+  plugins/                  # Extensible plugin system
+    README.md               # Plugin system overview and documentation index
+    TESTING.md              # Plugin test coverage plan
+    profiling.md            # Profiling plugin user/developer notes
+    aws_secrets.md          # AWS Secrets plugin user/developer notes
+    s3_uploader.md          # S3 Uploader plugin user/developer notes
+    aws_secrets.py          # AWS credential management
+    profiling_plugin.py     # Main profiling workflow plugin
+    s3_uploader.py          # S3 report upload logic
+    resources/              # Plugin tooltip resources
 
   resources/                # Static assets
     Titan.json              # Theme variant
@@ -62,13 +74,11 @@ cerebrus/                   # Main package directory
       __init__.py
       dialogs/              # Dialog implementations
         app/
-        aws/
         files/
         profile/
       panels/               # Panel implementations
-        config_sync/
         device/
-        logs/
+        logs_panel/
         profiling/
       file_manager.py
       layout.py
@@ -121,7 +131,13 @@ docs/                       # Documentation
     TROUBLESHOOTING.md
 
 tests/                      # Automated tests
-  (Structure mirrors cerebrus/)
+  cache/
+  config/
+  core/
+    test_plugin_manager.py  # Plugin manager tests
+  tools/
+    test_memreport_naming.py # Memreport naming tests
+  ui/
 ```
 
 ## Module Descriptions
@@ -133,6 +149,7 @@ tests/                      # Automated tests
 - **`cache`**: Manages temporary data and caching to improve performance or persistence across sessions.
 - **`installers`**: logic for packaging the application for distribution.
 - **`docs`**: Comprehensive documentation split by audience (Developer vs User).
+- **`cerebrus/plugins/*.md`**: Plugin-specific documentation. Do not move detailed AWS/S3 plugin docs back into `docs/`; link to the plugin-local files instead.
 
 ## Maintenance
 

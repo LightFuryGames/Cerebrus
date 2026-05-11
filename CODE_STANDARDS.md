@@ -23,9 +23,10 @@ This document takes precedence when there is ambiguity. When in doubt, favor con
 
 - **`cerebrus/core`**: Orchestration, config, state models, and central business logic.
 - **`cerebrus/ui`**: Dear PyGui UI, layout logic, and theme management.
-  - **`components/dialogs`**: Organized by functional area (aws, profile, app).
-  - **`components/panels`**: Modular panels (profiling, logs, config_sync).
+  - **`components/dialogs`**: Organized by functional area (app, files, profile).
+  - **`components/panels`**: Modular panels (device, logs, profiling).
 - **`cerebrus/tools`**: Thin, testable wrappers around external tools (UAFT, CsvTools, PerfReportTool, etc.).
+- **`cerebrus/plugins`**: Runtime plugins plus plugin-local markdown documentation.
 - **`cerebrus/config`**: Configuration loading, schema validation, and profile management.
 - **`cerebrus/cache`**: Cache operations and clean-up routines.
 - **`cerebrus/installers`**: Installer scripts and environment validation logic.
@@ -95,9 +96,11 @@ from cerebrus.tools.csv import collate
 All new code **must** be accompanied by tests.
 
 ### 5.1 Test Layout
-- **Unit Tests (`tests/unit/`)**: Fast, mock-heavy. **No File I/O. No System Calls.**
-- **Integration Tests (`tests/integration/`)**: Tool wrappers, filesystem interactions.
+- **Current Layout**: Tests mirror source areas directly under `tests/cache`, `tests/config`, `tests/core`, `tests/tools`, and `tests/ui`.
+- **Unit Tests**: Fast, mock-heavy. Avoid system calls.
+- **Integration Tests**: Tool wrappers and filesystem interactions.
 - Framework: `pytest`. Use Arrange-Act-Assert structure.
+- **Plugin Tests**: Track plugin-specific coverage in `cerebrus/plugins/TESTING.md`.
 
 ### 5.2 Mocking
 - Use `unittest.mock` or `pytest-mock`.
@@ -115,7 +118,7 @@ All new code **must** be accompanied by tests.
 
 ### 6.1 Configuration Files
 - Prefer **YAML** or **JSON**.
-- Provide example files under `docs/config` or `config/examples`.
+- Provide example files under `docs/` or `config/examples` when those folders exist.
 - Enforce schema validation before using config values.
 
 ### 6.2 Cache Management
@@ -141,7 +144,7 @@ The remote CI/CD pipeline executes three distinct stages on every Pull Request o
 
 1.  **Lint**: Enforces code style using `black --check`, `isort --check-only`, and strict `mypy` type checking.
 2.  **Preflight**: Executes `python -m cerebrus.core.preflight` to ensure the core logic can initialize, configuration schemas are valid, and cache directories are correctly setup.
-3.  **Unit Tests**: Executes the full `pytest` suite for the `tests/unit/` directory.
+3.  **Unit Tests**: Executes the repository `pytest` suite.
 
 ### 7.3 Release & Tagging System
 
@@ -176,6 +179,10 @@ To support extensibility and automated analysis, all parsing logic must follow t
 ### 9.1 Plugin System
 - All major components (Tabs, Tools, Devices) must be defined as `typing.Protocol` interfaces.
 - Use registry patterns instead of hardcoded lists.
+- Plugin-specific markdown must live under `cerebrus/plugins/` and be linked from general docs.
+- Tab plugins implement `TabPlugin`; plugins that add `Settings -> Plugins` menu actions implement `MenuPlugin`.
+- Prefer explicit JSON data contracts for plugin state, plugin resources, and transfer files.
+- Secret-bearing plugin data must never be exported in portable files. AWS `.cbx` files are bucket/key-alias maps with `contains_secret_values: false`.
 
 ### 9.2 Modular UI
 - UI components should be pure functions where possible (Input: `State` -> Output: `RenderArgs`).

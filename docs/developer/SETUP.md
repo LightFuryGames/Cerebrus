@@ -68,7 +68,10 @@ To simplify development, we provide PowerShell scripts that mirror our CI/CD pip
   ```powershell
   ./scripts/run_unittests.ps1
   ```
-  Runs the `pytest` suite. By default, this runs fast, logic-only unit tests in `tests/unit`. Integration tests are separated.
+  Runs the `pytest` suite under the current `tests/` tree.
+
+- **Plugin Tests**:
+  Plugin coverage expectations live in `cerebrus/plugins/TESTING.md`.
 
 - **Full Pipeline**:
   ```powershell

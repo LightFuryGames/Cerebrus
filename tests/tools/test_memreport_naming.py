@@ -76,3 +76,21 @@ def test_process_memreport_embeds_metadata(mock_report_context, tmp_path):
     content = output_file.read_text()
     assert '"Build Configuration": "Development"' in content
     assert '"Changelist": "123456"' in content
+
+def test_process_memreport_prefixes_input_name(mock_report_context, tmp_path):
+    """Test UI-style prefix naming for memreport generation."""
+    input_file = tmp_path / "test_report.memreport"
+    input_file.write_text("dummy content")
+    output_dir = tmp_path / "output"
+
+    with patch("cerebrus.tools.memreport.tool.HTML_TEMPLATE", "{metadata_json} {title} {report_title} {tab_buttons} {tab_contents}"):
+        process_memreport(
+            input_file=input_file,
+            output_dir=output_dir,
+            report_context=mock_report_context,
+            use_as_prefix_only=True,
+            output_name_prefix="Nightly Build",
+        )
+
+    output_file = output_dir / "NightlyBuild_test_report.html"
+    assert output_file.exists()

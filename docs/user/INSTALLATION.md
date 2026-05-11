@@ -42,10 +42,11 @@ Refer to `docs/installer/WINDOWS_INSTALLER_SPEC.md` for technical details.
    pip install -r requirements.txt
    ```
 
-4. Configure tool paths (see `docs/config/TOOLS_PATHS.md`):
+4. Verify bundled and local tools:
 
-   - Create `config/tools.paths.json` based on the example paths in that document.
-   - Ensure UAFT, CsvTools, and PerfReportTool paths are correct.
+   - Ensure `Binaries/CsvTools/PerfReportTool.exe` exists for performance report generation.
+   - Ensure ADB is available on PATH or let Cerebrus install Android platform tools during startup.
+   - Install plugin dependencies from `requirements.txt`, including `boto3` for the S3 Uploader plugin.
 
 5. (Optional) Run tests:
 
@@ -68,6 +69,16 @@ Refer to `docs/installer/WINDOWS_INSTALLER_SPEC.md` for technical details.
    ```
 
 3. Review `CHANGELOG.md` if present and relevant docs under `docs/developer` for any migration steps.
+
+## Plugin Documentation
+
+Runtime plugin docs live beside the plugin code:
+
+- `cerebrus/plugins/README.md`
+- `cerebrus/plugins/aws_secrets.md`
+- `cerebrus/plugins/s3_uploader.md`
+
+Old AWS configuration docs that mention `Tools -> AWS Configuration` are deprecated. Current cloud setup happens through the AWS Secrets and S3 Uploader plugins.
 
 ## Uninstallation
 

@@ -8,35 +8,49 @@ This document outlines testing expectations and organization.
 
 ## Test Layout
 
-Tests are split by scope to ensure fast feedback loops (Unit) and robust verification (Integration).
+The current repository mirrors the source layout directly under `tests/`.
 
 ```text
 tests/
-  unit/             # Fast, mock-heavy tests. NO I/O.
-    core/
-    tools/
-    ui/
-  integration/      # Slower, I/O allowed. Uses wrappers.
-    tools/
-  data/             # Test fixtures
-    synthetic/     # Generators for fake logs/CSVs
-    fixtures/      # Small (<50KB) static files
+  cache/
+  config/
+  core/
+  tools/
+  ui/
 ```
 
 ## Internal vs External Tests
 
-### Unit Tests (`tests/unit`)
+### Unit Tests
 - **Goal**: Verify internal logic.
 - **Scope**: Pure functions, config loaders, command builders.
-- **Rule**: Must run in < 50ms per test. No external processes or file system side effects.
+- **Rule**: Prefer no external processes. Use `tmp_path` for file behavior.
 - **Technique**: Mock `subprocess` and `pathlib` heavily.
 - **Example**: Testing that `ClassStatsParser` correctly extracts "1024 KB" from a string line.
 
-### Integration Tests (`tests/integration`)
+### Integration Tests
 - **Goal**: Verify tool wrappers and file system interactions.
 - **Rule**: Must separate creation, execution, and cleanup.
 - **Technique**: Use `tmp_path` fixture.
 - **Example**: Creating a dummy CSV, running `run_collate`, and asserting the output file exists.
+
+## Plugin Tests
+
+Plugin-specific test expectations live beside the plugin docs:
+
+- `cerebrus/plugins/TESTING.md`
+- `cerebrus/plugins/aws_secrets.md`
+- `cerebrus/plugins/s3_uploader.md`
+- `cerebrus/plugins/profiling.md`
+
+Current plugin coverage includes:
+
+- `tests/core/test_plugin_manager.py`
+- `tests/core/test_aws_secrets_manager.py`
+- `tests/core/test_s3_uploader.py`
+- `tests/core/test_build_spec.py`
+
+AWS Secrets still needs additional DPAPI round-trip and corrupt-cache tests. S3 Uploader still needs UI callback tests with Dear PyGui and `boto3.client` mocked.
 
 ## Test Data Strategy
 
@@ -64,6 +78,21 @@ Or manually:
 pytest
 ```
 
+On this Windows workspace, pytest's default temp/cache paths can hit ACL errors. `pyproject.toml` configures pytest to use a project-local temp directory and disables the pytest cache provider. For focused local runs, this should now be enough:
+
+```powershell
+python -m pytest <tests>
+```
+
+If an external runner ignores `pyproject.toml`, use the explicit workaround from `AGENTS.md`:
+
+```powershell
+$env:TEMP = (Join-Path (Get-Location).Path '.pytest_run_tmp')
+$env:TMP = $env:TEMP
+New-Item -ItemType Directory -Force -Path $env:TEMP | Out-Null
+python -m pytest -p no:cacheprovider --basetemp .pytest_run_tmp <tests>
+```
+
 To see **stdout/stderr logs** during a test run (useful for debugging failed integration tests):
 ```bash
 pytest -s -rP
@@ -89,6 +118,6 @@ This script combines linting, preflight checks, and unit tests.
 GitHub Actions executes:
 1.  **Lint**: Enforces `black`, `isort`, `mypy`.
 2.  **Preflight**: Validates config schemas.
-3.  **Unit Tests**: Runs `tests/unit`.
+3.  **Unit Tests**: Runs the repository `pytest` suite.
 
 Integration tests may be skipped on PRs to save time, but run on `develop` merges.

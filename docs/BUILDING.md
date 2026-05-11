@@ -2,130 +2,129 @@
 
 This document explains how to build Cerebrus installers using PyInstaller and Inno Setup.
 
-## Important Note: Publisher Metadata
-All official builds must identify **LeagueX Gaming Private Limited** as the Company Name and Publisher. This is configured in:
-- `scripts/cerebrus.spec`: `CompanyName` and `LegalCopyright` fields in the version info block.
-- `scripts/cerebrus.iss`: `#define MyAppPublisher "LeagueX Gaming"` field.
+## Publisher Metadata
+
+Official builds must identify **LeagueX Gaming Private Limited** as the Company Name and Publisher.
+
+Configured in:
+
+- `scripts/cerebrus.spec`: Windows executable version metadata.
+- `scripts/cerebrus.iss`: Inno Setup publisher metadata.
 
 ## Build System Overview
 
-Our build system uses a two-step process:
+The build has two steps:
 
-1. **PyInstaller** - Bundles Python + dependencies + code into a standalone application folder
-2. **Inno Setup** - Packages the PyInstaller output into a professional Windows installer
+1. **PyInstaller** bundles Python, dependencies, source code, resources, and binaries into a standalone application folder.
+2. **Inno Setup** packages that folder into a Windows installer.
 
-This approach gives us:
-- ✅ **Reliability**: No WiX version conflicts or complex MSI issues
-- ✅ **Proper installer**: Professional Windows installer with uninstall, shortcuts, etc.
-- ✅ **Portability**: Also creates a ZIP for users who prefer portable apps
-- ✅ **Simplicity**: Much easier to maintain than WiX
-- ✅ **CI/CD friendly**: Both tools work reliably in GitHub Actions
-
-## Why This Approach?
-
-We switched from WiX Toolset because:
-- **Simpler**: No external tooling required beyond Python
-- **More reliable**: Works consistently across environments
-- **Cross-platform ready**: Easy to extend to Linux/macOS if needed
-- **Better CI/CD**: No complex dependencies in GitHub Actions
+The build also creates a portable ZIP for users who do not want an installer.
 
 ## Prerequisites
 
 - Python 3.12+
 - pip
-- **Inno Setup 6** (optional, but required for creating installers)
-  - Download from: https://jrsoftware.org/isdl.php
-  - Or install via Chocolatey: `choco install innosetup`
+- Inno Setup 6 for installer creation
 
-## Building Locally
-
-### Quick Build
+Install Inno Setup manually or with Chocolatey:
 
 ```powershell
-# Install PyInstaller
-python -m pip install pyinstaller
+choco install innosetup
+```
 
-# Run the build script (creates both ZIP and installer)
+## Quick Build
+
+```powershell
+python -m pip install pyinstaller
 ./scripts/build_pyinstaller.ps1
 ```
 
-This creates:
-- `dist/Cerebrus/` - Standalone application folder (PyInstaller output)
-- `dist/Cerebrus-<version>-win64.zip` - Portable ZIP archive
-- `dist/Cerebrus-<version>-Setup.exe` - Windows installer (if Inno Setup is installed)
+Outputs:
 
-### Custom Build
+- `dist/Cerebrus/`
+- `dist/Cerebrus-<version>-win64.zip`
+- `dist/Cerebrus-<version>-Setup.exe` when Inno Setup is available
+
+## Custom Build
 
 ```powershell
-# Build with a specific version
 ./scripts/build_pyinstaller.ps1 -TagVersion "1.2.3" -OutputDir "my_dist"
-
-# Skip installer creation (only create ZIP)
 ./scripts/build_pyinstaller.ps1 -SkipInstaller
 ```
 
 ## What Gets Bundled
 
-The PyInstaller build includes:
-- ✅ Python interpreter
-- ✅ All Python dependencies (DearPyGUI, psutil, pywin32, etc.)
-- ✅ All Cerebrus source code
-- ✅ Resources (icons, etc.)
-- ✅ Binaries folder (if present)
+The PyInstaller build should include:
+
+- Python interpreter.
+- Python dependencies, including Dear PyGui, psutil, pywin32, requests, boto3, and botocore.
+- All Cerebrus source code.
+- `cerebrus/resources` files such as icons and `user_guide.html`.
+- `cerebrus/ui/resources` files such as themes, layouts, and tooltips.
+- `cerebrus/plugins/resources` files such as AWS/S3 plugin tooltip JSON.
+- `Binaries/` folder contents when present.
+
+Plugin resources are important. `scripts/cerebrus.spec` bundles `cerebrus/plugins/resources/*.json`; if that rule is removed or broken, the AWS Secrets and S3 Uploader plugin help buttons may be empty in the installed app.
 
 ## Distribution
 
-The build creates two distribution formats:
+### Windows Installer
 
-### Windows Installer (Recommended for most users)
-- **File**: `Cerebrus-<version>-Setup.exe`
-- Professional installer with Start Menu shortcuts
-- Includes uninstaller
-- Can be installed to Program Files
-- Requires admin rights to install
+- File: `Cerebrus-<version>-Setup.exe`
+- Adds Start Menu shortcuts.
+- Includes an uninstaller.
+- Can install to Program Files.
 
-### Portable ZIP (For advanced users)
-- **File**: `Cerebrus-<version>-win64.zip`
-- Extract and run anywhere
-- No installation required
-- No admin rights needed
-- Good for USB drives or restricted environments
+### Portable ZIP
+
+- File: `Cerebrus-<version>-win64.zip`
+- Extract and run without installing.
+- Useful for restricted environments.
 
 ## CI/CD Process
 
-The GitHub Actions workflow automatically:
-1. Installs Python, PyInstaller, and Inno Setup
-2. Runs `build_pyinstaller.ps1`
-3. Creates both ZIP and installer
-4. Uploads both as release artifacts
-5. Attaches both to the GitHub release
+The GitHub Actions release workflow:
+
+1. Installs Python, PyInstaller, dependencies, and Inno Setup.
+2. Runs `scripts/build_pyinstaller.ps1`.
+3. Creates ZIP and installer artifacts.
+4. Uploads both artifacts.
+5. Attaches both files to the GitHub release.
 
 ## Customization
 
-To modify the build process, edit:
-- `scripts/cerebrus.spec` - PyInstaller configuration (what gets bundled)
-- `scripts/cerebrus.iss` - Inno Setup configuration (installer behavior, shortcuts, etc.)
-- `scripts/build_pyinstaller.ps1` - Build orchestration script
+Edit these files when changing build behavior:
+
+- `scripts/cerebrus.spec`: PyInstaller collection rules, hidden imports, resources, and version info.
+- `scripts/cerebrus.iss`: Installer behavior and metadata.
+- `scripts/build_pyinstaller.ps1`: Build orchestration.
 
 ## Troubleshooting
 
-### Missing Dependencies
+### Missing Python Dependency
 
-If PyInstaller misses a dependency, add it to `hiddenimports` in `cerebrus.spec`:
+If PyInstaller misses a dependency, add it to `hiddenimports` in `scripts/cerebrus.spec`.
 
 ```python
 hiddenimports = [
-    'dearpygui',
-    'your_missing_module',  # Add here
+    "dearpygui",
+    "your_missing_module",
 ]
 ```
 
 ### Missing Data Files
 
-If resources aren't bundled, check the `datas` section in `cerebrus.spec`.
+If icons, UI JSON, plugin tooltips, or other resources are missing, check the `datas` section in `scripts/cerebrus.spec`.
+
+Required resource roots:
+
+- `cerebrus/resources`
+- `cerebrus/ui/resources`
+- `cerebrus/plugins/resources`
 
 ### Build Fails
 
-1. Ensure all dependencies are installed: `pip install -r requirements.txt`
-2. Try cleaning previous builds: Remove `build/` and `dist/` folders
-3. Check Python version: Must be 3.12+
+1. Install dependencies: `pip install -r requirements.txt`
+2. Remove old `build/` and `dist/` folders.
+3. Confirm Python is 3.12+.
+4. Re-run `./scripts/build_pyinstaller.ps1`.

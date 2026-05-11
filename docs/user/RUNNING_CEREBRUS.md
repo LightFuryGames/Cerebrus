@@ -22,7 +22,7 @@ The application will:
 
    ```bash
    .venv\Scripts\activate
-   python -m cerebrus.main
+   python -m cerebrus
    ```
 
 The main window will appear and present:
@@ -30,7 +30,7 @@ The main window will appear and present:
 - Device list panel.
 - Capture workflows.
 - Reporting and analysis tools.
-- Configuration access.
+- Plugin tabs for Profiling, AWS Secrets, and S3 Uploader when enabled.
 
 ## Command-Line Arguments (Planned)
 
@@ -40,7 +40,7 @@ Cerebrus will support a small set of CLI options, for example:
 - `--project <name>` – select a project profile on startup.
 - `--log-level <level>` – set initial log level (e.g. DEBUG, INFO, WARNING).
 
-See `docs/developer/SETUP.md` and `docs/developer/PROJECT_STRUCTURE.md` as the runtime entrypoints solidify.
+See `docs/developer/SETUP.md` and `docs/developer/PROJECT_STRUCTURE.md` as future runtime options solidify.
 
 ## Shutting Down
 

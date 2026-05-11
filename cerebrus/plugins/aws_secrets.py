@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import json
 import base64
+import json
 from pathlib import Path
-from typing import Dict, Any
 
 import dearpygui.dearpygui as dpg
 
@@ -46,7 +45,8 @@ class AWSSecretsManager:
     """Singleton to manage AWS credentials locally."""
     
     _instance = None
-    PORTABLE_KEY = "Cerebrus_AWS_Secret_Key_2026_!@#"
+    EXPORT_SCHEMA_VERSION = "2.0"
+    LEGACY_PORTABLE_KEY = "Cerebrus_AWS_Secret_Key_2026_!@#"
     
     def __init__(self):
         self.cache_file = get_app_data_dir() / "aws_secrets.json"
@@ -62,48 +62,68 @@ class AWSSecretsManager:
             cls._instance = cls()
         return cls._instance
 
+    def _local_encryption_available(self) -> bool:
+        """Return whether local credential encryption is available."""
+        return win32crypt is not None
+
     def _encrypt_local(self, value: str) -> str:
         """Encrypts a string for local storage using DPAPI."""
-        if not value or win32crypt is None:
+        if not value:
             return value
+        if win32crypt is None:
+            raise RuntimeError("DPAPI encryption is unavailable on this system.")
         try:
-            encrypted = win32crypt.CryptProtectData(value.encode('utf-8'), "CerebrusAWS", None, None, None, 0)
-            return base64.b64encode(encrypted).decode('utf-8')
+            encrypted = win32crypt.CryptProtectData(
+                value.encode("utf-8"), "CerebrusAWS", None, None, None, 0
+            )
+            return base64.b64encode(encrypted).decode("utf-8")
         except Exception as e:
-            print(f"Local encryption failed: {e}")
-            return value
+            raise RuntimeError(f"Local encryption failed: {e}") from e
 
     def _decrypt_local(self, value: str) -> str:
         """Decrypts a string from local storage using DPAPI."""
         if not value or win32crypt is None:
             return value
         try:
-            decoded = base64.b64decode(value.encode('utf-8'))
+            decoded = base64.b64decode(value.encode("utf-8"))
             _, decrypted = win32crypt.CryptUnprotectData(decoded, None, None, None, 0)
-            return decrypted.decode('utf-8')
+            return decrypted.decode("utf-8")
         except Exception:
             # Fallback to plain text if decryption fails (e.g. if it wasn't encrypted)
             return value
 
-    def _xor_scramble(self, data: str) -> str:
-        """Simple XOR scramble for portable 'encryption'."""
-        key = self.PORTABLE_KEY
+    def _xor_legacy_scramble(self, data: str) -> str:
+        """Decode legacy portable exports created before schema 2.0."""
+        key = self.LEGACY_PORTABLE_KEY
         return "".join(chr(ord(c) ^ ord(key[i % len(key)])) for i, c in enumerate(data))
 
-    def _encrypt_portable(self, data: dict) -> str:
-        """Encrypts data for sharing across machines."""
-        json_str = json.dumps(data)
-        scrambled = self._xor_scramble(json_str)
-        return base64.b64encode(scrambled.encode('latin1')).decode('utf-8')
+    def _build_export_payload(self) -> dict:
+        """Build a portable JSON export without secret values."""
+        keys = {}
+        for alias, key_info in self.data.get("keys", {}).items():
+            keys[alias] = {
+                "alias": alias,
+                "requires_reentry": True,
+                "has_access_key": bool(key_info.get("access_key")),
+                "has_secret_key": bool(key_info.get("secret_key")),
+            }
 
-    def _decrypt_portable(self, encrypted_str: str) -> dict | None:
-        """Decrypts data shared from another machine."""
+        return {
+            "schema_version": self.EXPORT_SCHEMA_VERSION,
+            "export_type": "aws_bucket_mappings",
+            "contains_secret_values": False,
+            "keys": keys,
+            "buckets": self.data.get("buckets", []),
+        }
+
+    def _decrypt_legacy_portable(self, encrypted_str: str) -> dict | None:
+        """Decrypt legacy .cbx files created with the old XOR portable format."""
         try:
-            decoded = base64.b64decode(encrypted_str.encode('utf-8')).decode('latin1')
-            unscrambled = self._xor_scramble(decoded)
+            decoded = base64.b64decode(encrypted_str.encode("utf-8")).decode("latin1")
+            unscrambled = self._xor_legacy_scramble(decoded)
             return json.loads(unscrambled)
         except Exception as e:
-            print(f"Portable decryption failed: {e}")
+            print(f"Legacy portable import failed: {e}")
             return None
 
     def load_regions(self):
@@ -150,11 +170,19 @@ class AWSSecretsManager:
             # Migration from dict to list
             self.data["buckets"] = list(self.data["buckets"].values())
 
-    def save(self):
+    def save(self) -> bool:
         self.cache_file.parent.mkdir(parents=True, exist_ok=True)
         try:
             # Create a copy to encrypt without affecting in-memory data
             save_data = json.loads(json.dumps(self.data))
+            has_plain_secret = any(
+                key_info.get("access_key") or key_info.get("secret_key")
+                for key_info in save_data.get("keys", {}).values()
+            )
+            if has_plain_secret and not self._local_encryption_available():
+                print("Refusing to save AWS secrets because DPAPI is unavailable.")
+                return False
+
             for key_info in save_data.get("keys", {}).values():
                 if "access_key" in key_info:
                     key_info["access_key"] = self._encrypt_local(key_info["access_key"])
@@ -163,30 +191,55 @@ class AWSSecretsManager:
             
             with open(self.cache_file, "w") as f:
                 json.dump(save_data, f, indent=4)
+            return True
         except Exception as e:
             print(f"Failed to save AWS secrets: {e}")
+            return False
 
     def export_data(self, path: Path) -> bool:
-        """Exports encrypted configuration to a file."""
+        """Export portable bucket mappings as explicit JSON without secret values."""
         try:
-            encrypted_content = self._encrypt_portable(self.data)
             with open(path, "w") as f:
-                f.write(encrypted_content)
+                json.dump(self._build_export_payload(), f, indent=4)
             return True
         except Exception as e:
             print(f"Failed to export data: {e}")
             return False
 
     def import_data(self, path: Path) -> str:
-        """Imports encrypted configuration from a file. Returns error message or empty string."""
+        """Imports portable configuration. Returns error message or empty string."""
         try:
             with open(path, "r") as f:
                 content = f.read()
-            
-            imported_data = self._decrypt_portable(content)
+
+            try:
+                imported_data = json.loads(content)
+            except json.JSONDecodeError:
+                imported_data = self._decrypt_legacy_portable(content)
+
             if imported_data and "keys" in imported_data and "buckets" in imported_data:
-                # Merge keys
-                self.data["keys"].update(imported_data.get("keys", {}))
+                contains_secret_values = imported_data.get(
+                    "contains_secret_values",
+                    imported_data.get("schema_version") is None,
+                )
+
+                for alias, key_info in imported_data.get("keys", {}).items():
+                    if alias in self.data["keys"]:
+                        continue
+                    if contains_secret_values:
+                        self.data["keys"][alias] = {
+                            "alias": alias,
+                            "access_key": "",
+                            "secret_key": "",
+                            "requires_reentry": True,
+                        }
+                    else:
+                        self.data["keys"][alias] = {
+                            "alias": key_info.get("alias", alias),
+                            "access_key": "",
+                            "secret_key": "",
+                            "requires_reentry": True,
+                        }
                 
                 # Merge buckets (avoid exact duplicates)
                 imported_buckets = imported_data.get("buckets", [])
@@ -197,19 +250,26 @@ class AWSSecretsManager:
                     if b not in self.data["buckets"]:
                         self.data["buckets"].append(b)
                 
-                self.save()
+                if not self.save():
+                    return "Imported data could not be saved."
                 return ""
             return "Invalid or corrupted export file."
         except Exception as e:
             return f"Import failed: {str(e)}"
 
-    def add_key(self, alias: str, access_key: str, secret_key: str):
+    def add_key(self, alias: str, access_key: str, secret_key: str) -> str:
+        if not self._local_encryption_available():
+            return "Local credential encryption is unavailable; AWS keys were not saved."
+
         self.data["keys"][alias] = {
             "alias": alias,
             "access_key": access_key,
             "secret_key": secret_key
         }
-        self.save()
+        if not self.save():
+            self.data["keys"].pop(alias, None)
+            return "Failed to save AWS key securely."
+        return ""
 
     def remove_key(self, alias: str):
         if alias in self.data["keys"]:
@@ -237,17 +297,26 @@ class AWSSecretsManager:
         """Returns boto3 kwargs for the bucket by its display name 'BucketName (KeyAlias)'."""
         for b_info in self.data["buckets"]:
             name = b_info.get("name")
+            region = b_info.get("region")
             key_alias = b_info.get("key_alias")
-            match_name = f"{name} ({key_alias})" if key_alias else name
+            match_name = name
+            if region:
+                match_name = f"{match_name} [{region}]"
+            if key_alias:
+                match_name = f"{match_name} ({key_alias})"
             
             if match_name == display_name:
                 if key_alias not in self.data["keys"]:
                     return None
                     
                 key_info = self.data["keys"][key_alias]
+                access_key = key_info.get("access_key")
+                secret_key = key_info.get("secret_key")
+                if not access_key or not secret_key:
+                    return None
                 return {
-                    "aws_access_key_id": key_info.get("access_key"),
-                    "aws_secret_access_key": key_info.get("secret_key"),
+                    "aws_access_key_id": access_key,
+                    "aws_secret_access_key": secret_key,
                     "region_name": b_info.get("region")
                 }
         return None
@@ -256,8 +325,14 @@ class AWSSecretsManager:
         items = []
         for b in self.data["buckets"]:
             name = b.get("name")
+            region = b.get("region")
             alias = b.get("key_alias")
-            items.append(f"{name} ({alias})" if alias else name)
+            display_name = name
+            if region:
+                display_name = f"{display_name} [{region}]"
+            if alias:
+                display_name = f"{display_name} ({alias})"
+            items.append(display_name)
         return items
 
 
@@ -328,9 +403,12 @@ class AWSSecretsPlugin(TabPlugin):
                     ak = dpg.get_value(ak_tag)
                     sk = dpg.get_value(sk_tag)
                     if alias and ak and sk:
-                        manager.add_key(alias, ak, sk)
-                        log_message(state, "SUCCESS", f"Added AWS Key: {alias}")
-                        self._refresh_ui(manager)
+                        error = manager.add_key(alias, ak, sk)
+                        if error:
+                            log_message(state, "ERROR", error)
+                        else:
+                            log_message(state, "SUCCESS", f"Added AWS Key: {alias}")
+                            self._refresh_ui(manager)
                     else:
                         log_message(state, "ERROR", "All key fields are required.")
                 

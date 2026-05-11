@@ -87,12 +87,13 @@ def test_handle_generate_mem_report_directory(mock_state, temp_output_dir):
     mem_dir.mkdir(parents=True, exist_ok=True)
     (mem_dir / "test.memreport").touch()
 
-    with patch("cerebrus.ui.components.file_manager.parse_memreport"):
-        with patch(
-            "cerebrus.ui.components.file_manager.generate_html_report"
-        ) as mock_gen:
-            _handle_generate_mem_report(mock_state)
+    expected_report = temp_output_dir / "MemReports" / "generated.html"
+    with patch(
+        "cerebrus.ui.components.file_manager.process_memreport",
+        return_value=expected_report,
+    ) as mock_process:
+        _handle_generate_mem_report(mock_state)
 
-            expected_dest_dir = temp_output_dir / "MemReports"
-            assert expected_dest_dir.exists()
-            mock_gen.assert_called()
+        expected_dest_dir = temp_output_dir / "MemReports"
+        assert expected_dest_dir.exists()
+        mock_process.assert_called_once()

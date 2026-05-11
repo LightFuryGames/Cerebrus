@@ -17,11 +17,11 @@ This guide lists common issues and suggested resolutions.
 
 - **Problem**: Cerebrus reports that UAFT or CsvTools/PerfReportTool cannot be found.
   - **Check**:
-    - Paths configured in `config/tools.paths.json`.
-    - That the binaries actually exist at those paths.
+    - That the bundled binaries exist under `Binaries/`.
+    - That `Binaries/CsvTools/PerfReportTool.exe` exists when performance reports fail.
   - **Remedy**:
-    - Correct the paths.
     - Ensure Unreal Engine installation is intact.
+    - Rebuild or reinstall Cerebrus if bundled tools are missing.
 
 ## No Devices Visible
 
@@ -55,6 +55,33 @@ This guide lists common issues and suggested resolutions.
     - Normalize CSVs with `CsvConvert`.
     - Adjust profile configuration to use a supported `-reportType`.
 
+## Plugin Issues
+
+- **Problem**: AWS or S3 tabs are missing.
+  - **Check**:
+    - Open `Settings -> Plugins`.
+    - Confirm `AWS Secrets` and `S3 Uploader - Profiling Reports` are enabled.
+  - **Remedy**:
+    - Enable the plugin and restart Cerebrus if the tab does not appear immediately.
+
+- **Problem**: S3 Uploader does not show a bucket.
+  - **Check**:
+    - Open the `AWS Secrets` tab.
+    - Confirm a key alias exists.
+    - Confirm a bucket mapping exists for that key alias and region.
+  - **Remedy**:
+    - Add the missing key or bucket mapping.
+
+- **Problem**: S3 upload fails.
+  - **Check**:
+    - `boto3` is installed.
+    - The selected bucket mapping has credentials.
+    - The selected file is an HTML report.
+  - **Remedy**:
+    - Reinstall `requirements.txt`.
+    - Recreate the bucket mapping in AWS Secrets.
+    - Review `cerebrus/plugins/s3_uploader.md`.
+
 ## Locating Logs
 
 When things go wrong, these files are your first stop:
@@ -75,5 +102,7 @@ When things go wrong, these files are your first stop:
 
 When opening an issue, please attach:
 1.  The relevant log file.
-2.  Your `config/cerebrus.yaml` (sanitize secrets first).
+2.  Your active profile JSON if profile settings are relevant.
 3.  Steps to reproduce.
+
+Never attach AWS keys, local secret JSON files, or unsanitized credential files. Current `.cbx` exports are JSON bucket/key-alias maps with `contains_secret_values: false`, but still treat them as internal configuration files.

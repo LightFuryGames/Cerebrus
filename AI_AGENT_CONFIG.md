@@ -2,6 +2,10 @@
 
 This file defines how the AI (and similar agents) should interact with this repository.
 
+All agents must also follow `AGENTS.md`. That file is the shared working contract
+for Codex, Claude Code, Gemini, Antigravity, and any future automation touching
+this repo.
+
 ## Primary Goals
 
 - Preserve and enforce the architecture defined in `docs/ARCHITECTURE_OVERVIEW.md`.
@@ -14,6 +18,7 @@ This file defines how the AI (and similar agents) should interact with this repo
 The AI should treat the following as authoritative references:
 
 - Top-level:
+  - `AGENTS.md`
   - `README.md`
   - `CONTRIBUTING.md`
   - `CODE_OF_CONDUCT.md`
@@ -67,7 +72,17 @@ Examples:
 - Modifying PerfReport workflow:
   - Code: `cerebrus/tools/perfreport/*`, `cerebrus/core/reporting/*`
   - Tests: `tests/tools/test_perfreport_*.py`, `tests/core/test_reporting_*.py`
-  - Docs: `docs/PERFREPORTTOOL_REFERENCE.md`, `docs/config/PROFILE_DEFINITIONS.md`
+  - Docs: `docs/PERFREPORTTOOL_REFERENCE.md`, `docs/output_filename_guide.md`
+
+- Modifying runtime plugins:
+  - Code: `cerebrus/plugins/<plugin>.py`
+  - Tests: `tests/core/test_plugin_manager.py` or plugin-specific tests under the matching `tests/` area
+  - Docs: `cerebrus/plugins/<plugin>.md`, `cerebrus/plugins/TESTING.md`
+
+- Modifying plugin JSON/data contracts:
+  - Code: owning plugin module
+  - Tests: import/export and schema tests
+  - Docs: plugin-local markdown, `docs/developer/TESTING_GUIDE.md`, and the user guide summary
 
 ## Output Requirements
 
@@ -86,7 +101,7 @@ The AI must:
 - Maintain backward compatibility for configuration formats where possible.
 - Document any breaking changes clearly in:
   - `README.md` (high-level)
-  - Relevant docs under `docs/developer` and `docs/config`.
+  - Relevant docs under `docs/developer` and plugin-local docs under `cerebrus/plugins`.
 
 ## Documentation Discipline
 
@@ -96,6 +111,7 @@ For any non-trivial change, the AI must:
 - **Auto-Correction**: If recent code changes lack corresponding updates in the User Guide, the AI must flag this as an "Incomplete Feature" and perform the documentation update.
 - **Developer Accountability**: Features implemented by human developers without accompanying AI-compatible documentation should be marked as "Missing Necessary Documentation" when next encountered by the AI.
 - **Theme Integrity**: When updating `user_guide.html`, follow the specific rules in `.agent/workflows/user-guide-maintenance.md`.
+- **Guide Style**: Preserve the Antigravity-style guide shell, visual hierarchy, badges, warning blocks, and navigation behavior. Update content within that style instead of flattening it.
 - Ensure examples in docs reflect actual code.
 - Avoid duplicating documentation; reference canonical locations where possible.
 

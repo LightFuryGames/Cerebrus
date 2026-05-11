@@ -9,3 +9,8 @@ line_length = 88
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+addopts = [
+    "-p",
+    "no:cacheprovider",
+    "--basetemp=.pytest_run_tmp",
+]

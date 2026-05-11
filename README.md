@@ -14,7 +14,6 @@
 
 ### 📂 File Management
 - **Smart Retrieval**: Automatically move logs and profiling data (CSV) from your device to your PC.
-- **Recursive Search**: Bulk generation tool now recursively searches directories for files.
 - **Organized Output**: Automatically organizes files into device-specific folders (e.g., `OutputPath/DeviceModel/`).
 - **Flexible Naming**: Configure output filenames with optional prefixing and auto-incrementing counters.
 
@@ -28,9 +27,21 @@
 ### ⚙️ Configuration & Customization
 - **Profiles**: Save and load project-specific configurations (Package Name, Paths, etc.).
 - **Auto-Update**: Automatically checks for and installs the latest version.
-- **Cloud Integration**: Configure AWS S3 settings for remote configuration syncing.
+- **Cloud Integration**: AWS Secrets Manager and S3 Uploader plugins for secure credential handling and automated report sharing.
 - **Themes**: Includes High Contrast and Color Blind modes (Deuteranopia, Tritanopia).
 - **Auto-Save**: Your settings are automatically saved to the active profile.
+
+### Plugin System
+- **Plugin Tabs**: Runtime plugins add their own tabs to the main workspace.
+- **Plugin Menus**: Plugins can add settings or management actions under `Settings -> Plugins`.
+- **Plugin Documentation**: Plugin-specific markdown now lives beside the plugin code in [`cerebrus/plugins/`](cerebrus/plugins/README.md).
+- **Data-Driven Config**: Plugin state, tooltip resources, AWS region lists, and `.cbx` transfer files use explicit JSON contracts.
+- **AWS Export Safety**: `.cbx` exports carry bucket mappings and key aliases only; AWS secret values remain local and must be re-entered after import when needed.
+- **Deprecated Path**: The top-level `Plugins/ConversionTools` folder is not the runtime plugin system. Treat it as legacy or experimental conversion tooling until it is migrated.
+
+## Multi-Agent Collaboration
+
+This repo may be edited by Codex, Claude Code, Gemini, Antigravity, and other agents. All agents should read [`AGENTS.md`](AGENTS.md) before making changes. It defines the shared rules for dirty worktrees, plugin modularity, JSON/data contracts, secret handling, testing, and preserving the Antigravity-style HTML user guide.
 
 ## Installation
 
@@ -101,10 +112,12 @@ The **MemReport** tool has been overhauled to provide deep insights into Unreal 
 - **Health Checks**: Automatic warnings for duplicate render targets, huge assets.
 - **Data Integrity**: Precise "Reported vs. Calculated" memory metrics (with fixed column-index drift logic).
 - **Unit Intelligence**: Automatic scaling of memory to **KB, MB, GB** for easier high-tier device analysis.
+- **Metadata-Driven Naming**: Reports are now automatically named based on build configuration, device info, and changelists.
+- **Embedded Metadata**: HTML reports now contain a hidden JSON block with all session metadata for downstream processing.
 
 ### 📊 Performance Reporting
 Powered by **PerfReportTool**, Cerebrus offers robust performance analysis:
-- **Bulk Processing**: Recursively search directories to process hundreds of CSVs in one go.
+- **Bulk Processing**: Process collected CSVs from the selected output folder.
 - **Smart Caching**: Manages summary table caches to speed up repeated report generation.
 - **Report Types**: Supports standard profiles like `flythrough`, `playthrough`, and `playthroughmemory`.
 - **Diff & Regression**: (Experimental) Capabilities to compare runs and highlight regressions.
@@ -135,10 +148,11 @@ For detailed instructions, access the **User Guide** from the **Help** menu with
 ```text
 /cerebrus/                # Core Python packages
   core/                   # Core orchestration logic and abstractions
+  plugins/                # Runtime plugins and plugin-local markdown docs
   ui/                     # Dear PyGui UI and layout logic
     components/           # Reusable UI components
-      dialogs/            # Application dialogs (aws, profile, etc.)
-      panels/             # Usage panels (profiling, logs, config_sync)
+      dialogs/            # Application dialogs (app, files, profile)
+      panels/             # Usage panels (profiling, logs, device)
     resources/            # UI resources (fonts, palettes, layouts)
   tools/                  # Wrappers around UAFT, CsvTools, PerfReportTool
   config/                 # Configuration and profile definitions
@@ -167,6 +181,7 @@ The `docs/` directory contains comprehensive documentation for Users, Developers
 - **[Running Cerebrus](docs/user/RUNNING_CEREBRUS.md)**: How to launch the app.
 - **[Device & Capture](docs/user/DEVICE_CAPTURE_WORKFLOWS.md)**: Workflows for profiling.
 - **[Reporting](docs/user/REPORTING_AND_ANALYSIS.md)**: Guide to generating reports.
+- **[Plugin Guide](cerebrus/plugins/README.md)**: Plugin system and plugin-specific help.
 
 ### 🛠️ For Developers
 - **[Architecture Overview](docs/ARCHITECTURE_OVERVIEW.md)**: High-level system design.
@@ -176,6 +191,7 @@ The `docs/` directory contains comprehensive documentation for Users, Developers
 - **[Testing Guide](docs/developer/TESTING_GUIDE.md)**: How to run and write tests.
 - **[Logging & Errors](docs/developer/LOGGING_AND_ERROR_HANDLING.md)**: Debugging and error handling patterns.
 - **[Tool Wrappers](docs/developer/TOOL_WRAPPER_DESIGN.md)**: Design of external tool interfaces.
+- **[Plugin Test Plan](cerebrus/plugins/TESTING.md)**: Existing and missing plugin test coverage.
 
 ### 🎨 UI & Design
 - **[Theme Specification](docs/ui/THEME_SPECIFICATION.md)**: Color palettes and styling rules.

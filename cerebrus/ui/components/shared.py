@@ -132,7 +132,9 @@ def _save_current_profile(state: UIState) -> None:
     else:
         # No current profile path, prompt to save as new
         # Import dynamically to avoid circular import
-        from cerebrus.ui.components.profile_dialogs import _save_profile_native
+        from cerebrus.ui.components.dialogs.profile.profile_dialog import (
+            _save_profile_native,
+        )
 
         log_message(state, "INFO", "Please save profile with a name first")
         _save_profile_native(state, state.profile_nickname or "profile")

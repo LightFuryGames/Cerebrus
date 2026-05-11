@@ -10,7 +10,7 @@ This document describes the high-level architecture of Cerebrus. All implementat
   - Project configuration and profile definitions.
 - `cerebrus.ui`
   - Dear ImGui-based UI.
-  - Panels for devices, captures, reports, and configuration.
+  - Panels for devices, captures, reports, logs, and plugin tabs.
   - Error and notification surfaces.
 - `cerebrus.tools`
   - Thin, testable wrappers around external tools:
@@ -18,6 +18,11 @@ This document describes the high-level architecture of Cerebrus. All implementat
     - CsvTools (CSVCollate, CsvConvert, CSVFilter, CSVSplit, CsvToSVG, csvinfo)
     - PerfReportTool
     - MemReport (Modular generic parsing and HTML visualizer)
+- `cerebrus.plugins`
+  - Runtime plugins that add tabs and optional menu actions.
+  - Plugin-specific markdown lives beside the plugin code.
+  - Current plugins: Profiling, AWS Secrets, and S3 Uploader.
+  - Detailed plugin docs: `cerebrus/plugins/README.md`.
 - `cerebrus.config`
   - Loading, validating, and persisting project configuration.
   - Tool-path configuration and per-project overrides.
@@ -108,11 +113,21 @@ Cerebrus employs two distinct UI technologies optimized for different use cases:
   - No direct mutation of state inside draw calls.
 - **Scaling**: All layouts use relative sizing / DPI-aware style variables.
 
-## Future Architecture (Roadmap)
+## Plugin Architecture
 
-- **Plugin System**:
-  - `cerebrus.plugins` module to load external Python files at runtime.
-  - Strict `Protocol` interfaces for Tabs and Device Actions.
+`cerebrus.core.plugins.PluginManager` is the central registry.
+
+- `CerebrusApp.build()` registers plugin instances.
+- `PluginManager.initialize()` loads enabled/disabled state from the user cache.
+- New plugins are enabled by default so shipped features are visible.
+- Known plugins that a user disabled remain disabled.
+- `render_tabs()` rebuilds the tab bar from enabled plugins.
+- Plugins that provide tabs implement `TabPlugin`.
+- Plugins that add `Settings -> Plugins` menu actions implement `MenuPlugin`.
+
+Plugin-level behavior, user help, and test expectations belong in `cerebrus/plugins/*.md`.
+
+## Future Architecture (Roadmap)
 - **Event Sourcing**:
   - Central event bus for QA Macro recording/replay.
 

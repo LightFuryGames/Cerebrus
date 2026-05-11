@@ -131,6 +131,9 @@ class ThemeManager:
         self.aux_theme_ids["help_button"] = create_simple_theme(
             "theme_aux_help", (100, 100, 100)
         )
+        self.aux_theme_ids["hyperlink"] = create_simple_theme(
+            "theme_aux_hyperlink", (59, 130, 246)
+        )
 
         # Transparent Log Input Theme
         if dpg.does_item_exist("theme_log_input"):

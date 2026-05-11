@@ -33,15 +33,16 @@ Parsers must be robust against partial lines and version differences (UE4 vs UE5
 - **State**: Parsers are stateful per-file but should reset cleanly between files.
 
 ### 3. HTML Generation
-We use a template-based approach (string injection or Jinja2-style replacement) to generate self-contained HTML files.
-- **Dependencies**: The HTML output must be "Zero-Dependency" (inline CSS/JS) so it can be emailed/shared easily.
+We use a template-based approach to generate self-contained HTML files.
+- **Dependencies**: The HTML output is "Zero-Dependency" (inline CSS/JS).
 - **Interactivity**: JS filters (Search/Sort) are embedded in the HTML.
+- **Embedded Metadata**: Every report now includes a `<script type="application/json" id="cerebrus-metadata">` block. This block contains the Build Config, Device Make/Model, Changelist, and Date. This allows plugin tools such as the S3 Uploader to process the report without re-parsing visible text. S3 details live in `cerebrus/plugins/s3_uploader.md`.
 
-### Design Decision: Why HTML?
-We use HTML for reports instead of ImGui for **Portability**.
-- A developer can unzip a report and open it on a phone or machine without Cerebrus installed.
-- No Python runtime is required to view the data.
-- It allows utilizing browser-native features like "Find in Page" (Ctrl+F) which ImGui struggles with for massive datasets.
+### 4. Automatic Naming
+To ensure reports are easily manageable in bulk, the tool automatically names outputs using the following pattern:
+`{BuildConfig}_{DeviceMake}_{DeviceModel}_{Changelist}_{DateTime}.html`
+
+This naming is deterministic and derived directly from the `metadata` context.
 
 ## Adding a New Tab
 

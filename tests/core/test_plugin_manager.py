@@ -3,7 +3,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 import pytest
 
-from cerebrus.core.plugins import PluginManager, TabPlugin
+from cerebrus.core.plugins import MenuPlugin, PluginManager, TabPlugin
 
 class MockPlugin(TabPlugin):
     @property
@@ -16,6 +16,11 @@ class MockPlugin(TabPlugin):
     def version(self) -> str:
         return "1.0.0"
     def build_tab(self, state) -> None:
+        pass
+
+
+class MockMenuPlugin(MockPlugin):
+    def build_menu(self, state) -> None:
         pass
 
 @pytest.fixture
@@ -58,3 +63,9 @@ def test_register_respects_existing_cache(clean_plugin_manager, tmp_path):
         
         assert plugin.id in PluginManager._plugins
         assert PluginManager.is_enabled(plugin.id) is False
+
+
+def test_menu_plugin_protocol_marks_plugin_menu_support():
+    plugin = MockMenuPlugin()
+
+    assert isinstance(plugin, MenuPlugin)

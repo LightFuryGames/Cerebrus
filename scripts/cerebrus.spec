@@ -16,6 +16,7 @@ print(f"DEBUG: Resolved root_dir={root_dir}")
 cerebrus_dir = root_dir / "cerebrus"
 binaries_dir = root_dir / "Binaries"
 resources_dir = cerebrus_dir / "resources"
+plugin_resources_dir = cerebrus_dir / "plugins" / "resources"
 
 # Collect all resource files
 datas = []
@@ -35,6 +36,14 @@ if ui_resources_dir.exists():
         if resource_file.is_file() and not resource_file.name.endswith('~'):
             rel_path = resource_file.relative_to(ui_resources_dir)
             dest_dir = f'cerebrus/ui/resources/{rel_path.parent}' if str(rel_path.parent) != '.' else 'cerebrus/ui/resources'
+            datas.append((str(resource_file), dest_dir))
+
+# Add plugin resources (plugin tooltips, manifests, etc.)
+if plugin_resources_dir.exists():
+    for resource_file in plugin_resources_dir.rglob('*'):
+        if resource_file.is_file() and not resource_file.name.endswith('~'):
+            rel_path = resource_file.relative_to(plugin_resources_dir)
+            dest_dir = f'cerebrus/plugins/resources/{rel_path.parent}' if str(rel_path.parent) != '.' else 'cerebrus/plugins/resources'
             datas.append((str(resource_file), dest_dir))
             
 # Collect AWS data files (essential for boto3/botocore to work in frozen app)

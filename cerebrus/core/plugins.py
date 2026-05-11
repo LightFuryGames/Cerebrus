@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from cerebrus.core.paths import get_app_data_dir
 from cerebrus.ui.state import UIState
@@ -29,6 +29,15 @@ class TabPlugin(Protocol):
 
     def build_tab(self, state: UIState) -> None:
         """Render the DearPyGui UI for this tab."""
+        ...
+
+
+@runtime_checkable
+class MenuPlugin(TabPlugin, Protocol):
+    """Optional plugin protocol for Settings -> Plugins menu actions."""
+
+    def build_menu(self, state: UIState) -> None:
+        """Render plugin-specific menu actions under Settings -> Plugins."""
         ...
 
 

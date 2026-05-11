@@ -48,39 +48,52 @@ Manage files between your PC and the connected Android device.
 - **Move Logs**: Copies logs from `Saved/Logs` on the device to your PC.
 - **Move CSV Data**: Copies profiling data from `Saved/Profiling/CSV` on the device to your PC.
 
-## Configuration Panel & S3 Settings
-The **Configuration Sync** tab allows you to manage remote configuration files stored in AWS S3.
-- **Sync Remote Config**: Downloads the latest `BackendConfig.ini` from your configured S3 bucket and pushes it to the connected device.
+## Cloud Integration & AWS Plugins
+Cerebrus uses plugins for cloud workflows. A plugin is a small extra work area that can add a tab and menu actions without changing the whole app.
 
-### AWS Configuration
-To enable S3 features, go to **Tools -> AWS Configuration** and set:
-1. **S3 Bucket URL**: Base URL of your config bucket.
-2. **Access Key/Secret Key**: Your AWS credentials.
-3. **Region**: Target AWS region (e.g., `ap-south-1`).
+For detailed plugin help, see:
+- `cerebrus/plugins/README.md`
+- `cerebrus/plugins/aws_secrets.md`
+- `cerebrus/plugins/s3_uploader.md`
+
+### AWS Secrets Manager
+Think of AWS Secrets as the key locker. You give a key a friendly label, then map that label to an S3 bucket. The uploader later asks the locker for the right key.
+
+- **Key Alias**: A friendly name for one AWS access key pair.
+- **Bucket Mapping**: The bucket name, region, and key alias that belong together.
+- **Local Protection**: Credentials use Windows DPAPI. If DPAPI is unavailable, Cerebrus refuses to save new AWS keys instead of writing plaintext secrets.
+- **Portable Export**: Export/import `.cbx` JSON files when a teammate needs the same bucket map. These files include bucket mappings and key aliases, not AWS secret values.
+
+### S3 Uploader
+Think of S3 Uploader as the delivery cart. It picks up one generated HTML report, reads the hidden metadata note inside it, builds a tidy folder path, and uploads it to the bucket you selected.
+
+- **Automatic Pathing**: Reads metadata from reports to determine the S3 path (`BuildConfig/Device/CL/Date/Time`).
+- **Optimization**: Strips redundant raw memreport data before upload when possible.
+- **Requirements**: Requires the `boto3` Python package.
+- **Deprecated**: Old `Tools -> AWS Configuration` instructions no longer describe the current workflow. Use the plugin tabs and `Settings -> Plugins` menu.
 
 ## Report Generation
 Process collected data into readable formats.
 
 ### Bulk Actions (PC to PC)
-- **Recursive Search**: The tool now recursively searches for files in the selected directory.
 - **Generate Perf Report Only**: Runs `PerfreportTool.exe` on CSV files to create visual reports.
     - **New Metrics**: Reports now include System Metadata, FPS Analysis, and Average FPS.
 - **Generate Memory Report Only**: Converts `.memreport` files into interactive HTML visualizations.
     - **Visualization**: Provides tree maps and detailed object tracking for memory analysis.
+    - **Automatic Naming**: Reports are named as `{BuildConfig}_{Device}_{CL}_{Date}.html`.
+    - **Metadata**: Embeds session data for S3 uploading and downstream analysis.
 - **Generate Colored Logs Only**: Converts text logs to color-coded HTML files.
 - **Generate All**: Performs all enabled operations in sequence.
 - **View HTML Logs**: Opens the `Logs` output folder to view generated HTML logs.
 
 > **Note**: Generated reports are automatically organized into `Profiling/`, `Logs/`, and `MemReports/` subdirectories within your Output Path.
 
-## Tools
-Access additional utilities from the **Tools** menu.
+## Plugins
+Access plugin tabs in the main tab area. Enable or disable plugins from **Settings -> Plugins**.
 
-### Advanced Memory Reporting
-Convert raw `.memreport` files into easier-to-read HTML dashboards.
-1. Go to **Tools -> MemReport to HTML**.
-2. Select your input `.memreport` file.
-3. The tool generates an HTML file with tabs for **Device Info**, **Memory Stats**, and **Object Summaries**.
+- **Profiling**: Main capture and report workflow.
+- **AWS Secrets**: Key locker and bucket map.
+- **S3 Uploader - Profiling Reports**: Upload generated HTML reports.
 
 ### Auto-Update
 Cerebrus automatically checks for updates on startup.

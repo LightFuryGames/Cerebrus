@@ -618,6 +618,7 @@ def process_memreport(
     output_dir: Path,
     report_context: Dict[str, Any] = None,
     use_as_prefix_only: bool = False,
+    output_name_prefix: str | None = None,
     open_report: bool = False,
 ):
     """Core logic for processing a memreport and generating HTML, separated from CLI."""
@@ -648,7 +649,10 @@ def process_memreport(
         return str(s).replace(" ", "").replace("/", "_").replace("\\", "_")
 
     if use_as_prefix_only:
-        output_filename = f"{input_file.stem}.html"
+        output_stem = input_file.stem
+        if output_name_prefix:
+            output_stem = f"{sanitize(output_name_prefix)}_{output_stem}"
+        output_filename = f"{output_stem}.html"
     else:
         output_filename = f"{sanitize(build_config)}_{sanitize(device_make)}_{sanitize(device_model)}_{sanitize(cl_number)}_{sanitize(report_date_str)}.html"
 

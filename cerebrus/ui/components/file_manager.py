@@ -13,7 +13,7 @@ import dearpygui.dearpygui as dpg
 
 from cerebrus.tools.adb import AdbClient, AdbError
 from cerebrus.tools.log_to_html import convert_log_to_html
-from cerebrus.tools.memreport.tool import generate_html_report, parse_memreport
+from cerebrus.tools.memreport.tool import process_memreport
 from cerebrus.ui.components.shared import _auto_save_profile, log_message
 from cerebrus.ui.state import UIState
 from cerebrus.ui.themes import get_theme_manager
@@ -420,19 +420,16 @@ def _handle_generate_mem_report(state: UIState) -> None:
 
     for report_file in report_files:
         try:
-            output_filename = report_file.stem
-            if state.use_prefix_only and state.output_file_name:
-                output_filename = f"{state.output_file_name}_{report_file.stem}"
-
-            output_filename += ".html"
-            output_path = dest_dir / output_filename
-
             log_message(state, "INFO", f"Parsing {report_file.name}...")
-            context = parse_memreport(report_file)
-
-            log_message(state, "INFO", f"Generating HTML: {output_filename}...")
-            # Assuming generate_html_report exists and imported
-            generate_html_report(context, output_path)
+            output_path = process_memreport(
+                input_file=report_file,
+                output_dir=dest_dir,
+                use_as_prefix_only=state.use_prefix_only,
+                output_name_prefix=state.output_file_name if state.use_prefix_only else None,
+            )
+            if output_path is None:
+                log_message(state, "ERROR", f"Failed to generate report for {report_file.name}")
+                continue
 
             try:
                 report_file.unlink()
@@ -440,7 +437,7 @@ def _handle_generate_mem_report(state: UIState) -> None:
             except Exception as e:
                 log_message(state, "WARNING", f"Failed to delete source: {e}")
 
-            log_message(state, "SUCCESS", f"Report generated: {output_filename}")
+            log_message(state, "SUCCESS", f"Report generated: {output_path.name}")
 
         except Exception as e:
             import traceback

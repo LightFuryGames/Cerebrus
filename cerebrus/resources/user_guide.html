@@ -604,20 +604,36 @@
                                 Features</a></li>
                     </ul>
                 </li>
-                <li class="toc-item"><a href="#perfreport" class="toc-link"><span>9. Performance Report Analyzer</span></a>
+                <li class="toc-item"><a href="#perfreport" class="toc-link"><span>9. Performance Report
+                            Analyzer</span></a>
                     <ul class="toc-list">
-                        <li class="toc-item"><a href="#perfreport-tabs" class="toc-link toc-sub-link">Tab System</a></li>
-                        <li class="toc-item"><a href="#perfreport-stats" class="toc-link toc-sub-link">Statistical Metrics</a></li>
-                        <li class="toc-item"><a href="#perfreport-ab" class="toc-link toc-sub-link">A/B Comparisons</a></li>
+                        <li class="toc-item"><a href="#perfreport-tabs" class="toc-link toc-sub-link">Tab System</a>
+                        </li>
+                        <li class="toc-item"><a href="#perfreport-stats" class="toc-link toc-sub-link">Statistical
+                                Metrics</a></li>
+                        <li class="toc-item"><a href="#perfreport-ab" class="toc-link toc-sub-link">A/B
+                                Comparisons</a></li>
                     </ul>
                 </li>
                 <li class="toc-item"><a href="#console" class="toc-link"><span>10. Remote Console</span></a></li>
-                <li class="toc-item"><a href="#tools-settings" class="toc-link"><span>11. Tools & Settings</span></a>
+                <li class="toc-item"><a href="#plugins" class="toc-link"><span>11. Plugin System</span></a>
+                    <ul class="toc-list">
+                        <li class="toc-item"><a href="#plugin-overview" class="toc-link toc-sub-link">How Plugins
+                                Work</a></li>
+                        <li class="toc-item"><a href="#plugin-aws-secrets" class="toc-link toc-sub-link">AWS
+                                Secrets</a></li>
+                        <li class="toc-item"><a href="#plugin-s3-uploader" class="toc-link toc-sub-link">S3
+                                Uploader</a></li>
+                        <li class="toc-item"><a href="#plugin-docs-tests" class="toc-link toc-sub-link">Docs &
+                                Tests</a></li>
+                    </ul>
                 </li>
-                <li class="toc-item"><a href="#advanced" class="toc-link"><span>12. Advanced Features</span></a></li>
-                <li class="toc-item"><a href="#best-practices" class="toc-link"><span>13. Best Practices &
+                <li class="toc-item"><a href="#tools-settings" class="toc-link"><span>12. Tools & Settings</span></a>
+                </li>
+                <li class="toc-item"><a href="#advanced" class="toc-link"><span>13. Advanced Features</span></a></li>
+                <li class="toc-item"><a href="#best-practices" class="toc-link"><span>14. Best Practices &
                             Accuracy</span></a></li>
-                <li class="toc-item"><a href="#troubleshoot" class="toc-link"><span>14. Troubleshooting</span></a>
+                <li class="toc-item"><a href="#troubleshoot" class="toc-link"><span>15. Troubleshooting</span></a>
                     <ul class="toc-list">
                         <li class="toc-item"><a href="#troubleshoot-adb" class="toc-link toc-sub-link">ADB &
                                 Connectivity</a></li>
@@ -628,7 +644,7 @@
                         <li class="toc-item"><a href="#troubleshoot-parsing" class="toc-link toc-sub-link">Parsing
                                 Failures</a></li>
                     </ul>
-                <li class="toc-item"><a href="#known-issues" class="toc-link"><span>15. Known Issues & Bugs</span></a>
+                <li class="toc-item"><a href="#known-issues" class="toc-link"><span>16. Known Issues & Bugs</span></a>
                 </li>
             </ul>
         </nav>
@@ -786,10 +802,9 @@
                         <li class="step-item">
                             <h4 class="highlight">Cloud Integration <code class="highlight-orange">(Optional)</code>
                             </h4>
-                            <p>Configure AWS credentials for S3 integration via the
-                                <code>Tools → AWS Configuration</code>
-                                menu. This is now decoupled from your profile, allowing you to switch between different
-                                bucket/credential sets globally.
+                            <p>Configure cloud upload through the <code>AWS Secrets</code> plugin tab, then map each
+                                S3 bucket to a named key. It is like labeling a key on a hook before asking Cerebrus to
+                                carry a report to the matching cloud shelf.
                             </p>
                         </li>
                         <li class="step-item">
@@ -803,7 +818,7 @@
                             <p>Your settings will be auto-saved to the profile JSON file.
                                 <br>
                                 <code
-                                    class="note-orange">Note: AWS Settings are stored in a separate global JSON file and can be replaced or updated without needing to create a new profile.</code>
+                                    class="note-orange">Note: AWS Secrets are managed separately from profiles. Exported .cbx files are JSON bucket/key-alias maps and do not carry secret values.</code>
                             </p>
                         </li>
                     </ol>
@@ -951,13 +966,12 @@
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td class="highlight">AWS Configuration <code
+                                    <td class="highlight">AWS Secrets Plugin <code
                                             class="highlight-orange">(Optional)</code></td>
-                                    <td><code>S3 configuration</code> is now stored as a separate
-                                        <code>global JSON</code>,
-                                        decoupling it from individual profiles. This allows you to maintain and
-                                        select from multiple independent bucket configurations across all your
-                                        projects.
+                                    <td>Cloud upload credentials and bucket mappings live in the
+                                        <code>AWS Secrets</code> plugin, decoupled from individual profiles. A profile
+                                        describes the game and output path; the plugin describes which cloud key can
+                                        open which S3 bucket.
                                     </td>
                                 </tr>
                             </tbody>
@@ -975,9 +989,9 @@
                     <div class="card warning-blue"
                         style="margin-top: 0.5rem; padding: 0.5rem; border-left: 3px solid #3b82f6;">
                         <p style="font-size: 0.9rem; margin-bottom: 0;">
-                            <span class="note-blue">AWS Management:</span> AWS credentials are saved in a separate JSON.
-                            You can maintain multiple AWS files and swap them via the <code>Tools</code> menu to test
-                            different environments or accounts without modifying your core tool profiles.
+                            <span class="note-blue">AWS Management:</span> Cloud credentials are managed by the
+                            <code>AWS Secrets</code> plugin. Use <code>Settings -> Plugins -> AWS Secrets</code> for
+                            plugin settings instead of changing project profiles.
                         </p>
                     </div>
                 </div>
@@ -1264,32 +1278,44 @@
             <section id="perfreport">
                 <span class="badge badge-new">Latest Enhancement</span>
                 <h2>Performance Report Analyzer</h2>
-                <p>Performance Profiling Reports now feature an advanced offline HTML dashboard designed to turn raw FPS time-series data into actionable goals for optimization.</p>
+                <p>Performance Profiling Reports feature an advanced offline HTML dashboard designed to turn raw FPS
+                    time-series data into actionable goals for optimization.</p>
 
-                <div class="features-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 1rem;">
+                <div class="features-grid"
+                    style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 1rem;">
                     <div id="perfreport-tabs" class="card" style="padding: 1.5rem; border-style: dashed;">
                         <h4 class="highlight">Tabbed Reporting Interface</h4>
                         <ul style="font-size: 0.9rem; margin-top: 0.5rem; margin-left: 1.2rem;">
-                            <li><strong>Performance Report:</strong> Original interactive hitches and stats graphs.</li>
-                            <li><strong>Raw CSV Data:</strong> Directly embeds your original <code class="highlight-blue">.csv</code> data into the HTML codebase directly.</li>
-                            <li><strong>Offline Download:</strong> One-click frontend tool to securely extract and save the embedded telemetry data straight to your local PC.</li>
+                            <li><strong>Performance Report:</strong> Original interactive hitches and stats graphs.
+                            </li>
+                            <li><strong>Raw CSV Data:</strong> Directly embeds your original
+                                <code class="highlight-blue">.csv</code> data into the HTML report.</li>
+                            <li><strong>Offline Download:</strong> One-click frontend tool to extract and save the
+                                embedded telemetry data straight to your local PC.</li>
                         </ul>
                     </div>
 
                     <div id="perfreport-stats" class="card" style="padding: 1.5rem; border-style: dashed;">
                         <h4 class="highlight">Statistical Dashboards</h4>
                         <ul style="font-size: 0.9rem; margin-top: 0.5rem; margin-left: 1.2rem;">
-                            <li><strong>Standard Deviation (SD):</strong> Displays average spread of frame times to analyze general consistency.</li>
-                            <li><strong>Interquartile Range (IQR):</strong> Ignores crazy outliers to analyze the core 50% gameplay stability block.</li>
-                            <li><strong>Percentile Lows:</strong> The <code class="highlight-orange">1st</code> and <code class="highlight-orange">5th</code> percentiles dynamically emphasize catastrophic stutters vs smooth gameplay.</li>
+                            <li><strong>Standard Deviation (SD):</strong> Displays average spread of frame times to
+                                analyze general consistency.</li>
+                            <li><strong>Interquartile Range (IQR):</strong> Ignores extreme outliers to analyze the
+                                core 50% gameplay stability block.</li>
+                            <li><strong>Percentile Lows:</strong> The <code class="highlight-orange">1st</code> and
+                                <code class="highlight-orange">5th</code> percentiles emphasize catastrophic stutters
+                                versus smooth gameplay.</li>
                         </ul>
                     </div>
 
                     <div id="perfreport-ab" class="card" style="padding: 1.5rem; border-style: dashed;">
-                        <h4 class="highlight">A/B Comparisons <span class="badge badge-core" style="margin-bottom: 0px; font-size: 0.6rem; padding: 0.15rem 0.6rem;">WIP</span></h4>
+                        <h4 class="highlight">A/B Comparisons <span class="badge badge-core"
+                                style="margin-bottom: 0px; font-size: 0.6rem; padding: 0.15rem 0.6rem;">WIP</span></h4>
                         <ul style="font-size: 0.9rem; margin-top: 0.5rem; margin-left: 1.2rem;">
-                            <li><strong>Intelligent Validation:</strong> Actively reads <code class="highlight-blue">DeviceProfile</code> telemetry from both runs.</li>
-                            <li><strong>Match Guard:</strong> Blocks generating an A/B Stat report if hardware <code class="highlight-red">metadata mismatches</code> to preserve data integrity.</li>
+                            <li><strong>Intelligent Validation:</strong> Reads
+                                <code class="highlight-blue">DeviceProfile</code> telemetry from both runs.</li>
+                            <li><strong>Match Guard:</strong> Blocks generating an A/B stat report if hardware
+                                <code class="highlight-red">metadata mismatches</code> to preserve data integrity.</li>
                         </ul>
                     </div>
                 </div>
@@ -1311,27 +1337,173 @@ t.MaxFPS 30        // Lock framerate for consistency</code></pre>
                 </div>
             </section>
 
+            <section id="plugins">
+                <span class="badge badge-new">Plugin System</span>
+                <h2>Plugin System</h2>
+                <p>Plugins are the extra workbenches inside Cerebrus. The core app keeps the device, profile, and
+                    report workflow steady; plugins add focused tabs for special jobs.</p>
+
+                <div id="plugin-overview" class="card warning-cyan" style="border-left: 4px solid #06b6d4;">
+                    <h3>How Plugins Work</h3>
+                    <p>Think of Cerebrus as a little workshop garden:</p>
+                    <ul>
+                        <li><span class="highlight">The main app is the garden path.</span> It connects profiles,
+                            devices, file pulls, console commands, and report generation.</li>
+                        <li><span class="highlight">Each plugin is a tool shed.</span> If the shed is enabled, its tab
+                            appears in the interface with the tools for that job.</li>
+                        <li><span class="highlight">Plugin settings are the labels on the shed door.</span> They live
+                            under <code>Settings -> Plugins</code> when the plugin exposes settings.</li>
+                        <li><span class="highlight">Plugin markdown lives with the plugin.</span> Detailed plugin notes
+                            belong beside the plugin code under <code>cerebrus/plugins</code>, so the instructions move
+                            with the feature they explain.</li>
+                    </ul>
+                </div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Plugin</th>
+                                <th>Plain-English Job</th>
+                                <th>Where To Learn More</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="highlight">Profiling</td>
+                                <td>The main workbench for launch, kill, console commands, CSV captures, memreports,
+                                    file movement, and report generation.</td>
+                                <td><code>cerebrus/plugins/profiling.md</code></td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">AWS Secrets</td>
+                                <td>The key locker. It stores friendly key labels and maps each S3 bucket to the key
+                                    that should open it.</td>
+                                <td><code>cerebrus/plugins/aws_secrets.md</code></td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">S3 Uploader - Profiling Reports</td>
+                                <td>The delivery cart. It picks up one generated HTML report and sends it to the
+                                    selected S3 bucket path.</td>
+                                <td><code>cerebrus/plugins/s3_uploader.md</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="plugin-aws-secrets" class="card">
+                    <h3>AWS Secrets</h3>
+                    <p><span class="highlight">Storybook version:</span> AWS Secrets is the locked cupboard. You put a
+                        cloud key inside, give that key a simple nickname, then tell Cerebrus which bucket that key can
+                        open.</p>
+                    <ol class="steps">
+                        <li class="step-item">
+                            <h4 class="highlight">Open the AWS Secrets tab</h4>
+                            <p>Add a key alias, access key ID, and secret access key. Use a clear alias such as
+                                <code>perf-prod-upload</code> or <code>qa-bucket-readwrite</code>.</p>
+                        </li>
+                        <li class="step-item">
+                            <h4 class="highlight">Add a bucket mapping</h4>
+                            <p>Choose the bucket name, region, and key alias. This tells the S3 Uploader which key
+                                belongs to which destination.</p>
+                        </li>
+                        <li class="step-item">
+                            <h4 class="highlight">Manage plugin settings</h4>
+                            <p>Use <code>Settings -> Plugins -> AWS Secrets</code> for AWS plugin settings, import, and
+                                export actions.</p>
+                        </li>
+                    </ol>
+                    <div class="card warning-red" style="border-left: 4px solid #ef4444;">
+                        <h4 class="highlight-red">Secret Handling Warning</h4>
+                        <p style="font-size: 0.95rem;">Never attach AWS keys or local secret files to bug reports.
+                            Exported <code>.cbx</code> files are explicit JSON maps with
+                            <code>contains_secret_values: false</code>; after importing one, re-enter any missing
+                            credentials locally.</p>
+                    </div>
+                </div>
+
+                <div id="plugin-s3-uploader" class="card">
+                    <h3>S3 Uploader - Profiling Reports</h3>
+                    <p><span class="highlight">Storybook version:</span> S3 Uploader is the delivery cart. It takes one
+                        finished HTML report, checks the small metadata label inside the report, builds a tidy cloud
+                        folder, and delivers the report to the chosen bucket.</p>
+                    <ol class="steps">
+                        <li class="step-item">
+                            <h4 class="highlight">Choose a generated HTML report</h4>
+                            <p>Use a report created by Cerebrus whenever possible. These reports can include hidden
+                                metadata such as build configuration, device make/model, changelist, date, and time.</p>
+                        </li>
+                        <li class="step-item">
+                            <h4 class="highlight">Pick a bucket mapping</h4>
+                            <p>Select a bucket that was already mapped in AWS Secrets. The uploader uses that mapping
+                                to find credentials and region.</p>
+                        </li>
+                        <li class="step-item">
+                            <h4 class="highlight">Review the destination</h4>
+                            <p>The expected cloud shelf looks like this:</p>
+                            <pre><code>BuildConfiguration/DeviceMake/DeviceModel/Changelist/Date/Time/Filename.html</code></pre>
+                        </li>
+                        <li class="step-item">
+                            <h4 class="highlight">Upload the report</h4>
+                            <p>Click <code>Upload Performance Report to S3</code>. If the report has no Cerebrus
+                                metadata, choose the folder path carefully before upload.</p>
+                        </li>
+                    </ol>
+                    <div class="card warning-orange" style="border-left: 4px solid #f59e0b;">
+                        <h4 class="highlight-orange">Metadata Note</h4>
+                        <p style="font-size: 0.95rem;">The hidden metadata block is just a label. It helps Cerebrus make
+                            neat S3 paths, but it is not a security boundary and it is not a substitute for checking the
+                            destination before upload.</p>
+                    </div>
+                </div>
+
+                <div id="plugin-docs-tests" class="features-grid"
+                    style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1rem;">
+                    <div class="card warning-blue" style="border-left: 4px solid #3b82f6;">
+                        <h3>Plugin Markdown Ownership</h3>
+                        <p>Plugin-specific markdown should live under <code>cerebrus/plugins</code>. The user guide gives
+                            the guided tour; the plugin markdown gives the exact notes for the feature.</p>
+                        <ul style="font-size: 0.9rem;">
+                            <li><code>cerebrus/plugins/README.md</code>: plugin system overview.</li>
+                            <li><code>cerebrus/plugins/aws_secrets.md</code>: AWS Secrets details.</li>
+                            <li><code>cerebrus/plugins/s3_uploader.md</code>: S3 Uploader details.</li>
+                            <li><code>cerebrus/plugins/TESTING.md</code>: plugin test expectations.</li>
+                        </ul>
+                    </div>
+                    <div class="card warning-orange" style="border-left: 4px solid #f59e0b;">
+                        <h3>Plugin Test Expectations</h3>
+                        <p>New plugin work should include tests for discovery, settings, resource loading, and the main
+                            success/failure paths. For AWS and S3 plugins, also test secret import/export behavior,
+                            bucket mapping, missing dependency messages, upload destination construction, and metadata
+                            handling.</p>
+                    </div>
+                </div>
+            </section>
+
             <section id="tools-settings">
                 <h2>Tools & Settings</h2>
                 <div id="tools" class="card">
                     <h3>Tools</h3>
                     <p>Access additional utilities from the <code>Tools Menu</code>.</p>
-                    <h4 class="highlight" style="margin-top: 1.5rem;">AWS Configuration <code
+                    <h4 class="highlight" style="margin-top: 1.5rem;">AWS Secrets Plugin <code
                             class="highlight-orange">(Optional)</code></h4>
-                    <p style="font-size: 0.95rem;">Configure AWS credentials for S3 integration.</p>
+                    <p style="font-size: 0.95rem;">Manage cloud upload keys and bucket mappings through
+                        <code>Settings -> Plugins -> AWS Secrets</code> and the <code>AWS Secrets</code> tab.
+                    </p>
                     <ul style="font-size: 0.9rem;">
                         <li><strong>S3 Bucket URL:</strong> The base URL for your S3 bucket (e.g., for config
                             downloads).</li>
                         <li><strong>Access Key / Secret Key:</strong> Your AWS credentials.</li>
                         <li><strong>Region:</strong> The AWS region for your resources.</li>
                     </ul>
-                    <p style="font-size: 0.9rem; margin-top: 1rem;">These settings are used for resolving remote
-                        configurations and other cloud-integrated features.</p>
+                    <p style="font-size: 0.9rem; margin-top: 1rem;">These settings are used by the S3 Uploader plugin
+                        when sending generated HTML reports to cloud storage.</p>
                     <div class="card warning-orange"
                         style="margin-top: 0.5rem; padding: 0.5rem; font-size: 0.85rem; color: var(--text-muted);">
-                        <span class="note-orange">Note:</span> <code>S3 configuration</code> is now stored as a separate
-                        <code>global JSON</code>, decoupling it from individual profiles. This allows you to maintain
-                        and select from multiple independent bucket configurations across all your projects.
+                        <span class="note-orange">Deprecated wording:</span> Older guides called this
+                        <code>Tools -> AWS Configuration</code>. The current runtime workflow is plugin-based:
+                        <code>AWS Secrets</code> stores the key labels and bucket mappings, then
+                        <code>S3 Uploader - Profiling Reports</code> uses them.
                     </div>
                 </div>
 

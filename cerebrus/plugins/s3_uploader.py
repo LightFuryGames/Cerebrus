@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from typing import Optional
 
 import dearpygui.dearpygui as dpg
@@ -13,6 +14,74 @@ from cerebrus.ui.themes import get_theme_manager
 from cerebrus.ui.components.shared import log_message
 import json
 from pathlib import Path
+
+
+def _extract_report_metadata(content: str) -> dict:
+    """Extract Cerebrus report metadata from embedded JSON or legacy stat cards."""
+    meta_match = re.search(
+        r'<script type="application/json" id="cerebrus-metadata">(.*?)</script>',
+        content,
+        re.DOTALL,
+    )
+    if meta_match:
+        return json.loads(meta_match.group(1).strip())
+
+    patterns = {
+        "Build Configuration": r'<div class="stat-label">Build Configuration</div>\s*<div class="stat-value">(.*?)</div>',
+        "Device Make": r'<div class="stat-label">Device Make</div>\s*<div class="stat-value">(.*?)</div>',
+        "Device Model": r'<div class="stat-label">Device Model</div>\s*<div class="stat-value">(.*?)</div>',
+        "Changelist": r'<div class="stat-label">Changelist</div>\s*<div class="stat-value">(.*?)</div>',
+        "Date": r'<div class="stat-label">Date</div>\s*<div class="stat-value">(.*?)</div>',
+    }
+    metadata = {}
+    for key, pattern in patterns.items():
+        match = re.search(pattern, content, re.IGNORECASE)
+        if match:
+            metadata[key] = match.group(1).strip()
+    return metadata
+
+
+def _sanitize_s3_path_part(value: object) -> str:
+    """Sanitize one metadata value for an S3 path segment."""
+    return str(value).replace(" ", "_").replace("/", "_").replace("\\", "_")
+
+
+def _derive_s3_dir_from_metadata(metadata: dict) -> str:
+    """Build the data-driven S3 directory from Cerebrus report metadata."""
+    config = metadata.get("Build Configuration", "UnknownConfig")
+    make = metadata.get("Device Make", "UnknownMake")
+    model = metadata.get("Device Model", "UnknownModel")
+    cl = metadata.get("Changelist", "UnknownCL")
+    date_val = metadata.get("Date", "UnknownDate")
+
+    date_part = "UnknownDate"
+    time_part = "UnknownTime"
+    if "-" in str(date_val):
+        date_part, time_part = str(date_val).split("-", 1)
+
+    return "/".join(
+        _sanitize_s3_path_part(part)
+        for part in [config, make, model, cl, date_part, time_part]
+    )
+
+
+def _upload_file_to_s3(
+    s3_client,
+    source_path: str,
+    bucket_name: str,
+    s3_key: str,
+    content_type: str | None = None,
+) -> None:
+    """Upload a file without mutating the report content."""
+    if content_type:
+        s3_client.upload_file(
+            source_path,
+            bucket_name,
+            s3_key,
+            ExtraArgs={"ContentType": content_type},
+        )
+    else:
+        s3_client.upload_file(source_path, bucket_name, s3_key)
 
 def load_plugin_tooltips(filename: str) -> dict:
     try:
@@ -114,54 +183,21 @@ class S3UploaderPlugin(TabPlugin):
                     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                         content = f.read()
                     
-                    import re
                     # Check generator signature (flexible with quotes)
                     is_cerebrus = re.search(r'meta\s+name=["\']generator["\']\s+content=["\']Cerebrus Profiling Tool["\']', content)
                     if not is_cerebrus:
                         log_message(state, "WARNING", "Non-Cerebrus HTML selected. Attempting to backtrack metadata from content...")
 
-                    # Extract metadata - Try JSON first
-                    meta_match = re.search(r'<script type="application/json" id="cerebrus-metadata">(.*?)</script>', content, re.DOTALL)
-                    metadata = {}
-                    if meta_match:
-                        metadata = json.loads(meta_match.group(1).strip())
-                    else:
-                        # Backtrack: Try to extract from stat-cards in HTML content
-                        # This works for legacy Cerebrus reports too
-                        patterns = {
-                            "Build Configuration": r'<div class="stat-label">Build Configuration</div>\s*<div class="stat-value">(.*?)</div>',
-                            "Device Make": r'<div class="stat-label">Device Make</div>\s*<div class="stat-value">(.*?)</div>',
-                            "Device Model": r'<div class="stat-label">Device Model</div>\s*<div class="stat-value">(.*?)</div>',
-                            "Changelist": r'<div class="stat-label">Changelist</div>\s*<div class="stat-value">(.*?)</div>',
-                            "Date": r'<div class="stat-label">Date</div>\s*<div class="stat-value">(.*?)</div>'
-                        }
-                        for key, pattern in patterns.items():
-                            match = re.search(pattern, content, re.IGNORECASE)
-                            if match:
-                                metadata[key] = match.group(1).strip()
+                    metadata = _extract_report_metadata(content)
 
                     if metadata:
-                        config = metadata.get("Build Configuration", "UnknownConfig")
-                        make = metadata.get("Device Make", "UnknownMake")
-                        model = metadata.get("Device Model", "UnknownModel")
                         cl = metadata.get("Changelist", "UnknownCL")
-                        date_val = metadata.get("Date", "UnknownDate")
                         
                         # Warn if CL is 0
                         if str(cl) == "0":
                             _show_popup("Build Warning", "The Changelist number in this report is '0'. This usually indicates a corrupted build or a local developer build. Please confirm if you want to upload this to the production bucket.", color=[255, 150, 0])
 
-                        date_part = "UnknownDate"
-                        time_part = "UnknownTime"
-                        if "-" in date_val:
-                            parts = date_val.split("-")
-                            date_part = parts[0]
-                            time_part = parts[1]
-                        
-                        def sanitize_path(s):
-                            return str(s).replace(" ", "_").replace("/", "_").replace("\\", "_")
-
-                        derived_dir = f"{sanitize_path(config)}/{sanitize_path(make)}/{sanitize_path(model)}/{sanitize_path(cl)}/{sanitize_path(date_part)}/{sanitize_path(time_part)}"
+                        derived_dir = _derive_s3_dir_from_metadata(metadata)
                         dpg.set_value(dest_dir_tag, derived_dir)
                         log_message(state, "INFO", f"Derived S3 path: {derived_dir}")
                     else:
@@ -245,8 +281,12 @@ class S3UploaderPlugin(TabPlugin):
                             head = f.read(2048) # Just check start
                         if 'meta name="generator" content="Cerebrus Profiling Tool"' not in head:
                             log_message(state, "WARNING", "Uploading non-Cerebrus HTML report. Some features might not work.")
-                    except:
-                        pass
+                    except Exception as e:
+                        log_message(
+                            state,
+                            "WARNING",
+                            f"Could not validate HTML report before upload: {e}",
+                        )
 
                 # Upload Logic
                 file_name = os.path.basename(source_path)
@@ -267,47 +307,14 @@ class S3UploaderPlugin(TabPlugin):
 
                     log_message(state, "INFO", f"Uploading '{source_path}' to 's3://{bucket_name}/{s3_key}' ...")
                     
-                    extra_args = {}
-                    if content_type:
-                        extra_args['ContentType'] = content_type
-                    
-                    # Strip Raw Mem Report to save space (bloat removal)
-                    final_content = None
-                    if source_path.lower().endswith(".html"):
-                        try:
-                            with open(source_path, "r", encoding="utf-8", errors="ignore") as f:
-                                final_content = f.read()
-                            
-                            import re
-                            # Remove the Raw Data tab content (it has 3 nested divs)
-                            # <div id="raw-mem-report" class="tab-content"> ... </div>
-                            final_content = re.sub(r'<div id="raw-mem-report" class="tab-content">.*?</div>\s*</div>\s*</div>', '', final_content, flags=re.DOTALL)
-                            
-                            # Remove the Raw Data navigation group
-                            # <div class="tab-group ..."><div class="group-title">Raw Data</div> ... </div></div>
-                            final_content = re.sub(r'<div class="tab-group[^"]*">\s*<div class="group-title">Raw Data</div>.*?</div>\s*</div>', '', final_content, flags=re.DOTALL)
-                            
-                            log_message(state, "INFO", "Stripped 'Raw Mem Report' section to optimize S3 storage.")
-                        except Exception as e:
-                            log_message(state, "WARNING", f"Failed to strip raw data: {e}. Uploading original file.")
-                            final_content = None
-
-                    if final_content:
-                        log_message(state, "INFO", f"Uploading optimized '{source_path}' to 's3://{bucket_name}/{s3_key}' ...")
-                        s3_client.put_object(
-                            Bucket=bucket_name,
-                            Key=s3_key,
-                            Body=final_content.encode("utf-8"),
-                            ContentType=content_type or 'text/html'
-                        )
-                    else:
-                        log_message(state, "INFO", f"Uploading original '{source_path}' to 's3://{bucket_name}/{s3_key}' ...")
-                        s3_client.upload_file(
-                            source_path, 
-                            bucket_name, 
-                            s3_key,
-                            ExtraArgs=extra_args if extra_args else None
-                        )
+                    log_message(state, "INFO", f"Uploading original '{source_path}' to 's3://{bucket_name}/{s3_key}' ...")
+                    _upload_file_to_s3(
+                        s3_client,
+                        source_path,
+                        bucket_name,
+                        s3_key,
+                        content_type=content_type,
+                    )
                     
                     log_message(state, "SUCCESS", f"Upload successful: {s3_key}")
                     

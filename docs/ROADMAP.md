@@ -12,16 +12,14 @@ Move from a "Local Script Wrapper" to a "Professional Game Development Tool" wit
 - **Organized Output System**: Automatic sorting into `/Profiling` and `/MemReports`.
 - **HTML Report Enhancements**: Dark Mode toggle and Scroll-to-Top functionality.
 - **Native File Dialogs**: Transitioned to native OS dialogs for better UX.
+- **Plugin Architecture**: Modular `PluginManager` with support for dynamic tab registration and custom menus.
+- **AWS S3 Integration**: Secure credential management (AWS Secrets) and automated report uploading (S3 Uploader) with metadata-driven pathing.
 
-## 🚀 Priority 1: Plugin Architecture (Hot-Reloading)
-*Objective: Allow project-specific tabs and parsers to be added without modifying core code.*
+## Documentation Deprecations
+- Old `Tools -> AWS Configuration` instructions are deprecated. Use `Settings -> Plugins -> AWS Secrets` and the `AWS Secrets` tab.
+- Old `Configuration Sync` panel language is deprecated until a runtime plugin or current UI surface owns that workflow.
+- Detailed AWS/S3/plugin documentation now lives in `cerebrus/plugins/`.
 
-- **Goal**: Implement a `PluginManager` that loads Python modules from a `plugins/` directory at runtime.
-- **Requirements**:
-  - Define `IReportTab`, `IDeviceAction`, and `IConfigProvider` protocols.
-  - Support hot-reloading of plugins (detect file changes -> reload module -> refresh UI).
-  - Sandbox plugins to prevent crashing the main app core.
-- **Benefit**: Game teams can add bespoke report tabs (e.g., "InventoryStats") without forking Cerebrus.
 
 ## 🎨 Priority 2: Modular UI Refactor
 *Objective: Decouple UI rendering from business logic to enable scaling and theming.*
@@ -76,6 +74,5 @@ Move from a "Local Script Wrapper" to a "Professional Game Development Tool" wit
 ---
 
 ## 🧊 Backlog (Future)
-- **AWS S3 Integration**: Auto-upload reports for team sharing.
 - **Unreal Insights Integration**: Launch and control Insights from Cerebrus.
 - **Linux Support**: Porting the fast-installer and UI to generic Linux.

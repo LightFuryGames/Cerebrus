@@ -9,7 +9,7 @@ from pathlib import Path
 
 import dearpygui.dearpygui as dpg
 
-from cerebrus.core.plugins import PluginManager
+from cerebrus.core.plugins import MenuPlugin, PluginManager
 from cerebrus.ui.components.dialogs.app.about_dialog import _show_about_dialog
 from cerebrus.ui.components.dialogs.app.updates_dialog import check_for_updates_ui
 from cerebrus.ui.components.dialogs.profile.profile_dialog import (
@@ -187,7 +187,7 @@ def build_menu_bar(state: UIState) -> None:
             with dpg.menu(label="Plugins"):
                 for plugin in PluginManager.get_all_plugins():
                     # If the plugin has a custom menu builder, create a submenu for it
-                    if hasattr(plugin, "build_menu") and callable(getattr(plugin, "build_menu")):
+                    if isinstance(plugin, MenuPlugin):
                         with dpg.menu(label=plugin.name):
                             dpg.add_menu_item(
                                 label="Enable Plugin",

@@ -283,6 +283,14 @@ config/profiles/*.local.json
 # User profile directory (stores last used profile path)
 .cerebrus/
 
+# Cerebrus local secrets and portable internal config exports
+aws_secrets.json
+aws_regions.json
+*.cbx
+
+# Project-local pytest temp workaround used by agents on locked-down Windows hosts
+.pytest_run_tmp/
+
 # Test profiles (optional - remove if you want to commit test profiles)
 **/test_profiles/
 
@@ -346,6 +354,8 @@ cache/
 !cerebrus/cache/**
 !tests/cache/
 !tests/cache/**
+tests/cache/**/__pycache__/
+tests/cache/**/*.py[codz]
 
 ###############################################
 # Installer Artifacts
