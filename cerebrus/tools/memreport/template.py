@@ -7,7 +7,14 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="Cerebrus Profiling Tool">
+    <meta name="report-version" content="1.0.0">
     <title>{title}</title>
+    <!-- CEREBRUS_METADATA_START -->
+    <script type="application/json" id="cerebrus-metadata">
+    {metadata_json}
+    </script>
+    <!-- CEREBRUS_METADATA_END -->
     <style>
         :root {{
             --bg-color: #1e1e1e;

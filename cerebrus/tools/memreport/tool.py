@@ -1,5 +1,7 @@
 import argparse
+import json
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -594,17 +596,83 @@ def generate_html_report(context: Dict[str, Any], output_path: Path):
     </script>
     """
 
+    metadata = context.get("metadata", {})
+    metadata_json = json.dumps(metadata, indent=4)
+
     report_html = HTML_TEMPLATE.format(
-        title=f"MemReport - {context['metadata'].get('Device Name', 'Unknown')}",
+        title=f"MemReport - {metadata.get('Device Name', 'Unknown')}",
         report_title="Memory Report",
         tab_buttons=tab_buttons_html,
         tab_contents=tab_contents_html,
+        metadata_json=metadata_json,
     )
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(report_html)
 
     print(f"Report generated: {output_path}")
+
+
+def process_memreport(
+    input_file: Path,
+    output_dir: Path,
+    report_context: Dict[str, Any] = None,
+    use_as_prefix_only: bool = False,
+    open_report: bool = False,
+):
+    """Core logic for processing a memreport and generating HTML, separated from CLI."""
+    if not input_file.exists():
+        print(f"Error: File not found {input_file}")
+        return None
+
+    if report_context is None:
+        print("Parsing memreport...")
+        report_context = parse_memreport(input_file)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    metadata = report_context.get("metadata", {})
+    build_config = metadata.get("Build Configuration", "UnknownConfig")
+    device_make = metadata.get("Device Make", "UnknownMake")
+    device_model = metadata.get("Device Model", "UnknownModel")
+    cl_number = metadata.get("Changelist", "UnknownCL")
+
+    # Try to use existing Date from metadata, otherwise use current
+    report_date_str = metadata.get("Date")
+    if not report_date_str:
+        report_date_str = datetime.now().strftime("%Y.%m.%d-%H.%M.%S")
+
+    # Format: <Config>_<Device Make>_<Device Model>_<CL Number>_<Date and time>.html
+    # Sanitize for filename
+    def sanitize(s):
+        return str(s).replace(" ", "").replace("/", "_").replace("\\", "_")
+
+    if use_as_prefix_only:
+        output_filename = f"{input_file.stem}.html"
+    else:
+        output_filename = f"{sanitize(build_config)}_{sanitize(device_make)}_{sanitize(device_model)}_{sanitize(cl_number)}_{sanitize(report_date_str)}.html"
+
+    output_file = output_dir / output_filename
+
+    # Versioning Logic: Check if file exists and append v1, v2, etc.
+    if output_file.exists():
+        version = 1
+        while True:
+            candidate_name = f"{output_file.stem}_v{version}{output_file.suffix}"
+            candidate_file = output_dir / candidate_name
+            if not candidate_file.exists():
+                output_file = candidate_file
+                break
+            version += 1
+
+    print(f"Generating HTML {output_file.name}...")
+    generate_html_report(report_context, output_file)
+
+    if open_report:
+        import webbrowser
+        webbrowser.open(f"file://{output_file.resolve()}")
+    
+    return output_file
 
 
 @click.command(name="memreport_to_html")
@@ -620,55 +688,18 @@ def generate_html_report(context: Dict[str, Any], output_path: Path):
 @click.option(
     "--use-as-prefix-only", is_flag=True, help="Use the input filename as a prefix only"
 )
-@click.pass_context
 def generate_html(
-    context: click.Context,
     input_path: str,
     output_dir: str,
     open_report: bool,
     use_as_prefix_only: bool,
 ):
-    input_file = Path(input_path)
-
-    if not input_file.exists():
-        print(f"Error: File not found {input_file}")
-        return
-
-    print("Parsing memreport...")
-    report_context = parse_memreport(input_file)
-
-    output_dir_path = Path(output_dir)
-    output_dir_path.mkdir(parents=True, exist_ok=True)
-
-    if use_as_prefix_only:
-        output_filename = f"{input_file.stem}.html"
-    else:
-        output_filename = f"{input_file.name}.html"
-
-    output_file = output_dir_path / output_filename
-
-    # Versioning Logic: Check if file exists and append v1, v2, etc.
-    # Current behavior overwrites.
-    # New behavior: always fresh file if collision? Or explicit versioning?
-    # User asked: "generate a new report each time with addition of versoin as v1, v2"
-    if output_file.exists():
-        version = 1
-        while True:
-            # Insert version before suffix
-            candidate_name = f"{output_file.stem}_v{version}{output_file.suffix}"
-            candidate_file = output_dir_path / candidate_name
-            if not candidate_file.exists():
-                output_file = candidate_file
-                break
-            version += 1
-
-    print(f"Generating HTML {output_file.name}...")
-    generate_html_report(report_context, output_file)
-
-    if open_report:
-        import webbrowser
-
-        webbrowser.open(f"file://{output_file.resolve()}")
+    process_memreport(
+        input_file=Path(input_path),
+        output_dir=Path(output_dir),
+        open_report=open_report,
+        use_as_prefix_only=use_as_prefix_only,
+    )
 
 
 if __name__ == "__main__":

@@ -62,9 +62,13 @@ class CerebrusApp:
 
         from cerebrus.core.plugins import PluginManager
         from cerebrus.plugins.profiling_plugin import ProfilingPlugin
+        from cerebrus.plugins.aws_secrets import AWSSecretsPlugin
+        from cerebrus.plugins.s3_uploader import S3UploaderPlugin
         from cerebrus.ui.themes import get_theme_manager
 
         PluginManager.register(ProfilingPlugin())
+        PluginManager.register(AWSSecretsPlugin())
+        PluginManager.register(S3UploaderPlugin())
         PluginManager.initialize()
 
         get_theme_manager().apply_theme(mode="Dark")

@@ -37,6 +37,7 @@ class PluginManager:
 
     _plugins: dict[str, TabPlugin] = {}
     _enabled_plugins: set[str] = set()
+    _known_plugins: set[str] = set()
     _initialized: bool = False
     _schema_version: str = "1.0"
 
@@ -57,8 +58,8 @@ class PluginManager:
                 with open(cache_path, "r") as f:
                     data = json.load(f)
 
-                # Basic migration checking using schema_version could happen here
                 plugins_data = data.get("plugins", {})
+                cls._known_plugins = set(plugins_data.keys())
                 cls._enabled_plugins = set(
                     plugin_id
                     for plugin_id, p_info in plugins_data.items()
@@ -66,12 +67,13 @@ class PluginManager:
                 )
             except Exception as e:
                 print(f"Error loading plugins cache: {e}")
-                cls._enabled_plugins = {"profiling"}  # Fallback
+                cls._enabled_plugins = {"profiling"}
+                cls._known_plugins = {"profiling"}
         else:
-            cls._enabled_plugins = {"profiling"}  # Default
+            cls._enabled_plugins = {"profiling"}
+            cls._known_plugins = {"profiling"}
 
         cls._initialized = True
-        cls._save_cache()
 
     @classmethod
     def _save_cache(cls) -> None:
@@ -98,10 +100,14 @@ class PluginManager:
     @classmethod
     def register(cls, plugin: TabPlugin) -> None:
         """Register a new plugin."""
+        cls.initialize()
         cls._plugins[plugin.id] = plugin
 
-        # If it's the first time running and not in config, we could enable it by default
-        # But for now, we rely on the config "enabled_plugins" list which defaults to ["profiling"]
+        # If it's a new plugin (not tracked in config at all), enable it by default
+        if plugin.id not in cls._known_plugins:
+            cls._enabled_plugins.add(plugin.id)
+            cls._known_plugins.add(plugin.id)
+            cls._save_cache()
 
     @classmethod
     def get_all_plugins(cls) -> list[TabPlugin]:

@@ -186,15 +186,31 @@ def build_menu_bar(state: UIState) -> None:
             dpg.add_separator()
             with dpg.menu(label="Plugins"):
                 for plugin in PluginManager.get_all_plugins():
-                    dpg.add_menu_item(
-                        label=plugin.name,
-                        check=True,
-                        default_value=PluginManager.is_enabled(plugin.id),
-                        callback=lambda s, a, u: _safe_run(
-                            state, lambda: _handle_plugin_toggle(state, u, a)
-                        ),
-                        user_data=plugin.id,
-                    )
+                    # If the plugin has a custom menu builder, create a submenu for it
+                    if hasattr(plugin, "build_menu") and callable(getattr(plugin, "build_menu")):
+                        with dpg.menu(label=plugin.name):
+                            dpg.add_menu_item(
+                                label="Enable Plugin",
+                                check=True,
+                                default_value=PluginManager.is_enabled(plugin.id),
+                                callback=lambda s, a, u: _safe_run(
+                                    state, lambda: _handle_plugin_toggle(state, u, a)
+                                ),
+                                user_data=plugin.id,
+                            )
+                            dpg.add_separator()
+                            plugin.build_menu(state)
+                    else:
+                        # Otherwise, just render a standard toggle item
+                        dpg.add_menu_item(
+                            label=plugin.name,
+                            check=True,
+                            default_value=PluginManager.is_enabled(plugin.id),
+                            callback=lambda s, a, u: _safe_run(
+                                state, lambda: _handle_plugin_toggle(state, u, a)
+                            ),
+                            user_data=plugin.id,
+                        )
 
         with dpg.menu(label="Help"):
             dpg.add_menu_item(
