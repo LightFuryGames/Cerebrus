@@ -12,6 +12,7 @@ from typing import Optional
 import dearpygui.dearpygui as dpg
 
 from cerebrus.core.plugins import TabPlugin
+from cerebrus.ui.components.file_manager import _open_folder_in_explorer
 from cerebrus.ui.state import UIState
 from cerebrus.ui.themes import get_theme_manager
 from cerebrus.ui.components.shared import (
@@ -281,6 +282,44 @@ class S3UploaderPlugin(TabPlugin):
                 except Exception as e:
                     log_message(state, "ERROR", f"Failed to browse file: {e}")
 
+            def _coerce_dropped_path(app_data) -> str:
+                if isinstance(app_data, (list, tuple)) and app_data:
+                    app_data = app_data[0]
+                if isinstance(app_data, dict):
+                    app_data = (
+                        app_data.get("file_path_name")
+                        or app_data.get("path")
+                        or app_data.get("payload")
+                    )
+                return str(app_data or "").strip().strip('"')
+
+            def _handle_file_drop(sender, app_data, user_data):
+                file_path = _coerce_dropped_path(app_data)
+                if not file_path:
+                    return
+                if expected_exts and not file_path.lower().endswith(expected_exts):
+                    log_message(
+                        state,
+                        "ERROR",
+                        f"Dropped file must be one of: {', '.join(expected_exts)}",
+                    )
+                    return
+                dpg.set_value(file_path_tag, file_path)
+                _derive_path_from_file(file_path)
+
+            def _open_selected_folder():
+                source_path = Path(dpg.get_value(file_path_tag) or "")
+                if source_path.is_file():
+                    _open_folder_in_explorer(source_path.parent)
+                elif source_path.is_dir():
+                    _open_folder_in_explorer(source_path)
+                else:
+                    initial_path = Path(state.output_path)
+                    if initial_path.exists():
+                        _open_folder_in_explorer(initial_path)
+                    else:
+                        log_message(state, "ERROR", "No existing folder to open.")
+
             def _derive_path_from_file(file_path: str):
                 if not file_path.lower().endswith(".html"):
                     return
@@ -365,31 +404,37 @@ class S3UploaderPlugin(TabPlugin):
                 borders_innerV=False,
                 borders_outerV=False,
             ):
-                dpg.add_table_column(width_fixed=True, init_width_or_weight=150)
+                dpg.add_table_column(width_fixed=True, init_width_or_weight=130)
+                dpg.add_table_column(width_fixed=True, init_width_or_weight=30)
                 dpg.add_table_column(width_stretch=True, init_width_or_weight=1.0)
 
                 with dpg.table_row():
-                    with dpg.group(horizontal=True, horizontal_spacing=4):
-                        dpg.add_text("Source File:")
-                        add_plugin_help_button(S3_TOOLTIPS, "s3_source_file")
+                    dpg.add_text("Source File:")
+                    add_plugin_help_button(S3_TOOLTIPS, "s3_source_file")
 
                     with dpg.group(horizontal=True):
-                        dpg.add_input_text(tag=file_path_tag, width=400, hint=hint_file)
+                        dpg.add_input_text(
+                            tag=file_path_tag,
+                            width=760,
+                            hint=f"{hint_file} or drag an HTML file here",
+                            drop_callback=_handle_file_drop,
+                        )
                         dpg.add_button(label="Browse", callback=_browse_file)
+                        dpg.add_button(
+                            label="Open Folder", callback=_open_selected_folder
+                        )
 
                 with dpg.table_row():
-                    with dpg.group(horizontal=True, horizontal_spacing=4):
-                        dpg.add_text("Target Bucket:")
-                        add_plugin_help_button(S3_TOOLTIPS, "s3_target_bucket")
+                    dpg.add_text("Target Bucket:")
+                    add_plugin_help_button(S3_TOOLTIPS, "s3_target_bucket")
 
-                    dpg.add_combo(tag=bucket_combo_tag, items=buckets, width=400)
+                    dpg.add_combo(tag=bucket_combo_tag, items=buckets, width=760)
 
                 with dpg.table_row():
-                    with dpg.group(horizontal=True, horizontal_spacing=4):
-                        dpg.add_text("Destination Path:")
-                        add_plugin_help_button(S3_TOOLTIPS, "s3_dest_path")
+                    dpg.add_text("Destination Path:")
+                    add_plugin_help_button(S3_TOOLTIPS, "s3_dest_path")
 
-                    dpg.add_input_text(tag=dest_dir_tag, hint=hint_dest, width=400)
+                    dpg.add_input_text(tag=dest_dir_tag, hint=hint_dest, width=760)
 
             dpg.add_spacer(height=15)
 

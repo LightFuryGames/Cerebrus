@@ -7,12 +7,17 @@
         },
         "bulk_actions_left_child": {
             "border": true,
-            "autosize_y": true,
+            "height": 195,
             "width": 360
         },
         "bulk_actions_right_child": {
             "border": true,
-            "autosize_y": true,
+            "height": 195,
+            "width": 460
+        },
+        "local_report_comparison_child": {
+            "border": true,
+            "height": 195,
             "width": 460
         }
     }

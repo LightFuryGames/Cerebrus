@@ -13,9 +13,7 @@
         "button_width_xlarge": 200,
         "input_width_standard": 200,
         "input_width_wide": 300,
-        "input_width_xlarge": 400,
-        "tab_container_height": 450,
-        "logs_container_height": 250
+        "input_width_xlarge": 400
     },
     "tables": {
         "policy_stretch": "dpg.mvTable_SizingStretchProp",

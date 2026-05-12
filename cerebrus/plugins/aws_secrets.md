@@ -41,6 +41,7 @@ In the menu, users can:
 
 - Local plugin data is stored under `%LOCALAPPDATA%/Cerebrus`.
 - Secret values use Windows DPAPI through `pywin32`.
+- Saved credentials are unique by alias, access key ID, and secret access key. Imports skip credential entries that would duplicate an existing local credential.
 - If DPAPI is unavailable, Cerebrus refuses to persist new AWS keys instead of writing plaintext secrets.
 - `.cbx` export files are explicit JSON transfer files. They contain bucket mappings, key aliases, schema metadata, and `contains_secret_values: false`.
 - `.cbx` export files do not contain AWS access key IDs or secret access keys. After import, users may need to re-enter credentials for the imported aliases.
@@ -82,6 +83,8 @@ In the menu, users can:
 
 - `.cbx` exports do not contain secret values.
 - Imports preserve existing local credentials.
+- Imports skip duplicate credential entries.
+- New key saving rejects duplicate aliases, access key IDs, and secret access keys.
 - Bucket display labels include region to avoid ambiguity.
 - New key saving is refused when DPAPI is unavailable.
 

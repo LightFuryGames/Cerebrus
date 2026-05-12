@@ -22,7 +22,7 @@ def _show_ab_compare_dialog(state: UIState) -> None:
 
     with dpg.window(
         tag=dialog_id,
-        label="Generate A/B Compare Report (WIP)",
+        label="Generate A/B Compare Report",
         modal=True,
         show=True,
         no_collapse=True,

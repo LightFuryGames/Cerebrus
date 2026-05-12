@@ -199,12 +199,14 @@ def _build_profiling_tab(state: UIState) -> None:
 
         with dpg.group(horizontal=True, horizontal_spacing=12):
             with dpg.child_window(
-                **config.get_component_settings("bulk_actions_left_child")
+                tag="bulk_actions_left_panel",
+                **config.get_component_settings("bulk_actions_left_child"),
             ):
                 dpg.bind_item_theme(
                     dpg.add_text("Bulk Actions From Selected Phone to PC"),
                     tm.get_subheader_theme(),
                 )
+                dpg.add_spacer(height=4)
                 with dpg.table(
                     header_row=False, policy=config.get_table_policy("policy_fixed")
                 ):
@@ -242,11 +244,13 @@ def _build_profiling_tab(state: UIState) -> None:
                         _add_help_button("move_logs")
 
             with dpg.child_window(
-                **config.get_component_settings("bulk_actions_right_child")
+                tag="bulk_actions_right_panel",
+                **config.get_component_settings("bulk_actions_right_child"),
             ):
                 dpg.bind_item_theme(
                     dpg.add_text("Bulk Actions From PC to PC"), tm.get_subheader_theme()
                 )
+                dpg.add_spacer(height=4)
                 with dpg.table(
                     header_row=False, policy=config.get_table_policy("policy_fixed")
                 ):
@@ -299,10 +303,25 @@ def _build_profiling_tab(state: UIState) -> None:
                         )
                         _add_help_button("view_html_logs")
 
+            with dpg.child_window(
+                tag="local_report_comparison_panel",
+                **config.get_component_settings("local_report_comparison_child"),
+            ):
+                dpg.bind_item_theme(
+                    dpg.add_text("Local Report Comparison (WIP-Early Access)"),
+                    tm.get_subheader_theme(),
+                )
+                dpg.add_spacer(height=4)
+                with dpg.table(
+                    header_row=False, policy=config.get_table_policy("policy_fixed")
+                ):
+                    dpg.add_table_column(width_fixed=True, init_width_or_weight=360)
+                    dpg.add_table_column(width_fixed=True, init_width_or_weight=30)
+
                     with dpg.table_row():
                         dpg.add_button(
-                            label="Generate A/B Compare Report (WIP)",
-                            width=300,
+                            label="Generate A/B Compare Report (WIP-Early Access)",
+                            width=350,
                             callback=lambda: _show_ab_compare_dialog(state),
                         )
                         _add_help_button("generate_ab_compare")

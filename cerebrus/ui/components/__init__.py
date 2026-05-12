@@ -16,6 +16,7 @@ from .file_manager import (
     _open_profile_folder,
 )
 from .layout import (
+    apply_responsive_layout,
     build_file_actions,
     build_profile_summary,
     setup_fonts,

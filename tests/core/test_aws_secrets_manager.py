@@ -40,6 +40,46 @@ def test_export_data_does_not_write_secret_values(tmp_path):
     assert payload["keys"]["team"]["requires_reentry"] is True
 
 
+def test_export_data_skips_duplicate_secret_entries(tmp_path):
+    manager = make_manager(tmp_path)
+    manager.data = {
+        "keys": {
+            "team": {
+                "alias": "team",
+                "access_key": "AKIA_TEST",
+                "secret_key": "SECRET_TEST",
+            },
+            "duplicate-access": {
+                "alias": "duplicate-access",
+                "access_key": "AKIA_TEST",
+                "secret_key": "OTHER_SECRET",
+            },
+            "duplicate-secret": {
+                "alias": "duplicate-secret",
+                "access_key": "OTHER_AKIA",
+                "secret_key": "SECRET_TEST",
+            },
+        },
+        "buckets": [
+            {"name": "perf-reports", "region": "ap-south-1", "key_alias": "team"},
+            {
+                "name": "duplicate-bucket",
+                "region": "ap-south-1",
+                "key_alias": "duplicate-access",
+            },
+        ],
+    }
+
+    export_path = tmp_path / "aws.cbx"
+    assert manager.export_data(export_path) is True
+
+    payload = json.loads(export_path.read_text())
+    assert set(payload["keys"]) == {"team"}
+    assert payload["buckets"] == [
+        {"name": "perf-reports", "region": "ap-south-1", "key_alias": "team"}
+    ]
+
+
 def test_import_data_preserves_existing_key_secret_values(tmp_path):
     manager = make_manager(tmp_path)
     manager.data = {
@@ -78,6 +118,68 @@ def test_import_data_preserves_existing_key_secret_values(tmp_path):
     assert manager.data["buckets"] == [
         {"name": "perf-reports", "region": "us-east-1", "key_alias": "team"}
     ]
+
+
+def test_import_data_skips_duplicate_secret_entries(tmp_path):
+    manager = make_manager(tmp_path)
+    manager.data = {
+        "keys": {
+            "team": {
+                "alias": "team",
+                "access_key": "EXISTING_AK",
+                "secret_key": "EXISTING_SK",
+            }
+        },
+        "buckets": [],
+    }
+    manager.save = lambda: True
+
+    import_path = tmp_path / "legacy.cbx"
+    import_path.write_text(
+        json.dumps(
+            {
+                "keys": {
+                    "duplicate-access": {
+                        "alias": "duplicate-access",
+                        "access_key": "EXISTING_AK",
+                        "secret_key": "NEW_SK",
+                    },
+                    "duplicate-secret": {
+                        "alias": "duplicate-secret",
+                        "access_key": "NEW_AK",
+                        "secret_key": "EXISTING_SK",
+                    },
+                    "new-team": {
+                        "alias": "new-team",
+                        "access_key": "NEW_AK_2",
+                        "secret_key": "NEW_SK_2",
+                    },
+                },
+                "buckets": [],
+            }
+        )
+    )
+
+    assert manager.import_data(import_path) == ""
+    assert set(manager.data["keys"]) == {"team", "new-team"}
+
+
+def test_add_key_rejects_duplicate_alias_access_key_and_secret_key(tmp_path):
+    manager = make_manager(tmp_path)
+    manager.data["keys"]["team"] = {
+        "alias": "team",
+        "access_key": "AKIA_TEST",
+        "secret_key": "SECRET_TEST",
+    }
+    manager._local_encryption_available = lambda: True
+    manager.save = lambda: True
+
+    assert "alias already exists" in manager.add_key("team", "AKIA_NEW", "SECRET_NEW")
+    assert "Access Key ID" in manager.add_key("other", "AKIA_TEST", "SECRET_NEW")
+    assert "Secret Access Key" in manager.add_key("other", "AKIA_NEW", "SECRET_TEST")
+
+    assert manager.add_key("other", "AKIA_NEW", "SECRET_NEW") == ""
+    assert set(manager.data["keys"]) == {"team", "other"}
 
 
 def test_bucket_display_names_include_region_to_avoid_ambiguity(tmp_path):

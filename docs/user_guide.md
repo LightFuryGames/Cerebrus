@@ -60,6 +60,7 @@ For detailed plugin help, see:
 Think of AWS Secrets as the key locker. You give a key a friendly label, then map that label to an S3 bucket. The uploader later asks the locker for the right key.
 
 - **Key Alias**: A friendly name for one AWS access key pair.
+- **Unique Credentials**: Key aliases, access key IDs, and secret access keys cannot be duplicated, including during imports.
 - **Bucket Mapping**: The bucket name, region, and key alias that belong together.
 - **Local Protection**: Credentials use Windows DPAPI. If DPAPI is unavailable, Cerebrus refuses to save new AWS keys instead of writing plaintext secrets.
 - **Portable Export**: Export/import `.cbx` JSON files when a teammate needs the same bucket map. These files include bucket mappings and key aliases, not AWS secret values.
@@ -84,6 +85,9 @@ Process collected data into readable formats.
 - **Generate Colored Logs Only**: Converts text logs to color-coded HTML files.
 - **Generate All**: Performs all enabled operations in sequence.
 - **View HTML Logs**: Opens the `Logs` output folder to view generated HTML logs.
+
+### Local Report Comparison
+- **Generate A/B Compare Report**: Compares two local profiling CSV runs and creates a statistical HTML comparison report.
 
 > **Note**: Generated reports are automatically organized into `Profiling/`, `Logs/`, and `MemReports/` subdirectories within your Output Path.
 

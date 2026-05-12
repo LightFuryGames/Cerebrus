@@ -87,7 +87,7 @@ def build_menu_bar(state: UIState) -> None:
 
         with dpg.menu(label="Settings"):
             tm = get_theme_manager()
-            with dpg.menu(label="Theme Mode (WIP-Early Access)"):
+            with dpg.menu(label="Theme Mode"):
                 dpg.add_menu_item(
                     label="System Default",
                     tag="menu_mode_system",
@@ -116,7 +116,7 @@ def build_menu_bar(state: UIState) -> None:
                     ),
                 )
             dpg.add_separator()
-            with dpg.menu(label="Color Palette (WIP-Early Access)"):
+            with dpg.menu(label="Color Palette"):
                 # Separation: Defaults vs Custom
                 defaults = ["Standard", "High Contrast", "Deuteranopia", "Tritanopia"]
                 all_palettes = sorted(list(tm.themes.keys()))

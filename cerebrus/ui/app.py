@@ -8,6 +8,7 @@ import dearpygui.dearpygui as dpg
 
 from cerebrus.ui.components import (
     _open_user_guide,
+    apply_responsive_layout,
     build_device_controls,
     build_file_actions,
     build_menu_bar,
@@ -71,7 +72,7 @@ class CerebrusApp:
         PluginManager.register(S3UploaderPlugin())
         PluginManager.initialize()
 
-        get_theme_manager().apply_theme(mode="Dark")
+        get_theme_manager().apply_theme(mode="System")
 
         setup_fonts()
         log_message(self.state, "INFO", "Cerebrus App Loaded")
@@ -128,7 +129,11 @@ class CerebrusApp:
             small_icon=str(small_icon_path),
             large_icon=str(large_icon_path),
         )
+        dpg.set_viewport_resize_callback(
+            lambda sender=None, app_data=None, user_data=None: apply_responsive_layout()
+        )
         dpg.setup_dearpygui()
         dpg.show_viewport()
+        apply_responsive_layout()
         dpg.start_dearpygui()
         dpg.destroy_context()

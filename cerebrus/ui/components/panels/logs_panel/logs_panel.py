@@ -62,36 +62,48 @@ def _render_log_entries(state: UIState) -> None:
 
         tm = get_theme_manager()
 
-        # Per-line colored view (selectable rows)
+        # Group adjacent entries by level so users can select multi-line substrings
+        # while preserving the level color for each visible block.
+        grouped_logs = []
         for timestamp, level, message in filtered_logs:
             full_msg = f"[{timestamp}] [{level}] {message}"
+            if grouped_logs and grouped_logs[-1]["level"] == level:
+                grouped_logs[-1]["lines"].append(full_msg)
+            else:
+                grouped_logs.append({"level": level, "lines": [full_msg]})
 
+        for group in grouped_logs:
+            level = group["level"]
+            block_text = "\n".join(group["lines"])
+            line_count = max(1, block_text.count("\n") + 1)
+            height = max(24, min(260, 18 * line_count + 8))
             item = dpg.add_input_text(
-                default_value=full_msg, readonly=True, width=-1, parent="log_container"
+                default_value=block_text,
+                readonly=True,
+                multiline=True,
+                width=-1,
+                height=height,
+                parent="log_container",
             )
 
-            # Combine transparent BG with level-specific text color
-            with dpg.theme() as row_theme:
+            with dpg.theme() as block_theme:
                 with dpg.theme_component(dpg.mvAll):
-                    # Backgrounds
                     dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (0, 0, 0, 0))
                     dpg.add_theme_color(dpg.mvThemeCol_FrameBgHovered, (40, 40, 40, 40))
                     dpg.add_theme_color(dpg.mvThemeCol_FrameBgActive, (60, 60, 60, 40))
                     dpg.add_theme_color(dpg.mvThemeCol_Border, (0, 0, 0, 0))
-                    # Padding/Spacing
-                    dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 0, 0)
+                    dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 0, 1)
                     dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing, 0, 0)
-                    # Text Color
                     text_color = tm.get_log_colors().get(level.upper(), (200, 200, 200))
                     dpg.add_theme_color(dpg.mvThemeCol_Text, text_color)
 
-            dpg.bind_item_theme(item, row_theme)
+            dpg.bind_item_theme(item, block_theme)
 
             with dpg.popup(item):
                 dpg.add_menu_item(
-                    label="Copy Line",
+                    label="Copy Block",
                     callback=lambda s, a, u: _copy_to_clipboard(u),
-                    user_data=full_msg,
+                    user_data=block_text,
                 )
 
         dpg.set_y_scroll("log_container", -1.0)

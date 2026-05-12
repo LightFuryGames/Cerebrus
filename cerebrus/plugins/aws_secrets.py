@@ -86,20 +86,39 @@ class AWSSecretsManager:
     def _build_export_payload(self) -> dict:
         """Build a portable JSON export without secret values."""
         keys = {}
+        seen_access_keys = set()
+        seen_secret_keys = set()
         for alias, key_info in self.data.get("keys", {}).items():
+            access_key = self._normalize_key_value(key_info.get("access_key"))
+            secret_key = self._normalize_key_value(key_info.get("secret_key"))
+            if access_key and access_key in seen_access_keys:
+                continue
+            if secret_key and secret_key in seen_secret_keys:
+                continue
+
             keys[alias] = {
                 "alias": alias,
                 "requires_reentry": True,
                 "has_access_key": bool(key_info.get("access_key")),
                 "has_secret_key": bool(key_info.get("secret_key")),
             }
+            if access_key:
+                seen_access_keys.add(access_key)
+            if secret_key:
+                seen_secret_keys.add(secret_key)
+
+        buckets = [
+            bucket
+            for bucket in self.data.get("buckets", [])
+            if not bucket.get("key_alias") or bucket.get("key_alias") in keys
+        ]
 
         return {
             "schema_version": self.EXPORT_SCHEMA_VERSION,
             "export_type": "aws_bucket_mappings",
             "contains_secret_values": False,
             "keys": keys,
-            "buckets": self.data.get("buckets", []),
+            "buckets": buckets,
         }
 
     def _decrypt_legacy_portable(self, encrypted_str: str) -> dict | None:
@@ -111,6 +130,48 @@ class AWSSecretsManager:
         except Exception as e:
             print(f"Legacy portable import failed: {e}")
             return None
+
+    def _normalize_key_value(self, value: str | None) -> str:
+        return str(value or "").strip()
+
+    def _find_duplicate_key_field(
+        self,
+        field: str,
+        value: str,
+        exclude_alias: str | None = None,
+    ) -> str | None:
+        normalized = self._normalize_key_value(value)
+        if not normalized:
+            return None
+
+        for alias, key_info in self.data.get("keys", {}).items():
+            if exclude_alias is not None and alias == exclude_alias:
+                continue
+            if self._normalize_key_value(key_info.get(field)) == normalized:
+                return alias
+        return None
+
+    def _validate_unique_key(
+        self,
+        alias: str,
+        access_key: str = "",
+        secret_key: str = "",
+    ) -> str:
+        if alias in self.data.get("keys", {}):
+            return f"AWS key alias already exists: {alias}"
+
+        duplicate_access_alias = self._find_duplicate_key_field("access_key", access_key)
+        if duplicate_access_alias:
+            return f"Access Key ID is already saved under alias: {duplicate_access_alias}"
+
+        duplicate_secret_alias = self._find_duplicate_key_field("secret_key", secret_key)
+        if duplicate_secret_alias:
+            return (
+                "Secret Access Key is already saved under alias: "
+                f"{duplicate_secret_alias}"
+            )
+
+        return ""
 
     def load_regions(self):
         if self.regions_file.exists():
@@ -214,7 +275,18 @@ class AWSSecretsManager:
                 )
 
                 for alias, key_info in imported_data.get("keys", {}).items():
+                    alias = self._normalize_key_value(key_info.get("alias", alias))
+                    access_key = self._normalize_key_value(key_info.get("access_key"))
+                    secret_key = self._normalize_key_value(key_info.get("secret_key"))
+                    if not alias:
+                        continue
                     if alias in self.data["keys"]:
+                        continue
+                    if contains_secret_values and self._validate_unique_key(
+                        alias,
+                        access_key,
+                        secret_key,
+                    ):
                         continue
                     if contains_secret_values:
                         self.data["keys"][alias] = {
@@ -225,7 +297,7 @@ class AWSSecretsManager:
                         }
                     else:
                         self.data["keys"][alias] = {
-                            "alias": key_info.get("alias", alias),
+                            "alias": alias,
                             "access_key": "",
                             "secret_key": "",
                             "requires_reentry": True,
@@ -248,6 +320,14 @@ class AWSSecretsManager:
             return f"Import failed: {str(e)}"
 
     def add_key(self, alias: str, access_key: str, secret_key: str) -> str:
+        alias = self._normalize_key_value(alias)
+        access_key = self._normalize_key_value(access_key)
+        secret_key = self._normalize_key_value(secret_key)
+
+        duplicate_error = self._validate_unique_key(alias, access_key, secret_key)
+        if duplicate_error:
+            return duplicate_error
+
         if not self._local_encryption_available():
             return (
                 "Local credential encryption is unavailable; AWS keys were not saved."
@@ -360,129 +440,160 @@ class AWSSecretsPlugin(TabPlugin):
         dpg.add_text("Manage credentials securely for other plugins to use.")
         dpg.add_spacer(height=15)
 
-        dpg.bind_item_theme(
-            dpg.add_text("Add Credential Key"), tm.get_subheader_theme()
-        )
         alias_tag = "aws_new_alias"
         ak_tag = "aws_new_ak"
         sk_tag = "aws_new_sk"
-
-        with dpg.table(
-            header_row=False,
-            borders_innerH=False,
-            borders_outerH=False,
-            borders_innerV=False,
-            borders_outerV=False,
-        ):
-            dpg.add_table_column(width_fixed=True, init_width_or_weight=200)
-            dpg.add_table_column(width_stretch=True, init_width_or_weight=1.0)
-
-            with dpg.table_row():
-                with dpg.group(horizontal=True, horizontal_spacing=4):
-                    dpg.add_text("Key Alias:")
-                    add_plugin_help_button(AWS_TOOLTIPS, "aws_key_alias")
-                dpg.add_input_text(tag=alias_tag, hint="e.g. TeamKey", width=400)
-
-            with dpg.table_row():
-                with dpg.group(horizontal=True, horizontal_spacing=4):
-                    dpg.add_text("Access Key ID:")
-                    add_plugin_help_button(AWS_TOOLTIPS, "aws_access_key")
-                dpg.add_input_text(tag=ak_tag, hint="AKIA...", width=400)
-
-            with dpg.table_row():
-                with dpg.group(horizontal=True, horizontal_spacing=4):
-                    dpg.add_text("Secret Access Key:")
-                    add_plugin_help_button(AWS_TOOLTIPS, "aws_secret_key")
-                dpg.add_input_text(
-                    tag=sk_tag, hint="Your secret key", password=True, width=400
-                )
-
-            with dpg.table_row():
-                dpg.add_spacer()
-
-                def _add_key_cb():
-                    alias = dpg.get_value(alias_tag)
-                    ak = dpg.get_value(ak_tag)
-                    sk = dpg.get_value(sk_tag)
-                    if alias and ak and sk:
-                        error = manager.add_key(alias, ak, sk)
-                        if error:
-                            log_message(state, "ERROR", error)
-                        else:
-                            log_message(state, "SUCCESS", f"Added AWS Key: {alias}")
-                            self._refresh_ui(manager)
-                    else:
-                        log_message(state, "ERROR", "All key fields are required.")
-
-                dpg.add_button(label="Save Key", callback=_add_key_cb, width=120)
-
-        dpg.add_spacer(height=15)
-        dpg.add_separator()
-        dpg.add_spacer(height=15)
-
-        dpg.bind_item_theme(dpg.add_text("Map S3 Bucket"), tm.get_subheader_theme())
         bucket_tag = "aws_new_bucket"
         region_tag = "aws_new_region"
         key_combo_tag = "aws_key_combo"
 
-        with dpg.table(
-            header_row=False,
-            borders_innerH=False,
-            borders_outerH=False,
-            borders_innerV=False,
-            borders_outerV=False,
-        ):
-            dpg.add_table_column(width_fixed=True, init_width_or_weight=200)
-            dpg.add_table_column(width_stretch=True, init_width_or_weight=1.0)
+        def _add_key_cb():
+            alias = dpg.get_value(alias_tag)
+            ak = dpg.get_value(ak_tag)
+            sk = dpg.get_value(sk_tag)
+            if alias and ak and sk:
+                error = manager.add_key(alias, ak, sk)
+                if error:
+                    log_message(state, "ERROR", error)
+                else:
+                    log_message(state, "SUCCESS", f"Added AWS Key: {alias}")
+                    self._refresh_ui(manager)
+            else:
+                log_message(state, "ERROR", "All key fields are required.")
+
+        def _add_bucket_cb():
+            b_name = dpg.get_value(bucket_tag)
+            region = dpg.get_value(region_tag)
+            k_alias = dpg.get_value(key_combo_tag)
+            if b_name and region and k_alias:
+                manager.add_bucket(b_name, region, k_alias)
+                log_message(state, "SUCCESS", f"Mapped bucket {b_name} to key {k_alias}")
+                self._refresh_ui(manager)
+            else:
+                log_message(state, "ERROR", "All bucket fields are required.")
+
+        with dpg.table(header_row=False, policy=dpg.mvTable_SizingFixedFit):
+            dpg.add_table_column(width_fixed=True, init_width_or_weight=640)
+            dpg.add_table_column(width_fixed=True, init_width_or_weight=32)
+            dpg.add_table_column(width_fixed=True, init_width_or_weight=640)
 
             with dpg.table_row():
-                with dpg.group(horizontal=True, horizontal_spacing=4):
-                    dpg.add_text("Bucket Name:")
-                    add_plugin_help_button(AWS_TOOLTIPS, "aws_bucket_name")
-                dpg.add_input_text(
-                    tag=bucket_tag, hint="e.g. cerebrus-assets-bucket", width=400
-                )
+                with dpg.group():
+                    dpg.bind_item_theme(
+                        dpg.add_text("Add Credential Key"), tm.get_subheader_theme()
+                    )
+                    with dpg.table(
+                        header_row=False,
+                        borders_innerH=False,
+                        borders_outerH=False,
+                        borders_innerV=False,
+                        borders_outerV=False,
+                    ):
+                        dpg.add_table_column(width_fixed=True, init_width_or_weight=150)
+                        dpg.add_table_column(width_fixed=True, init_width_or_weight=30)
+                        dpg.add_table_column(width_fixed=True, init_width_or_weight=440)
 
-            with dpg.table_row():
-                with dpg.group(horizontal=True, horizontal_spacing=4):
-                    dpg.add_text("Region:")
-                    add_plugin_help_button(AWS_TOOLTIPS, "aws_region")
-                dpg.add_combo(
-                    tag=region_tag,
-                    items=manager.regions,
-                    width=400,
-                    default_value=manager.regions[0] if manager.regions else "",
-                )
+                        with dpg.table_row():
+                            dpg.add_text("Key Alias:")
+                            add_plugin_help_button(AWS_TOOLTIPS, "aws_key_alias")
+                            dpg.add_input_text(
+                                tag=alias_tag, hint="e.g. TeamKey", width=420
+                            )
 
-            with dpg.table_row():
-                with dpg.group(horizontal=True, horizontal_spacing=4):
-                    dpg.add_text("Assigned Key Alias:")
-                    add_plugin_help_button(AWS_TOOLTIPS, "aws_key_mapping")
-                dpg.add_combo(
-                    tag=key_combo_tag,
-                    items=list(manager.data["keys"].keys()),
-                    width=400,
-                )
+                        with dpg.table_row():
+                            dpg.add_text("Access Key ID:")
+                            add_plugin_help_button(AWS_TOOLTIPS, "aws_access_key")
+                            dpg.add_input_text(tag=ak_tag, hint="AKIA...", width=420)
 
-            with dpg.table_row():
-                dpg.add_spacer()
+                        with dpg.table_row():
+                            dpg.add_text("Secret Access Key:")
+                            add_plugin_help_button(AWS_TOOLTIPS, "aws_secret_key")
+                            dpg.add_input_text(
+                                tag=sk_tag,
+                                hint="Your secret key",
+                                password=True,
+                                width=420,
+                            )
 
-                def _add_bucket_cb():
-                    b_name = dpg.get_value(bucket_tag)
-                    region = dpg.get_value(region_tag)
-                    k_alias = dpg.get_value(key_combo_tag)
-                    if b_name and region and k_alias:
-                        manager.add_bucket(b_name, region, k_alias)
-                        log_message(
-                            state, "SUCCESS", f"Mapped bucket {b_name} to key {k_alias}"
+                        with dpg.table_row():
+                            dpg.add_spacer()
+                            dpg.add_spacer()
+                            with dpg.group(horizontal=True, horizontal_spacing=8):
+                                dpg.add_button(
+                                    label="Save Key", callback=_add_key_cb, width=120
+                                )
+                                add_plugin_help_button(AWS_TOOLTIPS, "aws_save_key")
+
+                with dpg.group():
+                    with dpg.drawlist(width=2, height=150):
+                        dpg.draw_line(
+                            (1, 0),
+                            (1, 150),
+                            color=(90, 105, 125, 255),
+                            thickness=1,
                         )
-                        self._refresh_ui(manager)
-                    else:
-                        log_message(state, "ERROR", "All bucket fields are required.")
 
-                dpg.add_button(
-                    label="Save Bucket Mapping", callback=_add_bucket_cb, width=150
-                )
+                with dpg.group():
+                    dpg.bind_item_theme(
+                        dpg.add_text("Map S3 Bucket"), tm.get_subheader_theme()
+                    )
+                    with dpg.table(
+                        header_row=False,
+                        borders_innerH=False,
+                        borders_outerH=False,
+                        borders_innerV=False,
+                        borders_outerV=False,
+                    ):
+                        dpg.add_table_column(width_fixed=True, init_width_or_weight=150)
+                        dpg.add_table_column(width_fixed=True, init_width_or_weight=30)
+                        dpg.add_table_column(width_fixed=True, init_width_or_weight=440)
+
+                        with dpg.table_row():
+                            dpg.add_text("Bucket Name:")
+                            add_plugin_help_button(AWS_TOOLTIPS, "aws_bucket_name")
+                            dpg.add_input_text(
+                                tag=bucket_tag,
+                                hint="e.g. cerebrus-assets-bucket",
+                                width=420,
+                            )
+
+                        with dpg.table_row():
+                            dpg.add_text("Region:")
+                            add_plugin_help_button(AWS_TOOLTIPS, "aws_region")
+                            dpg.add_combo(
+                                tag=region_tag,
+                                items=manager.regions,
+                                width=420,
+                                default_value=manager.regions[0]
+                                if manager.regions
+                                else "",
+                            )
+
+                        with dpg.table_row():
+                            dpg.add_text("Assigned Key Alias:")
+                            add_plugin_help_button(AWS_TOOLTIPS, "aws_key_mapping")
+                            dpg.add_combo(
+                                tag=key_combo_tag,
+                                items=list(manager.data["keys"].keys()),
+                                width=420,
+                            )
+
+                        with dpg.table_row():
+                            dpg.add_spacer()
+                            dpg.add_spacer()
+                            with dpg.group(horizontal=True, horizontal_spacing=8):
+                                dpg.add_button(
+                                    label="Save Bucket Mapping",
+                                    callback=_add_bucket_cb,
+                                    width=150,
+                                )
+                                add_plugin_help_button(
+                                    AWS_TOOLTIPS, "aws_save_bucket_mapping"
+                                )
+
+        dpg.add_spacer(height=15)
+        dpg.add_separator()
+        dpg.add_spacer(height=15)
 
     def build_menu(self, state: UIState) -> None:
         """Inject menu items under this plugin's settings menu."""
