@@ -139,10 +139,12 @@ def _show_load_palette_dialog(state: UIState) -> None:
             dest = tm.palettes_dir / path.name
 
             if dest.exists():
-                # Allow overwrite? Prompt? For now, auto-rename if collision?
-                # Or just overwrite if user selected it?
-                # Let's simple copy.
-                pass
+                stem = path.stem
+                suffix = path.suffix
+                index = 1
+                while dest.exists():
+                    dest = tm.palettes_dir / f"{stem}_{index}{suffix}"
+                    index += 1
 
             shutil.copy2(path, dest)
             log_message(state, "SUCCESS", f"Imported {path.name}")
@@ -159,8 +161,12 @@ def _show_load_palette_dialog(state: UIState) -> None:
                         log_message(
                             state, "INFO", f"Switched to imported palette '{p_name}'."
                         )
-            except:
-                pass
+            except (OSError, json.JSONDecodeError) as e:
+                log_message(
+                    state,
+                    "WARNING",
+                    f"Imported palette, but could not activate it: {e}",
+                )
 
     except Exception as e:
         log_message(state, "ERROR", f"Failed to import palette: {e}")
@@ -296,8 +302,79 @@ def _show_theme_editor(state: UIState, palette: str = None) -> None:
         ],
     }
 
+    quick_color_groups = {
+        "Foundation": [
+            ("App Background", "mvThemeCol_WindowBg"),
+            ("Panel Background", "mvThemeCol_ChildBg"),
+            ("Popup Background", "mvThemeCol_PopupBg"),
+            ("Border", "mvThemeCol_Border"),
+        ],
+        "Text": [
+            ("Primary Text", "mvThemeCol_Text"),
+            ("Muted Text", "mvThemeCol_TextDisabled"),
+            ("Heading Text", ("label_colors", "header")),
+            ("Help Text", ("label_colors", "help_button")),
+        ],
+        "Controls": [
+            ("Input Background", "mvThemeCol_FrameBg"),
+            ("Input Hover", "mvThemeCol_FrameBgHovered"),
+            ("Button", "mvThemeCol_Button"),
+            ("Button Hover", "mvThemeCol_ButtonHovered"),
+            ("Check Mark", "mvThemeCol_CheckMark"),
+        ],
+        "Navigation": [
+            ("Tab", "mvThemeCol_Tab"),
+            ("Active Tab", "mvThemeCol_TabActive"),
+            ("Hovered Tab", "mvThemeCol_TabHovered"),
+            ("Active Header", "mvThemeCol_HeaderActive"),
+            ("Link", ("label_colors", "hyperlink")),
+        ],
+        "Tables & Logs": [
+            ("Table Header", "mvThemeCol_TableHeaderBg"),
+            ("Table Row", "mvThemeCol_TableRowBg"),
+            ("Alternate Row", "mvThemeCol_TableRowBgAlt"),
+            ("Info Log", ("log_colors", "INFO")),
+            ("Warning Log", ("log_colors", "WARNING")),
+            ("Error Log", ("log_colors", "ERROR")),
+            ("Success Log", ("log_colors", "SUCCESS")),
+        ],
+    }
+
+    def _normalize_color(value):
+        if not value:
+            return [0, 0, 0, 255]
+        color = list(value)
+        if color and isinstance(color[0], float) and max(color) <= 1.0:
+            color = [int(channel * 255) for channel in color]
+        if len(color) == 3:
+            color.append(255)
+        return color
+
+    def _color_to_hex(value):
+        color = _normalize_color(value)
+        return "#{:02X}{:02X}{:02X}".format(*[max(0, min(255, int(c))) for c in color[:3]])
+
+    def _safe_tag(value):
+        return "".join(ch if ch.isalnum() else "_" for ch in str(value))
+
+    def _get_color_value(data, target):
+        if isinstance(target, tuple):
+            category, key = target
+            return data.get(category, {}).get(key, [0, 0, 0, 255])
+        return data.get("colors", {}).get(target, [0, 0, 0, 255])
+
+    def _set_color_value(selected_mode, target, value):
+        if isinstance(target, tuple):
+            category, key = target
+        else:
+            category, key = "colors", target
+        tm.update_theme_color(palette, selected_mode, category, key, value)
+        if category == "log_colors":
+            _render_log_entries(state)
+
     def _open_color_picker_modal(label, key, initial_color, callback, button_tag):
         modal_tag = f"picker_modal_{key}"
+        picker_tag = f"picker_{key}"
         if dpg.does_item_exist(modal_tag):
             dpg.delete_item(modal_tag)
 
@@ -309,45 +386,103 @@ def _show_theme_editor(state: UIState, palette: str = None) -> None:
             dpg.delete_item(modal_tag)
 
         def _on_ok_picker():
-            picker_tag = f"picker_{key}"
             if dpg.does_item_exist(picker_tag):
                 new_val = dpg.get_value(picker_tag)
                 if dpg.does_item_exist(button_tag):
                     dpg.configure_item(button_tag, default_value=new_val)
             dpg.delete_item(modal_tag)
 
-        # Ensure correct window size for picker
         with dpg.window(
-            tag=modal_tag, label=f"Edit {label}", modal=True, width=400, height=450
+            tag=modal_tag,
+            label=f"Edit {label}",
+            modal=True,
+            width=420,
+            height=470,
+            no_resize=True,
         ):
-            dpg.add_text("Adjust color to see live preview.", color=(200, 200, 200))
+            dpg.add_text(label)
+            dpg.add_text(_color_to_hex(initial_color), tag=f"{picker_tag}_hex")
+            dpg.add_separator()
 
-            picker_tag = f"picker_{key}"
             dpg.add_color_picker(
                 tag=picker_tag,
                 default_value=initial_color,
                 display_rgb=True,
                 display_hex=True,
-                callback=callback,
+                callback=lambda s, a, u: (
+                    callback(s, a, u),
+                    dpg.set_value(f"{picker_tag}_hex", _color_to_hex(a)),
+                ),
                 user_data=key,
                 width=250,
             )
 
             dpg.add_spacer(height=10)
             with dpg.group(horizontal=True):
-                dpg.add_button(label="OK (Keep)", width=100, callback=_on_ok_picker)
+                dpg.add_button(label="Keep", width=100, callback=_on_ok_picker)
+                dpg.add_button(label="Revert", width=100, callback=_on_cancel_picker)
 
-    # ... [Layout code] ...
+    def _add_color_row(label, target, selected_mode, data, parent=None, context=""):
+        value = _normalize_color(_get_color_value(data, target))
+        key_part = target[1] if isinstance(target, tuple) else target
+        tag_seed = _safe_tag(f"{context}_{selected_mode}_{key_part}_{label}")
+        btn_tag = f"swatch_{tag_seed}"
+        callback_key = f"picker_{tag_seed}"
+        args = {
+            "label": label,
+            "target": target,
+            "selected_mode": selected_mode,
+            "value": value,
+            "button_tag": btn_tag,
+        }
+
+        def _open_picker(sender, app_data, user_data):
+            _open_color_picker_modal(
+                user_data["label"],
+                callback_key,
+                user_data["value"],
+                lambda s, a, k: _set_color_value(
+                    user_data["selected_mode"], user_data["target"], a
+                ),
+                user_data["button_tag"],
+            )
+
+        if parent:
+            with dpg.table_row(parent=parent):
+                dpg.add_text(label)
+                dpg.add_color_button(
+                    tag=btn_tag,
+                    default_value=value,
+                    width=54,
+                    height=24,
+                    callback=_open_picker,
+                    user_data=args,
+                )
+                dpg.add_text(_color_to_hex(value))
+        else:
+            with dpg.group(horizontal=True):
+                dpg.add_color_button(
+                    tag=btn_tag,
+                    default_value=value,
+                    width=54,
+                    height=24,
+                    callback=_open_picker,
+                    user_data=args,
+                )
+                dpg.add_text(label)
 
     with dpg.window(
         tag=tag,
         label=f"Edit Palette: {palette}",
-        width=550,
-        height=700,
+        width=720,
+        height=760,
         on_close=_on_close,
     ):
-        dpg.add_text(f"Editing: {palette}", color=(100, 255, 100))
-        dpg.add_text("Changes are previewed instantly.", color=(150, 150, 150))
+        dpg.add_text(f"Palette: {palette}", color=tm.get_header_color())
+        dpg.add_spacer(height=4)
+        with dpg.group(horizontal=True):
+            dpg.add_button(label="Save Changes", width=130, height=28, callback=_on_save)
+            dpg.add_button(label="Cancel", width=110, height=28, callback=_on_cancel)
         dpg.add_separator()
 
         modes = list(tm.themes.get(palette, {}).keys())
@@ -363,7 +498,7 @@ def _show_theme_editor(state: UIState, palette: str = None) -> None:
         if limit_mode not in modes:
             limit_mode = modes[0]
 
-        dpg.add_text(f"Mode: {limit_mode} (Active)", color=(200, 200, 200))
+        dpg.add_text(f"Editing {limit_mode} mode")
 
         def _rebuild_editor(selected_mode):
             container = f"{tag}_container"
@@ -375,168 +510,104 @@ def _show_theme_editor(state: UIState, palette: str = None) -> None:
                 colors_data = data.get("colors", {})
 
                 with dpg.tab_bar():
-                    with dpg.tab(label="UI Colors"):
-                        dpg.add_text("Core UI Colors (DearPyGui)")
+                    with dpg.tab(label="Quick Edit"):
+                        for group_name, items in quick_color_groups.items():
+                            if dpg.collapsing_header(label=group_name, default_open=True):
+                                with dpg.table(
+                                    header_row=False,
+                                    policy=dpg.mvTable_SizingFixedFit,
+                                ) as table_id:
+                                    dpg.add_table_column(
+                                        width_fixed=True, init_width_or_weight=180
+                                    )
+                                    dpg.add_table_column(
+                                        width_fixed=True, init_width_or_weight=70
+                                    )
+                                    dpg.add_table_column(
+                                        width_fixed=True, init_width_or_weight=100
+                                    )
+                                    for label, target in items:
+                                        _add_color_row(
+                                            label,
+                                            target,
+                                            selected_mode,
+                                            data,
+                                            table_id,
+                                            f"quick_{group_name}",
+                                        )
+
+                    with dpg.tab(label="Advanced"):
+                        dpg.add_text("All DearPyGui colors")
 
                         # Render Categories
                         for cat_name, items in color_categories.items():
                             dpg.add_separator()
                             dpg.add_spacer(height=5)
-                            if dpg.collapsing_header(label=cat_name):
+                            if dpg.collapsing_header(
+                                label=cat_name, default_open=False
+                            ):
                                 with dpg.table(
                                     header_row=False,
-                                    policy=dpg.mvTable_SizingStretchProp,
-                                ):
+                                    policy=dpg.mvTable_SizingFixedFit,
+                                ) as table_id:
                                     dpg.add_table_column(
-                                        width_fixed=True, init_width_or_weight=200
+                                        width_fixed=True, init_width_or_weight=220
                                     )
-                                    dpg.add_table_column(width_stretch=True)
+                                    dpg.add_table_column(
+                                        width_fixed=True, init_width_or_weight=70
+                                    )
+                                    dpg.add_table_column(
+                                        width_fixed=True, init_width_or_weight=100
+                                    )
 
                                     for label, key in items:
-                                        val = colors_data.get(key, [0, 0, 0, 255])
-                                        if len(val) == 3:
-                                            val = list(val) + [255]
+                                        _add_color_row(
+                                            label,
+                                            key,
+                                            selected_mode,
+                                            data,
+                                            table_id,
+                                            f"advanced_{cat_name}",
+                                        )
 
-                                        with dpg.table_row():
-                                            dpg.add_text(label)
-                                            # Use a Button with background color as the "swatch"
-                                            # When clicked, opens modal
-                                            # We need a unique tag for the swatch key
-                                            btn_tag = f"swatch_{selected_mode}_{key}"
-
-                                            # Define callback for the PICKER that updates theme AND this button
-                                            # The button background update is handled by theme update if we use theme colors?
-                                            # No, button background is Button Color.
-                                            # We want this specific button to show the color.
-                                            # Use dpg.add_color_button for preview, it has no callback but can show color.
-                                            # Or add_button and set standard theme color... hard.
-                                            # dpg.add_color_button is best. Click callback? dpg 1.0 color_button doesn't support callback directly?
-                                            # It does! callback=...
-
-                                            dpg.add_color_button(
-                                                tag=btn_tag,
-                                                default_value=val,
-                                                width=50,
-                                                height=25,
-                                                callback=lambda s, a, u: _open_color_picker_modal(
-                                                    u[0],
-                                                    u[1],
-                                                    u[2],
-                                                    lambda s, a, k: (
-                                                        tm.update_theme_color(
-                                                            palette,
-                                                            selected_mode,
-                                                            "colors",
-                                                            k,
-                                                            a,
-                                                        )
-                                                    ),
-                                                    s,  # Pass button tag
-                                                ),
-                                                user_data=(label, key, val),
-                                            )
-
-                    with dpg.tab(label="Custom Colors"):
-                        dpg.add_text(
-                            "Application Specific Colors (Requires Restart for some)"
-                        )
-
-                        # Headers
-                        dpg.add_text("Headers")
+                    with dpg.tab(label="App Colors"):
                         lbl_dummy = data.get("label_colors", {})
-                        for k in ["header", "subheader"]:
-                            val = lbl_dummy.get(k, [255, 255, 255])
-
-                            with dpg.group(horizontal=True):
-                                btn_tag = f"swatch_{selected_mode}_label_{k}"
-                                dpg.add_color_button(
-                                    tag=btn_tag,
-                                    default_value=val,
-                                    width=50,
-                                    height=25,
-                                    label=k.title(),
-                                    callback=lambda s, a, u: _open_color_picker_modal(
-                                        u[0],
-                                        u[1],
-                                        u[2],
-                                        lambda s, a, k: tm.update_theme_color(
-                                            palette, selected_mode, "label_colors", k, a
-                                        ),
-                                        s,
-                                    ),
-                                    user_data=(k.title(), k, val),
+                        dpg.add_text("Labels")
+                        for k in ["header", "subheader", "hyperlink", "help_button"]:
+                            if k in lbl_dummy:
+                                _add_color_row(
+                                    k.replace("_", " ").title(),
+                                    ("label_colors", k),
+                                    selected_mode,
+                                    data,
+                                    context="app_labels",
                                 )
-                                dpg.add_text(k.title())
 
                         dpg.add_separator()
                         dpg.add_text("Status Colors")
                         stat_dummy = data.get("profile_status_colors", {})
                         for k in ["DEFAULT", "LOADED", "ERROR", "INFO"]:
-                            val = stat_dummy.get(k, [255, 255, 255])
-                            with dpg.group(horizontal=True):
-                                btn_tag = f"swatch_{selected_mode}_status_{k}"
-                                dpg.add_color_button(
-                                    tag=btn_tag,
-                                    default_value=val,
-                                    width=50,
-                                    height=25,
-                                    callback=lambda s, a, u: _open_color_picker_modal(
-                                        u[0],
-                                        u[1],
-                                        u[2],
-                                        lambda s, a, k: tm.update_theme_color(
-                                            palette,
-                                            selected_mode,
-                                            "profile_status_colors",
-                                            k,
-                                            a,
-                                        ),
-                                        s,
-                                    ),
-                                    user_data=(k, k, val),
+                            if k in stat_dummy:
+                                _add_color_row(
+                                    k.title(),
+                                    ("profile_status_colors", k),
+                                    selected_mode,
+                                    data,
+                                    context="app_status",
                                 )
-                                dpg.add_text(k)
 
                         dpg.add_separator()
                         dpg.add_text("Log Colors")
                         log_dummy = data.get("log_colors", {})
                         for k in ["DEBUG", "INFO", "WARNING", "ERROR", "SUCCESS"]:
-                            val = log_dummy.get(k, [255, 255, 255])
-                            with dpg.group(horizontal=True):
-                                btn_tag = f"swatch_{selected_mode}_log_{k}"
-                                dpg.add_color_button(
-                                    tag=btn_tag,
-                                    default_value=val,
-                                    width=50,
-                                    height=25,
-                                    callback=lambda s, a, u: _open_color_picker_modal(
-                                        u[0],
-                                        u[1],
-                                        u[2],
-                                        lambda s, a, k: (
-                                            tm.update_theme_color(
-                                                palette,
-                                                selected_mode,
-                                                "log_colors",
-                                                k,
-                                                a,
-                                            ),
-                                            _render_log_entries(state),
-                                        ),
-                                        s,
-                                    ),
-                                    user_data=(k, k, val),
+                            if k in log_dummy:
+                                _add_color_row(
+                                    k.title(),
+                                    ("log_colors", k),
+                                    selected_mode,
+                                    data,
+                                    context="app_logs",
                                 )
-                                dpg.add_text(k)
-
-                dpg.add_separator()
-                with dpg.group(horizontal=True):
-                    dpg.add_button(
-                        label="Save Changes", width=150, height=30, callback=_on_save
-                    )
-                    dpg.add_button(
-                        label="Cancel", width=150, height=30, callback=_on_cancel
-                    )
 
         # Removed Combo, just call rebuild once
         _rebuild_editor(limit_mode)

@@ -36,6 +36,24 @@ def format_bytes(bytes_val: float) -> str:
     return f"{bytes_val:.2f} B"
 
 
+def parse_memory_size_to_mb(value: str) -> float:
+    """Parse a memory-size string into megabytes."""
+    value = value.replace(",", "").lower()
+    match = re.search(r"([\d\.]+)\s*(kb|mb|gb|b)?", value)
+    if not match:
+        return 0.0
+
+    number = float(match.group(1))
+    unit = match.group(2)
+    if unit == "gb":
+        return number * 1024.0
+    if unit == "kb":
+        return number / 1024.0
+    if unit == "b":
+        return number / (1024.0 * 1024.0)
+    return number
+
+
 def try_format_cell_value(header: str, value: str) -> str:
     """Attempts to format a cell value based on its header or content."""
     # Check if value is a numeric KB value

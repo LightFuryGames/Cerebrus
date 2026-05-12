@@ -15,7 +15,6 @@
     "start_profiling": "Starts profiling data on selected device if Package is running actively in foreground.",
     "stop_profiling": "Stops profiling data on selected device if Package is running actively in foreground.",
     "generate_actions": "Executes all selected bulk actions (Move Logs, Move Profiling Data, Generate Reports) in sequence.",
-    "sync_remote_config": "Downloads the BackendConfig.ini from the configured URL for this environment and pushes it to the selected device, replacing any existing config.",
     "memreport": "Sends the 'memreport' console command to the running application to generate a standard memory report.",
     "memreport_full": "Sends the 'memreport -full' console command to the running application to generate a comprehensive memory report.",
     "custom_command": "Sends a custom console command to the running application (e.g., 'stat unit', 'memreport -concise').",

@@ -42,6 +42,52 @@ def test_extract_report_metadata_from_legacy_stat_cards():
     }
 
 
+def test_extract_report_metadata_from_perf_report_table():
+    html = """
+    <html>
+      <head><title>60FPS Performance Report : Profile(20260511_082831)</title></head>
+      <body>
+        <table>
+          <tr><td bgcolor='#F0F0F0'>Build Version</td><td><b>++titan-game+development-CL-33425</b></td></tr>
+          <tr><td>Configuration</td><td><b>Test</b></td></tr>
+          <tr><td>CPU/Device</td><td><b>OnePlus|ONEPLUS A3003|Qualcomm Technologies&#44; Inc MSM8996</b></td></tr>
+        </table>
+      </body>
+    </html>
+    """
+
+    metadata = _extract_report_metadata(html)
+
+    assert metadata == {
+        "Build Configuration": "Test",
+        "Changelist": "CL-33425",
+        "Device Make": "OnePlus",
+        "Device Model": "A3003",
+        "Date": "11-05-2026",
+        "Time": "082831",
+    }
+
+
+def test_extract_report_metadata_from_perf_report_footer_fallback():
+    html = """
+    <title>60FPS Performance Report : Profile(20260511_162618)</title>
+    <pre>
+    [HasHeaderRowAtEnd],1,[platform],Android,[config],Test,[buildversion],++titan-game+development-CL-32831,[cpu],samsung|SM-S948U1|Adreno (TM) 840,[commandline],""
+    </pre>
+    """
+
+    metadata = _extract_report_metadata(html)
+
+    assert metadata == {
+        "Build Configuration": "Test",
+        "Changelist": "CL-32831",
+        "Device Make": "samsung",
+        "Device Model": "SM-S948U1",
+        "Date": "11-05-2026",
+        "Time": "162618",
+    }
+
+
 def test_derive_s3_dir_from_metadata_sanitizes_segments():
     metadata = {
         "Build Configuration": "Dev Test",
@@ -54,6 +100,22 @@ def test_derive_s3_dir_from_metadata_sanitizes_segments():
     assert (
         _derive_s3_dir_from_metadata(metadata)
         == "Dev_Test/Sony_Mobile/XQ_123/CL_123/2026.05.11/09.30.00"
+    )
+
+
+def test_derive_s3_dir_from_current_perf_report_metadata():
+    metadata = {
+        "Build Configuration": "Test",
+        "Device Make": "OnePlus",
+        "Device Model": "A3003",
+        "Changelist": "CL-33425",
+        "Date": "11-05-2026",
+        "Time": "082831",
+    }
+
+    assert (
+        _derive_s3_dir_from_metadata(metadata)
+        == "Test/OnePlus/A3003/CL-33425/11-05-2026/082831"
     )
 
 

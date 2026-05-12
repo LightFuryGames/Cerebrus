@@ -70,10 +70,6 @@ Plugin-specific details live in:
 - `cerebrus/plugins/aws_secrets.md`
 - `cerebrus/plugins/s3_uploader.md`
 
-## Deprecated Information
-
-Older docs may mention a separate Reports/Analysis panel, `Tools -> AWS Configuration`, or a Configuration Sync panel. Those instructions are deprecated for the current UI. Use the Profiling, AWS Secrets, and S3 Uploader plugin tabs instead.
-
 ## Troubleshooting
 
 - If reports fail to generate:

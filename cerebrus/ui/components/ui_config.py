@@ -74,24 +74,8 @@ class UIConfig:
             else:
                 self._config[key] = value
 
-    def get_dialog_dimensions(self, dialog_name: str) -> dict[str, int]:
-        # Try to load specific dialog config
-        try:
-            dialog_path = self.layouts_path / "dialogs" / f"{dialog_name}.json"
-            if dialog_path.exists():
-                with open(dialog_path, "r") as f:
-                    return json.load(f)
-        except Exception:
-            pass
-
-        # Fallback to hardcoded defaults or empty
-        return {}
-
     def get_spacer(self, type_name: str) -> int:
         return self._config.get("spacers", {}).get(type_name, 10)
-
-    def get_table_col_width(self, col_name: str) -> int:
-        return self._config.get("tables", {}).get(col_name, 100)
 
     def get_dimension(self, key: str, default: int = 100) -> int:
         """Get a UI dimension from config."""

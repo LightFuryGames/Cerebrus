@@ -53,28 +53,6 @@ def log_message(state: UIState, level: str, message: str) -> None:
     _log(state, level, message)
 
 
-def _add_hyperlink(text: str, url: str) -> None:
-    """Add a clickable text hyperlink."""
-    import webbrowser
-
-    from cerebrus.ui.themes import get_theme_manager
-
-    tm = get_theme_manager()
-
-    link = dpg.add_text(text)
-    dpg.bind_item_theme(link, tm.get_hyperlink_theme())
-
-    # Create a unique handler registry for this link
-    with dpg.item_handler_registry() as registry:
-        dpg.add_item_clicked_handler(callback=lambda: webbrowser.open(url))
-
-    dpg.bind_item_handler_registry(link, registry)
-
-    # Add a tooltip to show the URL
-    with dpg.tooltip(link):
-        dpg.add_text(url)
-
-
 def _add_help_button(tooltip_key: str, state: UIState | None = None) -> None:
     """Add a small (?) help button with a tooltip."""
 
@@ -91,53 +69,33 @@ def _add_help_button(tooltip_key: str, state: UIState | None = None) -> None:
             dpg.add_text(text, wrap=350)
 
 
+def load_plugin_tooltips(filename: str) -> dict[str, str]:
+    """Load tooltip text for a runtime plugin resource file."""
+    try:
+        path = Path(__file__).resolve().parents[2] / "plugins" / "resources" / filename
+        if path.exists():
+            with open(path, "r") as f:
+                return json.load(f)
+    except Exception as e:
+        print(f"Failed to load plugin tooltips {filename}: {e}")
+    return {}
+
+
+def _add_plugin_help_button(tooltips: dict[str, str], tooltip_key: str) -> None:
+    """Add a small (?) help button using a plugin-local tooltip map."""
+    if tooltip_key not in tooltips:
+        return
+
+    text = tooltips[tooltip_key]
+    with dpg.group(horizontal=True):
+        dpg.add_button(label="?", width=20, height=20, small=True)
+        with dpg.tooltip(dpg.last_item()):
+            dpg.add_text(text, wrap=350)
+
+
 # -----------------------------------------------------------------------------
 # Profile Save Helpers
 # -----------------------------------------------------------------------------
-
-
-def _save_current_profile(state: UIState) -> None:
-    """Save the current profile state."""
-    # Ensure profile manager has current profile
-    if (
-        state.profile_manager.current_profile
-        and state.profile_manager.current_profile_path
-    ):
-        # Update profile from current UI state
-        profile = state.profile_manager.current_profile
-        profile.package_name = state.package_name
-
-        # Update fields from UI/State if elements exist or state is updated
-        if dpg.does_item_exist("output_file_name"):
-            state.output_file_name = dpg.get_value("output_file_name")
-
-        profile.output_file_name = state.output_file_name
-        profile.input_path = str(state.input_path)
-
-        # Save base_output_path if available to avoid saving device-specific path
-        # But only if different?
-        if state.base_output_path:
-            profile.output_path = str(state.base_output_path)
-        else:
-            profile.output_path = str(state.output_path)
-
-        if state.base_config_output_path:
-            profile.config_output_path = str(state.base_config_output_path)
-        else:
-            profile.config_output_path = str(state.config_output_path)
-
-        profile.use_prefix_only = state.use_prefix_only
-
-        state.profile_manager.save_current_profile()
-    else:
-        # No current profile path, prompt to save as new
-        # Import dynamically to avoid circular import
-        from cerebrus.ui.components.dialogs.profile.profile_dialog import (
-            _save_profile_native,
-        )
-
-        log_message(state, "INFO", "Please save profile with a name first")
-        _save_profile_native(state, state.profile_nickname or "profile")
 
 
 def _auto_save_profile(state: UIState) -> None:
@@ -167,14 +125,6 @@ def _auto_save_profile(state: UIState) -> None:
         profile.generate_perf_report_enabled = state.generate_perf_report_enabled
         profile.generate_colored_logs_enabled = state.generate_colored_logs_enabled
         profile.generate_memreport_enabled = state.generate_memreport_enabled
-
-        # Save manifest URL
-        if dpg.does_item_exist("remote_manifest_url_input"):
-            state.remote_manifest_url = dpg.get_value("remote_manifest_url_input")
-            if profile.aws_config:
-                profile.aws_config.remote_manifest_url = state.remote_manifest_url
-                if profile.aws_config_path:
-                    profile.aws_config.save(Path(profile.aws_config_path))
 
         if state.profile_manager.current_profile_path:
             state.profile_manager.save_current_profile()

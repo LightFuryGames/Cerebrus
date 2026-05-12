@@ -62,8 +62,6 @@ def _show_profile_dialog(state: UIState, is_edit: bool = False) -> None:
         package_name = ""
 
     config = UIConfig.get_instance()
-    # Merge settings with title
-    # Merge settings with title
     dialog_settings = config.get_component_settings("profile_dialog")
     dialog_settings["label"] = title
     dialog_settings["no_resize"] = True
@@ -151,7 +149,6 @@ def _handle_profile_save(state: UIState, is_edit: bool) -> None:
         state.temp_profile_data = {
             "nickname": nickname,
             "package_name": package_name,
-            "package_name": package_name,
         }
         _save_profile_native(state, nickname)
     else:
@@ -160,10 +157,6 @@ def _handle_profile_save(state: UIState, is_edit: bool) -> None:
         if profile:
             profile.nickname = nickname
             profile.package_name = package_name
-
-            # Update remote configs
-            # Sync Settings are now managed in the Configuration Sync panel
-            # We preserve existing values but don't update them from this dialog
 
             state.profile_manager.save_current_profile()
             state.profile_nickname = nickname or "None"
@@ -223,9 +216,6 @@ def _finalize_profile_save(state: UIState, path: Path) -> None:
         nickname=nickname, package_name=package_name, path=path
     )
 
-    # Apply additional fields if they were in temp_data
-    # Sync Settings - preserved initialized defaults if not in temp_data (which they aren't anymore)
-
     # Populate fields
     profile.output_file_name = state.output_file_name
     profile.input_path = str(state.input_path)
@@ -237,9 +227,6 @@ def _finalize_profile_save(state: UIState, path: Path) -> None:
     profile.move_csv_enabled = state.move_csv_enabled
     profile.generate_perf_report_enabled = state.generate_perf_report_enabled
     profile.generate_colored_logs_enabled = state.generate_colored_logs_enabled
-
-    # Update remote configs from dialog if tags exist
-    # Sync Settings logic removed
 
     profile.save(path)
 
@@ -355,19 +342,6 @@ def _load_profile_from_path(state: UIState, path: Path) -> None:
 
         if dpg.does_item_exist("config_output_path_label"):
             dpg.set_value("config_output_path_label", str(state.config_output_path))
-
-        if dpg.does_item_exist("remote_manifest_url_input"):
-            manifest_url = state.remote_manifest_url
-            if profile.aws_config and profile.aws_config.remote_manifest_url:
-                manifest_url = profile.aws_config.remote_manifest_url
-
-            dpg.set_value("remote_manifest_url_input", manifest_url)
-
-        from cerebrus.ui.components.dialogs.aws.sync_panel import (
-            _render_downloaded_configs_list,
-        )
-
-        _render_downloaded_configs_list(state)
 
         if dpg.does_item_exist("use_prefix_only"):
             dpg.set_value("use_prefix_only", state.use_prefix_only)

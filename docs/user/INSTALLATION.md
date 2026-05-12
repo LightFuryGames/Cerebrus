@@ -78,8 +78,6 @@ Runtime plugin docs live beside the plugin code:
 - `cerebrus/plugins/aws_secrets.md`
 - `cerebrus/plugins/s3_uploader.md`
 
-Old AWS configuration docs that mention `Tools -> AWS Configuration` are deprecated. Current cloud setup happens through the AWS Secrets and S3 Uploader plugins.
-
 ## Uninstallation
 
 - One-click installer:

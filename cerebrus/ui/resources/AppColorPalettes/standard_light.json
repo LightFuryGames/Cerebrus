@@ -1,118 +1,77 @@
 {
-    "name": "Standard Light",
-    "palette": "Standard",
-    "mode": "Light",
-    "colors": {
-        "mvThemeCol_WindowBg": [
-            240,
-            240,
-            245
-        ],
-        "mvThemeCol_ChildBg": [
-            255,
-            255,
-            255
-        ],
-        "mvThemeCol_PopupBg": [
-            255,
-            255,
-            255
-        ],
-        "mvThemeCol_Border": [
-            180,
-            180,
-            190
-        ],
-        "mvThemeCol_FrameBg": [
-            230,
-            230,
-            235
-        ],
-        "mvThemeCol_TitleBg": [
-            210,
-            210,
-            220
-        ],
-        "mvThemeCol_MenuBarBg": [
-            250,
-            250,
-            252
-        ],
-        "mvThemeCol_Header": [
-            0,
-            0,
-            0
-        ],
-        "mvThemeCol_Button": [
-            225,
-            225,
-            230
-        ],
-        "mvThemeCol_Text": [
-            30,
-            30,
-            35
-        ]
-    },
-    "label_colors": {
-        "header": [
-            0,
-            0,
-            0
-        ],
-        "subheader": [
-            20,
-            20,
-            25
-        ]
-    },
-    "profile_status_colors": {
-        "DEFAULT": [
-            110,
-            60,
-            0
-        ],
-        "LOADED": [
-            0,
-            90,
-            0
-        ],
-        "ERROR": [
-            140,
-            0,
-            0
-        ],
-        "INFO": [
-            0,
-            40,
-            120
-        ]
-    },
-    "log_colors": {
-        "DEBUG": [
-            80,
-            80,
-            90
-        ],
-        "INFO": [
-            0,
-            40,
-            120
-        ],
-        "WARNING": [
-            110,
-            60,
-            0
-        ],
-        "ERROR": [
-            140,
-            0,
-            0
-        ],
-        "SUCCESS": [
-            0,
-            90,
-            0
-        ]
-    }
+  "name": "Standard Light",
+  "palette": "Standard",
+  "mode": "Light",
+  "colors": {
+    "mvThemeCol_Text": [31, 41, 55],
+    "mvThemeCol_TextDisabled": [107, 114, 128],
+    "mvThemeCol_WindowBg": [247, 248, 252],
+    "mvThemeCol_ChildBg": [255, 255, 255],
+    "mvThemeCol_PopupBg": [255, 255, 255],
+    "mvThemeCol_Border": [196, 204, 216],
+    "mvThemeCol_BorderShadow": [0, 0, 0, 0],
+    "mvThemeCol_FrameBg": [232, 236, 244],
+    "mvThemeCol_FrameBgHovered": [222, 229, 240],
+    "mvThemeCol_FrameBgActive": [211, 221, 236],
+    "mvThemeCol_TitleBg": [226, 231, 240],
+    "mvThemeCol_TitleBgActive": [209, 218, 232],
+    "mvThemeCol_TitleBgCollapsed": [238, 241, 247],
+    "mvThemeCol_MenuBarBg": [241, 244, 249],
+    "mvThemeCol_ScrollbarBg": [238, 241, 247],
+    "mvThemeCol_ScrollbarGrab": [190, 198, 212],
+    "mvThemeCol_ScrollbarGrabHovered": [166, 176, 194],
+    "mvThemeCol_ScrollbarGrabActive": [139, 151, 173],
+    "mvThemeCol_CheckMark": [17, 127, 190],
+    "mvThemeCol_SliderGrab": [41, 128, 185],
+    "mvThemeCol_SliderGrabActive": [25, 101, 158],
+    "mvThemeCol_Button": [226, 231, 240],
+    "mvThemeCol_ButtonHovered": [211, 221, 236],
+    "mvThemeCol_ButtonActive": [193, 213, 232],
+    "mvThemeCol_Header": [218, 228, 242],
+    "mvThemeCol_HeaderHovered": [198, 216, 238],
+    "mvThemeCol_HeaderActive": [184, 211, 235],
+    "mvThemeCol_Separator": [177, 187, 202],
+    "mvThemeCol_SeparatorHovered": [71, 126, 174],
+    "mvThemeCol_SeparatorActive": [37, 99, 150],
+    "mvThemeCol_Tab": [224, 229, 238],
+    "mvThemeCol_TabHovered": [199, 217, 238],
+    "mvThemeCol_TabActive": [184, 211, 235],
+    "mvThemeCol_TabUnfocused": [232, 236, 244],
+    "mvThemeCol_TabUnfocusedActive": [211, 221, 236],
+    "mvThemeCol_TableHeaderBg": [226, 231, 240],
+    "mvThemeCol_TableBorderStrong": [140, 151, 170],
+    "mvThemeCol_TableBorderLight": [210, 216, 226],
+    "mvThemeCol_TableRowBg": [255, 255, 255],
+    "mvThemeCol_TableRowBgAlt": [246, 248, 252],
+    "mvThemeCol_NavHighlight": [37, 99, 150],
+    "mvThemeCol_ModalWindowDimBg": [31, 41, 55, 90]
+  },
+  "styles": {
+    "mvStyleVar_WindowPadding": [8, 8],
+    "mvStyleVar_FramePadding": [8, 4],
+    "mvStyleVar_ItemSpacing": [7, 5],
+    "mvStyleVar_FrameRounding": 3,
+    "mvStyleVar_GrabRounding": 3,
+    "mvStyleVar_TabRounding": 3,
+    "mvStyleVar_ChildRounding": 2
+  },
+  "label_colors": {
+    "header": [17, 24, 39],
+    "subheader": [55, 65, 81],
+    "hyperlink": [25, 101, 158],
+    "help_button": [75, 85, 99]
+  },
+  "profile_status_colors": {
+    "DEFAULT": [146, 64, 14],
+    "LOADED": [21, 128, 61],
+    "ERROR": [185, 28, 28],
+    "INFO": [29, 78, 216]
+  },
+  "log_colors": {
+    "DEBUG": [75, 85, 99],
+    "INFO": [29, 78, 216],
+    "WARNING": [146, 64, 14],
+    "ERROR": [185, 28, 28],
+    "SUCCESS": [21, 128, 61]
+  }
 }

@@ -1,7 +1,7 @@
 import re
 from typing import Any, Dict, List
 
-from ..utils import try_format_cell_value
+from ..utils import parse_memory_size_to_mb, try_format_cell_value
 from . import ReportTab
 
 
@@ -41,21 +41,6 @@ class RhiMemoryTab(ReportTab):
             size_raw = total_match.group(1).strip()
             context["rhi_memory_total_val"] = try_format_cell_value("Size", size_raw)
 
-    def _parse_to_mb(self, val: str) -> float:
-        val = val.replace(",", "").lower()
-        match = re.search(r"([\d\.]+)\s*(kb|mb|gb|b)?", val)
-        if not match:
-            return 0.0
-        num = float(match.group(1))
-        unit = match.group(2)
-        if unit == "gb":
-            return num * 1024.0
-        if unit == "kb":
-            return num / 1024.0
-        if unit == "b":
-            return num / (1024.0 * 1024.0)
-        return num
-
     def render(self, context: Dict[str, Any], is_active: bool = False) -> str:
         data = context.get("rhi_memory_data", [])
         total_val = context.get("rhi_memory_total_val", "")
@@ -75,7 +60,7 @@ class RhiMemoryTab(ReportTab):
         for r_idx, row in enumerate(data):
             # Convert to GB if needed for better readability
             size_val = row[2]
-            size_mb = self._parse_to_mb(size_val)
+            size_mb = parse_memory_size_to_mb(size_val)
             calc_total_mb += size_mb
 
             display_size = size_val
@@ -112,7 +97,7 @@ class RhiMemoryTab(ReportTab):
                     </h4>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.85em; text-align: left; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
                         <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Reported Size:</span></div>
-                        <div style="color: #ce9178; text-align: right;"><b>{f"{self._parse_to_mb(total_val)/1024.0:.2f} GB" if self._parse_to_mb(total_val) >= 1024 else total_val}</b></div>
+                        <div style="color: #ce9178; text-align: right;"><b>{f"{parse_memory_size_to_mb(total_val)/1024.0:.2f} GB" if parse_memory_size_to_mb(total_val) >= 1024 else total_val}</b></div>
                     </div>
                 </div>
 
@@ -277,21 +262,6 @@ class RhiResourceMemoryTab(ReportTab):
 
         if "MemReport:" not in line and line.strip():
             context["rhi_resource_memory_data"]["raw_lines"].append(line)
-
-    def _parse_to_mb(self, val: str) -> float:
-        val = val.replace(",", "").lower()
-        match = re.search(r"([\d\.]+)\s*(kb|mb|gb|b)?", val)
-        if not match:
-            return 0.0
-        num = float(match.group(1))
-        unit = match.group(2)
-        if unit == "gb":
-            return num * 1024.0
-        if unit == "kb":
-            return num / 1024.0
-        if unit == "b":
-            return num / (1024.0 * 1024.0)
-        return num
 
     def render(self, context: Dict[str, Any], is_active: bool = False) -> str:
         data = context.get("rhi_resource_memory_data", {})

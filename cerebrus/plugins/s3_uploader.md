@@ -32,11 +32,28 @@ Upload Performance Report to S3
 
 ## Metadata-Based Pathing
 
-For Cerebrus reports, the plugin reads:
+For Cerebrus reports, the plugin first reads:
 
 ```html
 <script type="application/json" id="cerebrus-metadata">
 ```
+
+For newer PerfReportTool HTML reports, the plugin can also read the visible report table:
+
+```text
+Build Version -> ++titan-game+development-CL-33425
+Configuration -> Test
+CPU/Device -> OnePlus|ONEPLUS A3003|Qualcomm Technologies, Inc MSM8996
+Profile(...) -> Profile(20260511_082831)
+```
+
+That becomes:
+
+```text
+Test/OnePlus/A3003/CL-33425/11-05-2026/082831/Filename.html
+```
+
+If the visible table is unavailable, the plugin falls back to the embedded CSV footer fields such as `[config]`, `[buildversion]`, and `[cpu]`.
 
 When metadata is available, the default S3 path is:
 
@@ -49,6 +66,14 @@ If metadata is missing, the user can still upload, but they must review or type 
 ## Upload Behavior
 
 The plugin uploads the selected HTML report as-is. It does not rewrite, strip, or optimize the report before upload. This keeps the uploaded artifact byte-for-byte aligned with the file the user reviewed locally.
+
+Bucket labels in the UI may include region and key alias, for example:
+
+```text
+perf-reports [ap-south-1] (team)
+```
+
+That label is only for humans. During upload, Cerebrus resolves it back to the real S3 bucket name before calling AWS.
 
 ## Warnings
 
@@ -72,6 +97,8 @@ The plugin warns when:
 
 - Metadata extraction from embedded JSON.
 - Metadata extraction from legacy stat cards.
+- Metadata extraction from current PerfReportTool HTML tables.
+- Metadata extraction from current PerfReportTool embedded CSV footers.
 - Destination path derivation and sanitization.
 - Upload call construction with and without `ContentType`.
 
@@ -79,9 +106,6 @@ The plugin warns when:
 
 Add tests for:
 
-- Metadata extraction from the embedded JSON block.
-- Legacy metadata fallback from visible report cards.
-- Destination path derivation and sanitization.
 - Warning behavior for changelist `0`.
 - Rejection of non-HTML files.
 - Behavior when no bucket is selected.

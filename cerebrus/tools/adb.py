@@ -65,30 +65,6 @@ class AdbClient:
         """Push a file or directory to the device."""
         self._run(["-s", serial, "push", source, destination])
 
-    def remove_file(self, serial: str, path: str) -> None:
-        """Remove a file from the device."""
-        self._run(["-s", serial, "shell", "rm", "-f", path])
-
-    def list_files(self, serial: str, path: str) -> List[str]:
-        """List files in a directory on the device."""
-        try:
-            result = self._run(["-s", serial, "shell", "ls", "-1", path])
-            # Filter out error messages like "ls: /path/to/dir: No such file or directory"
-            if result.stderr and (
-                "No such file or directory" in result.stderr
-                or "Permission denied" in result.stderr
-            ):
-                return []
-            files = [
-                f.strip()
-                for f in result.stdout.splitlines()
-                if f.strip() and "No such file or directory" not in f
-            ]
-            return files
-            return []
-        except AdbError:
-            return []
-
     def get_main_activity(self, serial: str, package_name: str) -> str | None:
         """Find the main launcher activity for a package."""
         try:
@@ -212,22 +188,6 @@ class AdbClient:
         """Clear the application data and cache using pm clear."""
         self._run(["-s", serial, "shell", "pm", "clear", package_name])
 
-    def toggle_auto_rotate(self, serial: str, enabled: bool) -> None:
-        """Enable or disable system-wide auto-rotate (accelerometer_rotation)."""
-        value = "1" if enabled else "0"
-        self._run(
-            [
-                "-s",
-                serial,
-                "shell",
-                "settings",
-                "put",
-                "system",
-                "accelerometer_rotation",
-                value,
-            ]
-        )
-
     def remove_task_from_recents(self, serial: str, package_name: str) -> None:
         """Find the TaskId for the given package and remove it from Recents/Overview."""
         if not package_name:
@@ -287,20 +247,6 @@ class AdbClient:
         except Exception:
             # Silently fail if parsing or command fails, as it's a non-critical cleanup step
             pass
-
-    def clear_package_cache_only(self, serial: str, package_name: str) -> None:
-        """Attempt to clear UE Saved and cache folders on SD card."""
-        parts = package_name.split(".")
-        if len(parts) >= 3:
-            project_name = parts[-1]
-            # Try to clear common Unreal cache/saved locations on SD card
-            paths_to_clear = [
-                f"/sdcard/Android/data/{package_name}/cache/",
-                f"/sdcard/Android/data/{package_name}/files/UnrealGame/{project_name}/{project_name}/Saved/Logs/",
-                f"/sdcard/Android/data/{package_name}/files/UnrealGame/{project_name}/{project_name}/Saved/Crashes/",
-            ]
-            for path in paths_to_clear:
-                self._run(["-s", serial, "shell", "rm", "-rf", path])
 
     def _run(self, args: List[str]) -> subprocess.CompletedProcess[str]:
         command = [self.executable, *args]

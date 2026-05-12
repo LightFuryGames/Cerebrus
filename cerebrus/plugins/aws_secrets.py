@@ -17,37 +17,23 @@ from cerebrus.core.paths import get_app_data_dir
 from cerebrus.core.plugins import TabPlugin
 from cerebrus.ui.state import UIState
 from cerebrus.ui.themes import get_theme_manager
-from cerebrus.ui.components.shared import log_message
+from cerebrus.ui.components.shared import (
+    _add_plugin_help_button as add_plugin_help_button,
+    load_plugin_tooltips,
+    log_message,
+)
 
-def load_plugin_tooltips(filename: str) -> dict:
-    try:
-        path = Path(__file__).parent / "resources" / filename
-        if path.exists():
-            with open(path, "r") as f:
-                return json.load(f)
-    except Exception as e:
-        print(f"Failed to load plugin tooltips {filename}: {e}")
-    return {}
 
 AWS_TOOLTIPS = load_plugin_tooltips("aws_secrets_tooltips.json")
-
-def _add_plugin_help_button(tooltip_key: str) -> None:
-    if tooltip_key not in AWS_TOOLTIPS:
-        return
-    text = AWS_TOOLTIPS[tooltip_key]
-    with dpg.group(horizontal=True):
-        dpg.add_button(label="?", width=20, height=20, small=True)
-        with dpg.tooltip(dpg.last_item()):
-            dpg.add_text(text, wrap=350)
 
 
 class AWSSecretsManager:
     """Singleton to manage AWS credentials locally."""
-    
+
     _instance = None
     EXPORT_SCHEMA_VERSION = "2.0"
     LEGACY_PORTABLE_KEY = "Cerebrus_AWS_Secret_Key_2026_!@#"
-    
+
     def __init__(self):
         self.cache_file = get_app_data_dir() / "aws_secrets.json"
         self.regions_file = get_app_data_dir() / "aws_regions.json"
@@ -55,7 +41,7 @@ class AWSSecretsManager:
         self.regions = ["ap-south-1"]
         self.load()
         self.load_regions()
-        
+
     @classmethod
     def get_instance(cls) -> AWSSecretsManager:
         if cls._instance is None:
@@ -154,13 +140,17 @@ class AWSSecretsManager:
                         # Decrypt sensitive fields
                         for key_info in raw_data.get("keys", {}).values():
                             if "access_key" in key_info:
-                                key_info["access_key"] = self._decrypt_local(key_info["access_key"])
+                                key_info["access_key"] = self._decrypt_local(
+                                    key_info["access_key"]
+                                )
                             if "secret_key" in key_info:
-                                key_info["secret_key"] = self._decrypt_local(key_info["secret_key"])
+                                key_info["secret_key"] = self._decrypt_local(
+                                    key_info["secret_key"]
+                                )
                         self.data = raw_data
             except Exception as e:
                 print(f"Failed to load AWS secrets: {e}")
-                
+
         # Ensure schema
         if "keys" not in self.data:
             self.data["keys"] = {}
@@ -188,7 +178,7 @@ class AWSSecretsManager:
                     key_info["access_key"] = self._encrypt_local(key_info["access_key"])
                 if "secret_key" in key_info:
                     key_info["secret_key"] = self._encrypt_local(key_info["secret_key"])
-            
+
             with open(self.cache_file, "w") as f:
                 json.dump(save_data, f, indent=4)
             return True
@@ -240,16 +230,16 @@ class AWSSecretsManager:
                             "secret_key": "",
                             "requires_reentry": True,
                         }
-                
+
                 # Merge buckets (avoid exact duplicates)
                 imported_buckets = imported_data.get("buckets", [])
                 if isinstance(imported_buckets, dict):
                     imported_buckets = list(imported_buckets.values())
-                
+
                 for b in imported_buckets:
                     if b not in self.data["buckets"]:
                         self.data["buckets"].append(b)
-                
+
                 if not self.save():
                     return "Imported data could not be saved."
                 return ""
@@ -259,12 +249,14 @@ class AWSSecretsManager:
 
     def add_key(self, alias: str, access_key: str, secret_key: str) -> str:
         if not self._local_encryption_available():
-            return "Local credential encryption is unavailable; AWS keys were not saved."
+            return (
+                "Local credential encryption is unavailable; AWS keys were not saved."
+            )
 
         self.data["keys"][alias] = {
             "alias": alias,
             "access_key": access_key,
-            "secret_key": secret_key
+            "secret_key": secret_key,
         }
         if not self.save():
             self.data["keys"].pop(alias, None)
@@ -279,11 +271,7 @@ class AWSSecretsManager:
             self.save()
 
     def add_bucket(self, name: str, region: str, key_alias: str):
-        new_mapping = {
-            "name": name,
-            "region": region,
-            "key_alias": key_alias
-        }
+        new_mapping = {"name": name, "region": region, "key_alias": key_alias}
         if new_mapping not in self.data["buckets"]:
             self.data["buckets"].append(new_mapping)
             self.save()
@@ -294,7 +282,7 @@ class AWSSecretsManager:
             self.save()
 
     def get_credentials_for_bucket(self, display_name: str) -> dict | None:
-        """Returns boto3 kwargs for the bucket by its display name 'BucketName (KeyAlias)'."""
+        """Return boto3 kwargs and the real bucket name for a bucket display item."""
         for b_info in self.data["buckets"]:
             name = b_info.get("name")
             region = b_info.get("region")
@@ -304,11 +292,11 @@ class AWSSecretsManager:
                 match_name = f"{match_name} [{region}]"
             if key_alias:
                 match_name = f"{match_name} ({key_alias})"
-            
+
             if match_name == display_name:
                 if key_alias not in self.data["keys"]:
                     return None
-                    
+
                 key_info = self.data["keys"][key_alias]
                 access_key = key_info.get("access_key")
                 secret_key = key_info.get("secret_key")
@@ -317,7 +305,8 @@ class AWSSecretsManager:
                 return {
                     "aws_access_key_id": access_key,
                     "aws_secret_access_key": secret_key,
-                    "region_name": b_info.get("region")
+                    "region_name": b_info.get("region"),
+                    "bucket_name": name,
                 }
         return None
 
@@ -363,41 +352,54 @@ class AWSSecretsPlugin(TabPlugin):
     def build_tab(self, state: UIState) -> None:
         manager = AWSSecretsManager.get_instance()
         tm = get_theme_manager()
-        
+
         dpg.add_spacer(height=10)
-        dpg.bind_item_theme(dpg.add_text("AWS Secrets & Bucket Manager"), tm.get_header_theme())
+        dpg.bind_item_theme(
+            dpg.add_text("AWS Secrets & Bucket Manager"), tm.get_header_theme()
+        )
         dpg.add_text("Manage credentials securely for other plugins to use.")
         dpg.add_spacer(height=15)
 
-        dpg.bind_item_theme(dpg.add_text("Add Credential Key"), tm.get_subheader_theme())
+        dpg.bind_item_theme(
+            dpg.add_text("Add Credential Key"), tm.get_subheader_theme()
+        )
         alias_tag = "aws_new_alias"
         ak_tag = "aws_new_ak"
         sk_tag = "aws_new_sk"
-        
-        with dpg.table(header_row=False, borders_innerH=False, borders_outerH=False, borders_innerV=False, borders_outerV=False):
+
+        with dpg.table(
+            header_row=False,
+            borders_innerH=False,
+            borders_outerH=False,
+            borders_innerV=False,
+            borders_outerV=False,
+        ):
             dpg.add_table_column(width_fixed=True, init_width_or_weight=200)
             dpg.add_table_column(width_stretch=True, init_width_or_weight=1.0)
-            
+
             with dpg.table_row():
                 with dpg.group(horizontal=True, horizontal_spacing=4):
                     dpg.add_text("Key Alias:")
-                    _add_plugin_help_button("aws_key_alias")
+                    add_plugin_help_button(AWS_TOOLTIPS, "aws_key_alias")
                 dpg.add_input_text(tag=alias_tag, hint="e.g. TeamKey", width=400)
-                
+
             with dpg.table_row():
                 with dpg.group(horizontal=True, horizontal_spacing=4):
                     dpg.add_text("Access Key ID:")
-                    _add_plugin_help_button("aws_access_key")
+                    add_plugin_help_button(AWS_TOOLTIPS, "aws_access_key")
                 dpg.add_input_text(tag=ak_tag, hint="AKIA...", width=400)
-                
+
             with dpg.table_row():
                 with dpg.group(horizontal=True, horizontal_spacing=4):
                     dpg.add_text("Secret Access Key:")
-                    _add_plugin_help_button("aws_secret_key")
-                dpg.add_input_text(tag=sk_tag, hint="Your secret key", password=True, width=400)
-                
+                    add_plugin_help_button(AWS_TOOLTIPS, "aws_secret_key")
+                dpg.add_input_text(
+                    tag=sk_tag, hint="Your secret key", password=True, width=400
+                )
+
             with dpg.table_row():
                 dpg.add_spacer()
+
                 def _add_key_cb():
                     alias = dpg.get_value(alias_tag)
                     ak = dpg.get_value(ak_tag)
@@ -411,72 +413,102 @@ class AWSSecretsPlugin(TabPlugin):
                             self._refresh_ui(manager)
                     else:
                         log_message(state, "ERROR", "All key fields are required.")
-                
+
                 dpg.add_button(label="Save Key", callback=_add_key_cb, width=120)
 
         dpg.add_spacer(height=15)
         dpg.add_separator()
         dpg.add_spacer(height=15)
-        
+
         dpg.bind_item_theme(dpg.add_text("Map S3 Bucket"), tm.get_subheader_theme())
         bucket_tag = "aws_new_bucket"
         region_tag = "aws_new_region"
         key_combo_tag = "aws_key_combo"
-        
-        with dpg.table(header_row=False, borders_innerH=False, borders_outerH=False, borders_innerV=False, borders_outerV=False):
+
+        with dpg.table(
+            header_row=False,
+            borders_innerH=False,
+            borders_outerH=False,
+            borders_innerV=False,
+            borders_outerV=False,
+        ):
             dpg.add_table_column(width_fixed=True, init_width_or_weight=200)
             dpg.add_table_column(width_stretch=True, init_width_or_weight=1.0)
-            
+
             with dpg.table_row():
                 with dpg.group(horizontal=True, horizontal_spacing=4):
                     dpg.add_text("Bucket Name:")
-                    _add_plugin_help_button("aws_bucket_name")
-                dpg.add_input_text(tag=bucket_tag, hint="e.g. cerebrus-assets-bucket", width=400)
-                
+                    add_plugin_help_button(AWS_TOOLTIPS, "aws_bucket_name")
+                dpg.add_input_text(
+                    tag=bucket_tag, hint="e.g. cerebrus-assets-bucket", width=400
+                )
+
             with dpg.table_row():
                 with dpg.group(horizontal=True, horizontal_spacing=4):
                     dpg.add_text("Region:")
-                    _add_plugin_help_button("aws_region")
-                dpg.add_combo(tag=region_tag, items=manager.regions, width=400, default_value=manager.regions[0] if manager.regions else "")
-                
+                    add_plugin_help_button(AWS_TOOLTIPS, "aws_region")
+                dpg.add_combo(
+                    tag=region_tag,
+                    items=manager.regions,
+                    width=400,
+                    default_value=manager.regions[0] if manager.regions else "",
+                )
+
             with dpg.table_row():
                 with dpg.group(horizontal=True, horizontal_spacing=4):
                     dpg.add_text("Assigned Key Alias:")
-                    _add_plugin_help_button("aws_key_mapping")
-                dpg.add_combo(tag=key_combo_tag, items=list(manager.data["keys"].keys()), width=400)
-                
+                    add_plugin_help_button(AWS_TOOLTIPS, "aws_key_mapping")
+                dpg.add_combo(
+                    tag=key_combo_tag,
+                    items=list(manager.data["keys"].keys()),
+                    width=400,
+                )
+
             with dpg.table_row():
                 dpg.add_spacer()
+
                 def _add_bucket_cb():
                     b_name = dpg.get_value(bucket_tag)
                     region = dpg.get_value(region_tag)
                     k_alias = dpg.get_value(key_combo_tag)
                     if b_name and region and k_alias:
                         manager.add_bucket(b_name, region, k_alias)
-                        log_message(state, "SUCCESS", f"Mapped bucket {b_name} to key {k_alias}")
+                        log_message(
+                            state, "SUCCESS", f"Mapped bucket {b_name} to key {k_alias}"
+                        )
                         self._refresh_ui(manager)
                     else:
                         log_message(state, "ERROR", "All bucket fields are required.")
-                        
-                dpg.add_button(label="Save Bucket Mapping", callback=_add_bucket_cb, width=150)
 
-
-
+                dpg.add_button(
+                    label="Save Bucket Mapping", callback=_add_bucket_cb, width=150
+                )
 
     def build_menu(self, state: UIState) -> None:
         """Inject menu items under this plugin's settings menu."""
         manager = AWSSecretsManager.get_instance()
-        
+
         # --- Table Refresh Methods ---
         def _refresh_keys_table():
-            if not dpg.does_item_exist("aws_keys_container"): return
+            if not dpg.does_item_exist("aws_keys_container"):
+                return
             dpg.delete_item("aws_keys_container", children_only=True)
-            with dpg.table(parent="aws_keys_container", header_row=True, borders_innerH=True, borders_outerH=True, borders_innerV=True, borders_outerV=True, resizable=True):
+            with dpg.table(
+                parent="aws_keys_container",
+                header_row=True,
+                borders_innerH=True,
+                borders_outerH=True,
+                borders_innerV=True,
+                borders_outerV=True,
+                resizable=True,
+            ):
                 dpg.add_table_column(label="Alias")
                 dpg.add_table_column(label="Access Key ID")
                 dpg.add_table_column(label="Secret Key")
-                dpg.add_table_column(label="Action", width_fixed=True, init_width_or_weight=150)
-                
+                dpg.add_table_column(
+                    label="Action", width_fixed=True, init_width_or_weight=150
+                )
+
                 for alias in manager.data["keys"]:
                     key_info = manager.data["keys"][alias]
                     with dpg.table_row():
@@ -485,73 +517,138 @@ class AWSSecretsPlugin(TabPlugin):
                         dpg.add_text("****************" if ak else "")
                         dpg.add_text("****************")
                         with dpg.group(horizontal=True):
+
                             def _del_key_cb(s, a, u):
                                 manager.remove_key(u)
                                 self._refresh_ui(manager)
                                 _refresh_keys_table()
-                            dpg.add_button(label="Delete", user_data=alias, callback=_del_key_cb, small=True)
+
+                            dpg.add_button(
+                                label="Delete",
+                                user_data=alias,
+                                callback=_del_key_cb,
+                                small=True,
+                            )
 
         def _refresh_buckets_table():
-            if not dpg.does_item_exist("aws_buckets_container"): return
+            if not dpg.does_item_exist("aws_buckets_container"):
+                return
             dpg.delete_item("aws_buckets_container", children_only=True)
-            with dpg.table(parent="aws_buckets_container", header_row=True, borders_innerH=True, borders_outerH=True, borders_innerV=True, borders_outerV=True, resizable=True):
+            with dpg.table(
+                parent="aws_buckets_container",
+                header_row=True,
+                borders_innerH=True,
+                borders_outerH=True,
+                borders_innerV=True,
+                borders_outerV=True,
+                resizable=True,
+            ):
                 dpg.add_table_column(label="Bucket Name")
                 dpg.add_table_column(label="Region")
                 dpg.add_table_column(label="Key Alias")
-                dpg.add_table_column(label="Action", width_fixed=True, init_width_or_weight=150)
-                
+                dpg.add_table_column(
+                    label="Action", width_fixed=True, init_width_or_weight=150
+                )
+
                 for i, b_info in enumerate(manager.data["buckets"]):
                     with dpg.table_row():
                         dpg.add_text(b_info.get("name", ""))
                         dpg.add_text(b_info.get("region", ""))
                         dpg.add_text(b_info.get("key_alias", ""))
                         with dpg.group(horizontal=True):
+
                             def _del_bucket_cb(s, a, u):
                                 manager.remove_bucket(u)
                                 self._refresh_ui(manager)
                                 _refresh_buckets_table()
-                            dpg.add_button(label="Delete", user_data=i, callback=_del_bucket_cb, small=True)
+
+                            dpg.add_button(
+                                label="Delete",
+                                user_data=i,
+                                callback=_del_bucket_cb,
+                                small=True,
+                            )
 
         def _refresh_regions_table():
-            if not dpg.does_item_exist("aws_regions_table_container"): return
+            if not dpg.does_item_exist("aws_regions_table_container"):
+                return
             dpg.delete_item("aws_regions_table_container", children_only=True)
-            with dpg.table(parent="aws_regions_table_container", header_row=True, borders_innerH=True, borders_outerH=True, borders_innerV=True, borders_outerV=True):
+            with dpg.table(
+                parent="aws_regions_table_container",
+                header_row=True,
+                borders_innerH=True,
+                borders_outerH=True,
+                borders_innerV=True,
+                borders_outerV=True,
+            ):
                 dpg.add_table_column(label="Region Name")
-                dpg.add_table_column(label="Action", width_fixed=True, init_width_or_weight=150)
-                
+                dpg.add_table_column(
+                    label="Action", width_fixed=True, init_width_or_weight=150
+                )
+
                 for r in manager.regions:
                     with dpg.table_row():
                         dpg.add_text(r)
                         with dpg.group(horizontal=True):
+
                             def _del_region_cb(s, a, u):
                                 if u in manager.regions:
                                     manager.regions.remove(u)
                                     manager.save_regions()
                                     self._refresh_ui(manager)
                                     _refresh_regions_table()
-                            dpg.add_button(label="Delete", user_data=r, callback=_del_region_cb, small=True)
+
+                            dpg.add_button(
+                                label="Delete",
+                                user_data=r,
+                                callback=_del_region_cb,
+                                small=True,
+                            )
 
         # --- Main Modals ---
         def _show_edit_popup():
             if not dpg.does_item_exist("aws_edit_modal"):
-                with dpg.window(tag="aws_edit_modal", modal=True, show=True, label="Manage AWS Configurations", width=750, height=550):
+                with dpg.window(
+                    tag="aws_edit_modal",
+                    modal=True,
+                    show=True,
+                    label="Manage AWS Secrets",
+                    width=750,
+                    height=550,
+                ):
                     with dpg.tab_bar():
                         with dpg.tab(label="AWS Keys"):
                             dpg.add_group(tag="aws_keys_container")
                         with dpg.tab(label="Bucket Mappings"):
                             dpg.add_group(tag="aws_buckets_container")
                     dpg.add_spacer(height=10)
-                    dpg.add_button(label="Close", callback=lambda: dpg.configure_item("aws_edit_modal", show=False), width=100)
-            
+                    dpg.add_button(
+                        label="Close",
+                        callback=lambda: dpg.configure_item(
+                            "aws_edit_modal", show=False
+                        ),
+                        width=100,
+                    )
+
             dpg.configure_item("aws_edit_modal", show=True)
             _refresh_keys_table()
             _refresh_buckets_table()
 
         def _show_regions_popup():
             if not dpg.does_item_exist("aws_regions_modal"):
-                with dpg.window(tag="aws_regions_modal", modal=True, show=True, label="Manage Allowed Regions", width=450, height=450):
+                with dpg.window(
+                    tag="aws_regions_modal",
+                    modal=True,
+                    show=True,
+                    label="Manage Allowed Regions",
+                    width=450,
+                    height=450,
+                ):
                     with dpg.group(horizontal=True):
-                        dpg.add_input_text(tag="aws_new_region_input", hint="e.g. eu-west-1", width=250)
+                        dpg.add_input_text(
+                            tag="aws_new_region_input", hint="e.g. eu-west-1", width=250
+                        )
+
                         def _add_region_cb():
                             new_r = dpg.get_value("aws_new_region_input").strip()
                             if new_r and new_r not in manager.regions:
@@ -562,61 +659,84 @@ class AWSSecretsPlugin(TabPlugin):
                                 _refresh_regions_table()
                             elif new_r in manager.regions:
                                 log_message(state, "ERROR", "Region already exists.")
+
                         dpg.add_button(label="Add Region", callback=_add_region_cb)
-                    
+
                     dpg.add_spacer(height=10)
                     dpg.add_group(tag="aws_regions_table_container")
                     dpg.add_spacer(height=10)
-                    dpg.add_button(label="Close", callback=lambda: dpg.configure_item("aws_regions_modal", show=False), width=100)
-            
+                    dpg.add_button(
+                        label="Close",
+                        callback=lambda: dpg.configure_item(
+                            "aws_regions_modal", show=False
+                        ),
+                        width=100,
+                    )
+
             dpg.configure_item("aws_regions_modal", show=True)
             _refresh_regions_table()
 
         # --- Menu Registration ---
         with dpg.menu(label="AWS Secrets"):
-            dpg.add_menu_item(label="Manage Configurations", callback=_show_edit_popup)
-            dpg.add_menu_item(label="Manage Allowed Regions", callback=_show_regions_popup)
+            dpg.add_menu_item(label="Manage AWS Secrets", callback=_show_edit_popup)
+            dpg.add_menu_item(
+                label="Manage Allowed Regions", callback=_show_regions_popup
+            )
             dpg.add_separator()
-            dpg.add_menu_item(label="Export Configurations (.cbx)", callback=lambda: self._handle_export(manager, state))
-            dpg.add_menu_item(label="Import Configurations (.cbx)", callback=lambda: self._handle_import(manager, state))
+            dpg.add_menu_item(
+                label="Export AWS Secrets (.cbx)",
+                callback=lambda: self._handle_export(manager, state),
+            )
+            dpg.add_menu_item(
+                label="Import AWS Secrets (.cbx)",
+                callback=lambda: self._handle_import(manager, state),
+            )
 
     def _handle_export(self, manager, state):
         import tkinter as tk
         from tkinter import filedialog
+
         try:
             root = tk.Tk()
             root.withdraw()
             root.attributes("-topmost", True)
             path = filedialog.asksaveasfilename(
-                title="Export AWS Configuration",
+                title="Export AWS Secrets",
                 defaultextension=".cbx",
-                filetypes=[("Cerebrus Export", "*.cbx"), ("All files", "*.*")]
+                filetypes=[("Cerebrus Export", "*.cbx"), ("All files", "*.*")],
             )
             root.destroy()
             if path:
                 if manager.export_data(Path(path)):
-                    log_message(state, "SUCCESS", f"Exported configuration to {Path(path).name}")
+                    log_message(
+                        state, "SUCCESS", f"Exported AWS secrets to {Path(path).name}"
+                    )
                 else:
-                    log_message(state, "ERROR", "Failed to export configuration.")
+                    log_message(state, "ERROR", "Failed to export AWS secrets.")
         except Exception as e:
             log_message(state, "ERROR", f"Export failed: {e}")
 
     def _handle_import(self, manager, state):
         import tkinter as tk
         from tkinter import filedialog
+
         try:
             root = tk.Tk()
             root.withdraw()
             root.attributes("-topmost", True)
             path = filedialog.askopenfilename(
-                title="Import AWS Configuration",
-                filetypes=[("Cerebrus Export", "*.cbx"), ("All files", "*.*")]
+                title="Import AWS Secrets",
+                filetypes=[("Cerebrus Export", "*.cbx"), ("All files", "*.*")],
             )
             root.destroy()
             if path:
                 error = manager.import_data(Path(path))
                 if not error:
-                    log_message(state, "SUCCESS", f"Imported configuration from {Path(path).name}")
+                    log_message(
+                        state,
+                        "SUCCESS",
+                        f"Imported AWS secrets from {Path(path).name}",
+                    )
                     self._refresh_ui(manager)
                 else:
                     log_message(state, "ERROR", error)

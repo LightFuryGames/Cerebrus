@@ -93,6 +93,31 @@ def test_bucket_display_names_include_region_to_avoid_ambiguity(tmp_path):
     ]
 
 
+def test_get_credentials_for_bucket_returns_real_bucket_name(tmp_path):
+    manager = make_manager(tmp_path)
+    manager.data = {
+        "keys": {
+            "team": {
+                "alias": "team",
+                "access_key": "AKIA_TEST",
+                "secret_key": "SECRET_TEST",
+            }
+        },
+        "buckets": [
+            {"name": "perf-reports", "region": "ap-south-1", "key_alias": "team"}
+        ],
+    }
+
+    credentials = manager.get_credentials_for_bucket("perf-reports [ap-south-1] (team)")
+
+    assert credentials == {
+        "aws_access_key_id": "AKIA_TEST",
+        "aws_secret_access_key": "SECRET_TEST",
+        "region_name": "ap-south-1",
+        "bucket_name": "perf-reports",
+    }
+
+
 def test_add_key_refuses_to_save_without_local_encryption(tmp_path, monkeypatch):
     manager = make_manager(tmp_path)
     monkeypatch.setattr(aws_secrets, "win32crypt", None)

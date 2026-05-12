@@ -1491,20 +1491,11 @@ t.MaxFPS 30        // Lock framerate for consistency</code></pre>
                         <code>Settings -> Plugins -> AWS Secrets</code> and the <code>AWS Secrets</code> tab.
                     </p>
                     <ul style="font-size: 0.9rem;">
-                        <li><strong>S3 Bucket URL:</strong> The base URL for your S3 bucket (e.g., for config
-                            downloads).</li>
                         <li><strong>Access Key / Secret Key:</strong> Your AWS credentials.</li>
                         <li><strong>Region:</strong> The AWS region for your resources.</li>
                     </ul>
                     <p style="font-size: 0.9rem; margin-top: 1rem;">These settings are used by the S3 Uploader plugin
                         when sending generated HTML reports to cloud storage.</p>
-                    <div class="card warning-orange"
-                        style="margin-top: 0.5rem; padding: 0.5rem; font-size: 0.85rem; color: var(--text-muted);">
-                        <span class="note-orange">Deprecated wording:</span> Older guides called this
-                        <code>Tools -> AWS Configuration</code>. The current runtime workflow is plugin-based:
-                        <code>AWS Secrets</code> stores the key labels and bucket mappings, then
-                        <code>S3 Uploader - Profiling Reports</code> uses them.
-                    </div>
                 </div>
 
                 <div id="settings" class="card">

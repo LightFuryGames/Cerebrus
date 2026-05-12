@@ -71,6 +71,7 @@ class ThemeManager:
         """Register a theme variant with DearPyGui."""
         tag = f"theme_{palette.lower().replace(' ', '_')}_{mode.lower()}"
         colors = data.get("colors", {})
+        styles = data.get("styles", {})
 
         # Reset ID tracking for this theme variant
         if palette not in self.theme_color_ids:
@@ -91,6 +92,18 @@ class ThemeManager:
                             col_id, color, category=dpg.mvThemeCat_Core
                         )
                         self.theme_color_ids[palette][mode][col_name] = item_id
+                for style_name, value in styles.items():
+                    if not hasattr(dpg, style_name):
+                        continue
+                    style_id = getattr(dpg, style_name)
+                    if isinstance(value, list):
+                        dpg.add_theme_style(
+                            style_id, *value, category=dpg.mvThemeCat_Core
+                        )
+                    else:
+                        dpg.add_theme_style(
+                            style_id, value, category=dpg.mvThemeCat_Core
+                        )
 
         self.theme_tags[palette][mode] = tag
 
@@ -275,48 +288,12 @@ class ThemeManager:
             mode = self._get_system_theme()
         return (0, 0, 0) if mode == "Light" else (120, 180, 255)
 
-    def get_subheader_color(self):
-        data = self._get_active_data()
-        if data and "label_colors" in data:
-            return tuple(data["label_colors"].get("subheader", [200, 200, 200]))
-
-        # Fallback
-        mode = self.current_mode
-        if mode == "System":
-            mode = self._get_system_theme()
-        return (20, 20, 25) if mode == "Light" else (200, 200, 200)
-
     def get_text_color(self, key: str, default: tuple = (200, 200, 200)):
         """Get a specific text color from label_colors."""
         data = self._get_active_data()
         if data and "label_colors" in data:
             return tuple(data["label_colors"].get(key, default))
         return default
-
-    def get_profile_status_colors(self):
-        data = self._get_active_data()
-        if data and "profile_status_colors" in data:
-            # Convert lists to tuples
-            return {k: tuple(v) for k, v in data["profile_status_colors"].items()}
-
-        # Manual Fallback
-        mode = self.current_mode
-        if mode == "System":
-            mode = self._get_system_theme()
-        if mode == "Light":
-            return {
-                "DEFAULT": (110, 60, 0),
-                "LOADED": (0, 90, 0),
-                "ERROR": (140, 0, 0),
-                "INFO": (0, 40, 120),
-            }
-        else:
-            return {
-                "DEFAULT": (255, 210, 120),
-                "LOADED": (15, 240, 15),
-                "ERROR": (255, 120, 120),
-                "INFO": (120, 200, 255),
-            }
 
     def get_log_colors(self):
         data = self._get_active_data()
@@ -476,9 +453,6 @@ class ThemeManager:
 
     def get_hyperlink_theme(self):
         return "theme_aux_hyperlink"
-
-    def get_help_theme(self):
-        return "theme_aux_help"
 
 
 _theme_manager = None

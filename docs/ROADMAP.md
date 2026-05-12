@@ -15,12 +15,6 @@ Move from a "Local Script Wrapper" to a "Professional Game Development Tool" wit
 - **Plugin Architecture**: Modular `PluginManager` with support for dynamic tab registration and custom menus.
 - **AWS S3 Integration**: Secure credential management (AWS Secrets) and automated report uploading (S3 Uploader) with metadata-driven pathing.
 
-## Documentation Deprecations
-- Old `Tools -> AWS Configuration` instructions are deprecated. Use `Settings -> Plugins -> AWS Secrets` and the `AWS Secrets` tab.
-- Old `Configuration Sync` panel language is deprecated until a runtime plugin or current UI surface owns that workflow.
-- Detailed AWS/S3/plugin documentation now lives in `cerebrus/plugins/`.
-
-
 ## 🎨 Priority 2: Modular UI Refactor
 *Objective: Decouple UI rendering from business logic to enable scaling and theming.*
 

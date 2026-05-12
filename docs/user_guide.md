@@ -70,7 +70,6 @@ Think of S3 Uploader as the delivery cart. It picks up one generated HTML report
 - **Automatic Pathing**: Reads metadata from reports to determine the S3 path (`BuildConfig/Device/CL/Date/Time`).
 - **Optimization**: Strips redundant raw memreport data before upload when possible.
 - **Requirements**: Requires the `boto3` Python package.
-- **Deprecated**: Old `Tools -> AWS Configuration` instructions no longer describe the current workflow. Use the plugin tabs and `Settings -> Plugins` menu.
 
 ## Report Generation
 Process collected data into readable formats.

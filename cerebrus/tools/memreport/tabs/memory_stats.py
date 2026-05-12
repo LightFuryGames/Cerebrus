@@ -1,7 +1,7 @@
 import re
 from typing import Any, Dict, List
 
-from ..utils import format_memory_size
+from ..utils import format_memory_size, parse_memory_size_to_mb
 from . import ReportTab
 
 
@@ -269,21 +269,6 @@ class MemoryStatsTab(ReportTab):
                         m_peak.group(1).replace(",", "")
                     )
 
-    def _parse_to_mb(self, val: str) -> float:
-        val = val.replace(",", "").lower()
-        match = re.search(r"([\d\.]+)\s*(kb|mb|gb|b)?", val)
-        if not match:
-            return 0.0
-        num = float(match.group(1))
-        unit = match.group(2)
-        if unit == "gb":
-            return num * 1024.0
-        if unit == "kb":
-            return num / 1024.0
-        if unit == "b":
-            return num / (1024.0 * 1024.0)
-        return num
-
     def render(self, context: Dict[str, Any], is_active: bool = False) -> str:
         active_cls = " active" if is_active else ""
 
@@ -300,7 +285,7 @@ class MemoryStatsTab(ReportTab):
             )
             if rhi_node:
                 for child in rhi_node["children"]:
-                    rhi_total_mb += self._parse_to_mb(child["value"])
+                    rhi_total_mb += parse_memory_size_to_mb(child["value"])
 
         phys_peak_mb = context.get("platform_phys_mem_peak_mb", 0)
         warning_html = ""
@@ -333,7 +318,7 @@ class MemoryStatsTab(ReportTab):
                 for group in node["children"]:
                     if group["name"] == "RHI":
                         for child in group["children"]:
-                            mb = self._parse_to_mb(child["value"])
+                            mb = parse_memory_size_to_mb(child["value"])
                             if mb >= 1024:
                                 child["value"] = f"{mb/1024.0:.2f} GB"
 

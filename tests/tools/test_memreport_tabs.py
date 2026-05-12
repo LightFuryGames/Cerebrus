@@ -7,6 +7,7 @@ import pytest
 from cerebrus.tools.memreport.tabs.memory_stats import MemoryStatsTab
 from cerebrus.tools.memreport.tabs.obj_summary import ObjectSummaryTab
 from cerebrus.tools.memreport.tabs.rhi_stats import RhiMemoryTab
+from cerebrus.tools.memreport.utils import parse_memory_size_to_mb
 
 
 def test_memory_stats_comma_handling():
@@ -33,13 +34,10 @@ def test_memory_stats_comma_handling():
 
 
 def test_memory_stats_unit_parsing():
-    tab = MemoryStatsTab()
-
-    # Test internal helper
-    assert tab._parse_to_mb("1024 KB") == 1.0
-    assert tab._parse_to_mb("1 GB") == 1024.0
-    assert tab._parse_to_mb("500 MB") == 500.0
-    assert tab._parse_to_mb("1,024.50 MB") == 1024.5
+    assert parse_memory_size_to_mb("1024 KB") == 1.0
+    assert parse_memory_size_to_mb("1 GB") == 1024.0
+    assert parse_memory_size_to_mb("500 MB") == 500.0
+    assert parse_memory_size_to_mb("1,024.50 MB") == 1024.5
 
 
 def test_rhi_stats_parsing():
