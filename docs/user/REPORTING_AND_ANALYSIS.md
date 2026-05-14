@@ -42,6 +42,20 @@ Generated HTML reports include:
 - **Dark Mode Toggle**: Switch between light and dark themes.
 - **Scroll to Top**: Quickly navigate to the top of long reports.
 - **Embedded Metadata**: A hidden JSON block (`<script id="cerebrus-metadata">`) containing session details such as build, device, changelist, and date.
+- **Scalability Tier**: Resolved automatically from `BaseDeviceProfiles.ini` (Low / Medium / High / Epic / Unknown). Shown in the metadata table and embedded JSON.
+- **DeviceProfile Chain**: The full inheritance walk from the device's profile to the tier sentinel — useful for tracing tier mis-classifications.
+- **Report Value (1–100)**: A per-run weight combining capture volume, duration, FPS consistency, and metadata completeness. Used by Grafana's `weighted_avg` aggregation so long, clean captures count more than short noisy ones. Inline explainer is rendered directly in the HTML, expandable from the metadata table.
+- **Data Quality Banner**: A red highlighted row inserted at the top of the metadata table when any required field came back missing or corrupt, so the issue is obvious before a viewer scrolls into the charts.
+
+## Analytics Pipeline (JSON + Elasticsearch + Grafana)
+
+For trend dashboards across many runs, Cerebrus emits a flat analytics JSON for every report. The same document is what gets indexed in Elasticsearch and what powers Grafana.
+
+- Schema is single-level (no nested objects) with `build_*`, `device_*`, `capture_*`, `metrics_*`, `threshold_counts_*`, `flags_*`, `extra_*`, `data_quality_*` field prefixes.
+- Each doc carries a `report_fingerprint` (SHA-256 over identifying fields) — use it as the Elasticsearch `_id` so re-uploads are idempotent.
+- Missing fields are filled with explicit sentinels (`-1` numeric, `"Unknown"` string, `2000-01-01T00:00:00Z` timestamp) instead of nulls, keeping the ES mapping stable.
+
+Full Grafana + Elasticsearch setup, dashboard wiring, weighted-trend queries, dedup recipes, and alerting rules live in **[Grafana + Elasticsearch Integration Guide](GRAFANA_ELASTICSEARCH_INTEGRATION.md)**.
 
 ## Metadata-Driven Naming (MemReports)
 

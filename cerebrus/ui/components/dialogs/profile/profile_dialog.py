@@ -221,6 +221,12 @@ def _finalize_profile_save(state: UIState, path: Path) -> None:
     profile.input_path = str(state.input_path)
     profile.output_path = str(state.output_path)
     profile.config_output_path = str(state.config_output_path)
+    device_profile_config_path = str(state.device_profile_config_path)
+    profile.device_profile_config_path = (
+        device_profile_config_path
+        if device_profile_config_path not in {"", "."}
+        else ""
+    )
     profile.use_prefix_only = state.use_prefix_only
 
     profile.move_logs_enabled = state.move_logs_enabled
@@ -304,6 +310,25 @@ def _load_profile_from_path(state: UIState, path: Path) -> None:
             Path(profile.config_output_path) if profile.config_output_path else Path("")
         )
         state.base_config_output_path = state.config_output_path
+        state.device_profile_config_path = (
+            Path(getattr(profile, "device_profile_config_path", ""))
+            if getattr(profile, "device_profile_config_path", "")
+            else Path("")
+        )
+        if getattr(profile, "device_profile_config_path", ""):
+            from cerebrus.plugins.analytics.core.settings import (
+                AnalyticsSettings,
+                load_analytics_settings,
+                save_analytics_settings,
+            )
+
+            current_settings = load_analytics_settings()
+            save_analytics_settings(
+                AnalyticsSettings(
+                    elasticsearch_url=current_settings.elasticsearch_url,
+                    device_profile_config_path=profile.device_profile_config_path,
+                )
+            )
 
         state.use_prefix_only = profile.use_prefix_only
 
@@ -342,6 +367,16 @@ def _load_profile_from_path(state: UIState, path: Path) -> None:
 
         if dpg.does_item_exist("config_output_path_label"):
             dpg.set_value("config_output_path_label", str(state.config_output_path))
+        if dpg.does_item_exist("device_profile_config_label"):
+            device_profile_config_value = str(state.device_profile_config_path)
+            dpg.set_value(
+                "device_profile_config_label",
+                (
+                    ""
+                    if device_profile_config_value in {"", "."}
+                    else device_profile_config_value
+                ),
+            )
 
         if dpg.does_item_exist("use_prefix_only"):
             dpg.set_value("use_prefix_only", state.use_prefix_only)

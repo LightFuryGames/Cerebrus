@@ -6,6 +6,7 @@ from pathlib import Path
 
 import dearpygui.dearpygui as dpg
 
+from cerebrus.plugins.analytics.core.settings import load_analytics_settings
 from cerebrus.ui.components import (
     _open_user_guide,
     apply_responsive_layout,
@@ -45,6 +46,13 @@ class CerebrusApp:
                 if profile.config_output_path
                 else Path("C:/")
             )
+            profile_device_config = getattr(profile, "device_profile_config_path", "")
+            cached_device_config = load_analytics_settings().device_profile_config_path
+            self.state.device_profile_config_path = (
+                Path(profile_device_config or cached_device_config)
+                if (profile_device_config or cached_device_config)
+                else Path("")
+            )
             self.state.use_prefix_only = profile.use_prefix_only
             self.state.append_device_to_path = True  # Always enabled now
 
@@ -62,14 +70,16 @@ class CerebrusApp:
         dpg.create_context()
 
         from cerebrus.core.plugins import PluginManager
-        from cerebrus.plugins.profiling_plugin import ProfilingPlugin
-        from cerebrus.plugins.aws_secrets import AWSSecretsPlugin
-        from cerebrus.plugins.s3_uploader import S3UploaderPlugin
+        from cerebrus.plugins.analytics.plugin import AnalyticsPlugin
+        from cerebrus.plugins.aws_secrets.plugin import AWSSecretsPlugin
+        from cerebrus.plugins.profiling.plugin import ProfilingPlugin
+        from cerebrus.plugins.s3_uploader.plugin import S3UploaderPlugin
         from cerebrus.ui.themes import get_theme_manager
 
         PluginManager.register(ProfilingPlugin())
         PluginManager.register(AWSSecretsPlugin())
         PluginManager.register(S3UploaderPlugin())
+        PluginManager.register(AnalyticsPlugin())
         PluginManager.initialize()
 
         get_theme_manager().apply_theme(mode="System")

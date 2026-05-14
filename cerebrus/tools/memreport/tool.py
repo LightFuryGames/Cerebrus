@@ -616,7 +616,7 @@ def generate_html_report(context: Dict[str, Any], output_path: Path):
 def process_memreport(
     input_file: Path,
     output_dir: Path,
-    report_context: Dict[str, Any] = None,
+    report_context: Dict[str, Any] | None = None,
     use_as_prefix_only: bool = False,
     output_name_prefix: str | None = None,
     open_report: bool = False,
@@ -674,8 +674,9 @@ def process_memreport(
 
     if open_report:
         import webbrowser
+
         webbrowser.open(f"file://{output_file.resolve()}")
-    
+
     return output_file
 
 

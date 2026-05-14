@@ -15,16 +15,17 @@ except ImportError:
 
 from cerebrus.core.paths import get_app_data_dir
 from cerebrus.core.plugins import TabPlugin
-from cerebrus.ui.state import UIState
-from cerebrus.ui.themes import get_theme_manager
 from cerebrus.ui.components.shared import (
     _add_plugin_help_button as add_plugin_help_button,
+)
+from cerebrus.ui.components.shared import (
     load_plugin_tooltips,
     log_message,
 )
+from cerebrus.ui.state import UIState
+from cerebrus.ui.themes import get_theme_manager
 
-
-AWS_TOOLTIPS = load_plugin_tooltips("aws_secrets_tooltips.json")
+AWS_TOOLTIPS = load_plugin_tooltips("aws_secrets/resources/tooltips.json")
 
 
 class AWSSecretsManager:
@@ -160,11 +161,17 @@ class AWSSecretsManager:
         if alias in self.data.get("keys", {}):
             return f"AWS key alias already exists: {alias}"
 
-        duplicate_access_alias = self._find_duplicate_key_field("access_key", access_key)
+        duplicate_access_alias = self._find_duplicate_key_field(
+            "access_key", access_key
+        )
         if duplicate_access_alias:
-            return f"Access Key ID is already saved under alias: {duplicate_access_alias}"
+            return (
+                f"Access Key ID is already saved under alias: {duplicate_access_alias}"
+            )
 
-        duplicate_secret_alias = self._find_duplicate_key_field("secret_key", secret_key)
+        duplicate_secret_alias = self._find_duplicate_key_field(
+            "secret_key", secret_key
+        )
         if duplicate_secret_alias:
             return (
                 "Secret Access Key is already saved under alias: "
@@ -467,7 +474,9 @@ class AWSSecretsPlugin(TabPlugin):
             k_alias = dpg.get_value(key_combo_tag)
             if b_name and region and k_alias:
                 manager.add_bucket(b_name, region, k_alias)
-                log_message(state, "SUCCESS", f"Mapped bucket {b_name} to key {k_alias}")
+                log_message(
+                    state, "SUCCESS", f"Mapped bucket {b_name} to key {k_alias}"
+                )
                 self._refresh_ui(manager)
             else:
                 log_message(state, "ERROR", "All bucket fields are required.")
@@ -564,9 +573,9 @@ class AWSSecretsPlugin(TabPlugin):
                                 tag=region_tag,
                                 items=manager.regions,
                                 width=420,
-                                default_value=manager.regions[0]
-                                if manager.regions
-                                else "",
+                                default_value=(
+                                    manager.regions[0] if manager.regions else ""
+                                ),
                             )
 
                         with dpg.table_row():

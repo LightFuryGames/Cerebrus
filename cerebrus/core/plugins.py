@@ -47,6 +47,7 @@ class PluginManager:
     _plugins: dict[str, TabPlugin] = {}
     _enabled_plugins: set[str] = set()
     _known_plugins: set[str] = set()
+    _plugin_order: list[str] = []
     _initialized: bool = False
     _schema_version: str = "1.0"
 
@@ -69,6 +70,14 @@ class PluginManager:
 
                 plugins_data = data.get("plugins", {})
                 cls._known_plugins = set(plugins_data.keys())
+                cls._plugin_order = [
+                    plugin_id
+                    for plugin_id in data.get("order", [])
+                    if plugin_id in cls._known_plugins
+                ]
+                for plugin_id in plugins_data:
+                    if plugin_id not in cls._plugin_order:
+                        cls._plugin_order.append(plugin_id)
                 cls._enabled_plugins = set(
                     plugin_id
                     for plugin_id, p_info in plugins_data.items()
@@ -78,9 +87,11 @@ class PluginManager:
                 print(f"Error loading plugins cache: {e}")
                 cls._enabled_plugins = {"profiling"}
                 cls._known_plugins = {"profiling"}
+                cls._plugin_order = ["profiling"]
         else:
             cls._enabled_plugins = {"profiling"}
             cls._known_plugins = {"profiling"}
+            cls._plugin_order = ["profiling"]
 
         cls._initialized = True
 
@@ -99,6 +110,9 @@ class PluginManager:
             }
 
         data = {"schema_version": cls._schema_version, "plugins": plugins_data}
+        data["order"] = [
+            plugin_id for plugin_id in cls._plugin_order if plugin_id in cls._plugins
+        ]
 
         try:
             with open(cache_path, "w") as f:
@@ -116,18 +130,28 @@ class PluginManager:
         if plugin.id not in cls._known_plugins:
             cls._enabled_plugins.add(plugin.id)
             cls._known_plugins.add(plugin.id)
+            cls._plugin_order.append(plugin.id)
+            cls._save_cache()
+        elif plugin.id not in cls._plugin_order:
+            cls._plugin_order.append(plugin.id)
             cls._save_cache()
 
     @classmethod
     def get_all_plugins(cls) -> list[TabPlugin]:
         """Get all registered plugins."""
-        return list(cls._plugins.values())
+        cls.initialize()
+        ordered_ids = cls._ordered_plugin_ids()
+        return [cls._plugins[plugin_id] for plugin_id in ordered_ids]
 
     @classmethod
     def get_enabled_plugins(cls) -> list[TabPlugin]:
         """Get plugins that are currently enabled."""
         cls.initialize()
-        return [p for p in cls._plugins.values() if p.id in cls._enabled_plugins]
+        return [
+            cls._plugins[plugin_id]
+            for plugin_id in cls._ordered_plugin_ids()
+            if plugin_id in cls._enabled_plugins
+        ]
 
     @classmethod
     def is_enabled(cls, plugin_id: str) -> bool:
@@ -144,3 +168,42 @@ class PluginManager:
             cls._enabled_plugins.discard(plugin_id)
 
         cls._save_cache()
+
+    @classmethod
+    def move_plugin(cls, plugin_id: str, direction: int) -> None:
+        """Move a plugin left/right in the persisted tab order."""
+        cls.initialize()
+        if plugin_id not in cls._plugins:
+            return
+        if plugin_id not in cls._plugin_order:
+            cls._plugin_order.append(plugin_id)
+
+        index = cls._plugin_order.index(plugin_id)
+        new_index = max(0, min(len(cls._plugin_order) - 1, index + direction))
+        if new_index == index:
+            return
+
+        cls._plugin_order.pop(index)
+        cls._plugin_order.insert(new_index, plugin_id)
+        cls._save_cache()
+
+    @classmethod
+    def set_plugin_order(cls, plugin_ids: list[str]) -> None:
+        """Replace persisted plugin order, ignoring unknown IDs."""
+        cls.initialize()
+        ordered = [plugin_id for plugin_id in plugin_ids if plugin_id in cls._plugins]
+        for plugin_id in cls._plugins:
+            if plugin_id not in ordered:
+                ordered.append(plugin_id)
+        cls._plugin_order = ordered
+        cls._save_cache()
+
+    @classmethod
+    def _ordered_plugin_ids(cls) -> list[str]:
+        ordered = [
+            plugin_id for plugin_id in cls._plugin_order if plugin_id in cls._plugins
+        ]
+        for plugin_id in cls._plugins:
+            if plugin_id not in ordered:
+                ordered.append(plugin_id)
+        return ordered

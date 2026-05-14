@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(cd \"e:/DonE/git/Cerebrus\"; powershell -ExecutionPolicy Bypass -File .\\\\run_pipeline.ps1 -SkipBuild 2>&1 | Select-Object -Last 35)",
+      "PowerShell(cd \"e:/DonE/git/Cerebrus\"; powershell -ExecutionPolicy Bypass -File .\\\\run_pipeline.ps1 -SkipBuild 2>&1 | Select-Object -Last 15)",
+      "Bash(cd \"e:/DonE/git/Cerebrus\" && head -660 cerebrus/resources/user_guide.html > /tmp/guide_head.html && wc -l /tmp/guide_head.html && tail -20 cerebrus/resources/user_guide.html | head -20)",
+      "Read(//tmp/**)",
+      "PowerShell(cd \"e:/DonE/git/Cerebrus\"; powershell -ExecutionPolicy Bypass -File .\\\\run_pipeline.ps1 -SkipBuild 2>&1 | Select-Object -Last 18)",
+      "Bash(git check-ignore *)",
+      "Bash(mkdir -p TestData/Junk)",
+      "Bash(touch TestData/Junk/random.csv)",
+      "Bash(rm -rf TestData/Junk)"
+    ]
+  }
+}

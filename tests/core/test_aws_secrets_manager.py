@@ -1,7 +1,7 @@
 import json
 
-import cerebrus.plugins.aws_secrets as aws_secrets
-from cerebrus.plugins.aws_secrets import AWSSecretsManager
+import cerebrus.plugins.aws_secrets.plugin as aws_secrets
+from cerebrus.plugins.aws_secrets.plugin import AWSSecretsManager
 
 
 def make_manager(tmp_path):

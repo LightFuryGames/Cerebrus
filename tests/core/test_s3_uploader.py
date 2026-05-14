@@ -1,8 +1,9 @@
 from unittest.mock import MagicMock
 
-from cerebrus.plugins.s3_uploader import (
+from cerebrus.plugins.s3_uploader.plugin import (
     _derive_s3_dir_from_metadata,
     _extract_report_metadata,
+    _strip_raw_csv_tab_from_report,
     _upload_file_to_s3,
 )
 
@@ -153,3 +154,31 @@ def test_upload_file_to_s3_omits_extra_args_when_empty():
         "perf-reports",
         "Development/report.html",
     )
+
+
+def test_strip_raw_csv_tab_removes_embedded_csv_payload():
+    html = """
+    <div class="perf-tabs">
+      <button class="perf-tab-btn active" onclick="openPerfTab(event, 'PerfReportTab')">Performance Report</button>
+      <button class="perf-tab-btn" onclick="openPerfTab(event, 'RawCSVTab')">Raw CSV Data</button>
+    </div>
+    <div id="PerfReportTab" class="perf-tab-content active">
+      <h1>Report</h1>
+    </div>
+    <div id="RawCSVTab" class="perf-tab-content">
+      <pre id="rawCsvDataHidden" style="display:none;">FrameTime,GameThreadTime</pre>
+      <pre>FrameTime,GameThreadTime</pre>
+    </div>
+    <script>
+        // Update the download link with the actual filename dynamically to bypass f-string limits if needed
+        var dlBtn = document.querySelector(".download-btn");
+    </script>
+    """
+
+    stripped = _strip_raw_csv_tab_from_report(html)
+
+    assert "Raw CSV Data" not in stripped
+    assert "RawCSVTab" not in stripped
+    assert "rawCsvDataHidden" not in stripped
+    assert "Performance Report" in stripped
+    assert "<h1>Report</h1>" in stripped

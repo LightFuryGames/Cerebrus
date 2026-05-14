@@ -72,10 +72,16 @@ def _add_help_button(tooltip_key: str, state: UIState | None = None) -> None:
 def load_plugin_tooltips(filename: str) -> dict[str, str]:
     """Load tooltip text for a runtime plugin resource file."""
     try:
-        path = Path(__file__).resolve().parents[2] / "plugins" / "resources" / filename
-        if path.exists():
-            with open(path, "r") as f:
-                return json.load(f)
+        plugins_dir = Path(__file__).resolve().parents[2] / "plugins"
+        candidates = [
+            plugins_dir / filename,
+            plugins_dir / "resources" / filename,
+            *plugins_dir.glob(f"*/resources/{filename}"),
+        ]
+        for path in candidates:
+            if path.exists():
+                with open(path, "r") as f:
+                    return json.load(f)
     except Exception as e:
         print(f"Failed to load plugin tooltips {filename}: {e}")
     return {}
@@ -109,6 +115,12 @@ def _auto_save_profile(state: UIState) -> None:
 
         profile.output_file_name = state.output_file_name
         profile.input_path = str(state.input_path)
+        device_profile_config_path = str(state.device_profile_config_path)
+        profile.device_profile_config_path = (
+            device_profile_config_path
+            if device_profile_config_path not in {"", "."}
+            else ""
+        )
 
         # Save base_output_path if available
         if state.base_output_path:

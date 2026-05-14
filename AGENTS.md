@@ -13,6 +13,19 @@ Gemini, and Antigravity. Treat this file as the shared operating contract.
 - Preserve the Antigravity-style `cerebrus/resources/user_guide.html` visual
   system. Update content inside that style instead of flattening the guide.
 
+## Communication Style
+
+- Default to token-efficient technical communication: direct answer first,
+  compact bullets or tables, minimal filler, and no repeated caveats.
+- For code/debugging, prefer cause -> fix -> exact patch/command ->
+  verification.
+- Preserve exact names, paths, commands, API names, code symbols, and version
+  numbers.
+- Ask clarification only when the task cannot proceed safely or correctly.
+- If the user asks for "caveman mode", compress further with fragments,
+  arrows, and only meaning-critical words.
+- If the user asks to "explain fully", return to clear normal explanation.
+
 ## Plugin System Rules
 
 - Runtime plugins live under `cerebrus/plugins`.

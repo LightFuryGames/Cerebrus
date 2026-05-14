@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import csv
+import html
+import json
 import math
 import os
 import re
@@ -11,6 +13,10 @@ from pathlib import Path
 
 import dearpygui.dearpygui as dpg
 
+from cerebrus.plugins.analytics.core.device_profiles import (
+    enrich_with_device_profile_tier,
+)
+from cerebrus.plugins.analytics.core.normalizer import parse_cpu_device
 from cerebrus.tools.adb import AdbClient, AdbError
 from cerebrus.tools.log_to_html import convert_log_to_html
 from cerebrus.tools.memreport.tool import process_memreport
@@ -425,10 +431,14 @@ def _handle_generate_mem_report(state: UIState) -> None:
                 input_file=report_file,
                 output_dir=dest_dir,
                 use_as_prefix_only=state.use_prefix_only,
-                output_name_prefix=state.output_file_name if state.use_prefix_only else None,
+                output_name_prefix=(
+                    state.output_file_name if state.use_prefix_only else None
+                ),
             )
             if output_path is None:
-                log_message(state, "ERROR", f"Failed to generate report for {report_file.name}")
+                log_message(
+                    state, "ERROR", f"Failed to generate report for {report_file.name}"
+                )
                 continue
 
             try:
@@ -540,6 +550,53 @@ def _read_csv_metadata(csv_path: Path) -> dict:
     return metadata
 
 
+def _html_escape(value: object) -> str:
+    return html.escape(str(value), quote=True)
+
+
+def _inject_cerebrus_metadata_script(content: str, metadata: dict) -> str:
+    cpu_parts = parse_cpu_device(metadata.get("cpu"))
+    payload = {
+        "build_config": metadata.get("config"),
+        "os": metadata.get("os"),
+        "cpu_device": metadata.get("cpu"),
+        "device_manufacturer": cpu_parts.get("manufacturer"),
+        "device_model": cpu_parts.get("model"),
+        "device_gpu": cpu_parts.get("gpu"),
+        "device_profile": metadata.get("DeviceProfile")
+        or metadata.get("deviceprofile"),
+        "scalability_tier": metadata.get("Scalability Tier"),
+        "device_profile_chain": metadata.get("DeviceProfile Chain"),
+        "device_profile_chain_depth": metadata.get("device_profile_chain_depth"),
+        "device_profile_root": metadata.get("device_profile_root"),
+        "device_profile_reference": metadata.get("DeviceProfile Reference"),
+        "device_profile_reference_sha1": metadata.get("DeviceProfile Reference SHA1"),
+        "target_fps": metadata.get("targetframerate"),
+        "capture_duration_s": metadata.get("captureduration"),
+        "report_value": metadata.get("report_value"),
+    }
+    payload = {key: value for key, value in payload.items() if value not in (None, "")}
+    if not payload:
+        return content
+
+    script = (
+        '<script type="application/json" id="cerebrus-metadata">'
+        f"{json.dumps(payload, sort_keys=True)}"
+        "</script>"
+    )
+    pattern = re.compile(
+        r'<script\s+type="application/json"\s+id="cerebrus-metadata">.*?</script>',
+        re.IGNORECASE | re.DOTALL,
+    )
+    if pattern.search(content):
+        return pattern.sub(script, content, count=1)
+
+    body_match = re.search(r"</body\s*>", content, re.IGNORECASE)
+    if body_match:
+        return content[: body_match.start()] + script + content[body_match.start() :]
+    return content + script
+
+
 def _inject_metadata_into_report(
     state: UIState, csv_file: Path, html_file: Path
 ) -> None:
@@ -550,10 +607,25 @@ def _inject_metadata_into_report(
         metadata = _read_csv_metadata(csv_file)
         if not metadata:
             return
+        tier_metadata = enrich_with_device_profile_tier(
+            metadata,
+            state.device_profile_config_path,
+        )
+        metadata.update(tier_metadata)
 
         config = metadata.get("config", "Unknown")
         os_name = metadata.get("os", "Unknown")
         cpu = metadata.get("cpu", "Unknown")
+        cpu_parts = parse_cpu_device(cpu)
+        device_manufacturer = cpu_parts.get("manufacturer", "Unknown")
+        device_model = cpu_parts.get("model", "Unknown")
+        device_gpu = cpu_parts.get("gpu", "Unknown")
+        device_profile = metadata.get("DeviceProfile") or metadata.get(
+            "deviceprofile", "Unknown"
+        )
+        scalability_tier = metadata.get("Scalability Tier", "Unknown")
+        profile_chain = metadata.get("DeviceProfile Chain", "")
+        profile_root = metadata.get("device_profile_root", "")
         duration = metadata.get("captureduration", "0")
         try:
             duration_val = float(duration)
@@ -586,14 +658,156 @@ def _inject_metadata_into_report(
 
         features_str = "; ".join(features_list)
 
+        # Compute Report Value (1-100). To guarantee parity with the analytics
+        # JSON, route the same raw CSV through the same parser + normalizer the
+        # JSON ingest uses, then read report_value off the resulting flat doc.
+        # This keeps the HTML row, the embedded cerebrus-metadata JSON, and the
+        # ES-indexed document in lockstep.
+        from cerebrus.plugins.analytics.core.csv_report_parser import (
+            PerformanceCSVReportParser,
+        )
+        from cerebrus.plugins.analytics.core.normalizer import (
+            build_analytics_document,
+        )
+
+        try:
+            raw_values = PerformanceCSVReportParser(csv_file).parse()
+            preview_doc = build_analytics_document(
+                source_path=csv_file,
+                source_type="profiling_csv",
+                raw_values=raw_values,
+                device_profile_config_path=state.device_profile_config_path,
+            )
+            report_value = int(preview_doc.get("report_value") or 1)
+        except Exception:
+            report_value = 1
+
+        # Audit core metadata; flag any "Unknown"/blank values for the banner.
+        audit_fields = {
+            "Configuration": config,
+            "OS": os_name,
+            "CPU/Device": cpu,
+            "Device GPU": device_gpu,
+            "DeviceProfile": device_profile,
+            "Scalability Tier": scalability_tier,
+            "Capture Duration": duration_str,
+            "Target Framerate": target_fps,
+        }
+        corrupt_fields = [
+            name
+            for name, value in audit_fields.items()
+            if not value
+            or str(value).strip() == ""
+            or str(value).strip().lower() in {"unknown", "n/a", "0", "0 s", "0.00 s"}
+        ]
+        metadata["report_value"] = report_value
+        if corrupt_fields:
+            warning_row = (
+                '<tr style="background-color:#ff4d4d;color:#ffffff;font-weight:bold;">'
+                "<td>&#9888; DATA QUALITY WARNING</td>"
+                f'<td>Corrupt or missing fields: {_html_escape(", ".join(corrupt_fields))}. '
+                "Sentinels written into analytics JSON. Investigate report source.</td>"
+                "</tr>"
+            )
+        else:
+            warning_row = ""
+
         extra_rows = f"""
-        <tr><td>Configuration</td><td><b>{config}</b></td></tr>
-        <tr><td>OS</td><td><b>{os_name}</b></td></tr>
-        <tr><td>CPU/Device</td><td><b>{cpu}</b></td></tr>
-        <tr><td>Capture Duration</td><td><b>{duration_str}</b></td></tr>
-        <tr><td>Command Line</td><td><b>{cmd_line}</b></td></tr>
-        <tr><td>Features</td><td><b>{features_str}</b></td></tr>
-        <tr><td>Target Framerate</td><td><b>{target_fps} FPS</b></td></tr>
+        {warning_row}
+        <tr><td>Configuration</td><td><b>{_html_escape(config)}</b></td></tr>
+        <tr><td>OS</td><td><b>{_html_escape(os_name)}</b></td></tr>
+        <tr><td>CPU/Device</td><td><b>{_html_escape(cpu)}</b></td></tr>
+        <tr><td>Device Manufacturer</td><td><b>{_html_escape(device_manufacturer)}</b></td></tr>
+        <tr><td>Device Model</td><td><b>{_html_escape(device_model)}</b></td></tr>
+        <tr><td>Device GPU</td><td><b>{_html_escape(device_gpu)}</b></td></tr>
+        <tr><td>DeviceProfile</td><td><b>{_html_escape(device_profile)}</b></td></tr>
+        <tr><td>Scalability Tier</td><td><b>{_html_escape(scalability_tier)}</b></td></tr>
+        <tr><td>DeviceProfile Root</td><td><b>{_html_escape(profile_root or "n/a")}</b></td></tr>
+        <tr><td>DeviceProfile Chain</td><td><b>{_html_escape(profile_chain)}</b></td></tr>
+        <tr><td>Capture Duration</td><td><b>{_html_escape(duration_str)}</b></td></tr>
+        <tr><td>Command Line</td><td><b>{_html_escape(cmd_line)}</b></td></tr>
+        <tr><td>Features</td><td><b>{_html_escape(features_str)}</b></td></tr>
+        <tr><td>Target Framerate</td><td><b>{_html_escape(target_fps)} FPS</b></td></tr>
+        <tr><td>Report Value (1-100)</td><td><b>{report_value}</b> &nbsp;<i>(Grafana weighted_avg weight)</i></td></tr>
+        <tr><td colspan="2" style="background-color:#f7f7fa;border-left:4px solid #4a90e2;padding:10px 14px;">
+          <details>
+            <summary style="cursor:pointer;font-weight:bold;color:#2c5aa0;">
+              &#9432; What is Report Value? (click to expand)
+            </summary>
+            <div style="margin-top:10px;font-size:13px;line-height:1.5;">
+              <p><b>What it is.</b> A single integer 1&ndash;100 attached to this report. It is the
+              <b>weight</b> Grafana uses to combine many reports into one trend line via the
+              Elasticsearch <code>weighted_avg</code> aggregation. Higher = this report contributes
+              more confidence to cohort averages.</p>
+
+              <p><b>Why it exists.</b> A 5-second capture and a 10-minute capture are not equal evidence.
+              Treating them as equal averages noise alongside signal. Report Value lets dashboards
+              weight long, clean, on-target captures higher than short, corrupt, or off-target ones &mdash;
+              without filtering anything out.</p>
+
+              <p><b>How it is calculated.</b> Four components, each 0&ndash;1, combined and scaled to 100:</p>
+              <table style="margin:6px 0 6px 12px;border-collapse:collapse;font-size:12px;">
+                <tr><th align="left" style="padding:2px 10px 2px 0;">Component</th>
+                    <th align="left" style="padding:2px 10px 2px 0;">Weight</th>
+                    <th align="left" style="padding:2px 10px 2px 0;">Formula</th>
+                    <th align="left" style="padding:2px 10px 2px 0;">Caps at</th></tr>
+                <tr><td style="padding:2px 10px 2px 0;">Volume</td>
+                    <td style="padding:2px 10px 2px 0;">50%</td>
+                    <td style="padding:2px 10px 2px 0;"><code>min(frame_count / 36000, 1)</code></td>
+                    <td style="padding:2px 10px 2px 0;">10 min @ 60 fps</td></tr>
+                <tr><td style="padding:2px 10px 2px 0;">Duration</td>
+                    <td style="padding:2px 10px 2px 0;">25%</td>
+                    <td style="padding:2px 10px 2px 0;"><code>min(duration_s / 600, 1)</code></td>
+                    <td style="padding:2px 10px 2px 0;">10 min wall clock</td></tr>
+                <tr><td style="padding:2px 10px 2px 0;">Consistency</td>
+                    <td style="padding:2px 10px 2px 0;">10%</td>
+                    <td style="padding:2px 10px 2px 0;">observed_fps within &plusmn;25% of target</td>
+                    <td style="padding:2px 10px 2px 0;">1.0 if in band</td></tr>
+                <tr><td style="padding:2px 10px 2px 0;">Completeness</td>
+                    <td style="padding:2px 10px 2px 0;">15%</td>
+                    <td style="padding:2px 10px 2px 0;"><code>1 - (missing_fields / expected_fields)</code></td>
+                    <td style="padding:2px 10px 2px 0;">21 expected fields</td></tr>
+              </table>
+              <p style="margin:6px 0;"><code>report_value = round(100 &times; (0.50&middot;V + 0.25&middot;D + 0.10&middot;C + 0.15&middot;K))</code>,
+              clamped to <code>[1, 100]</code>.</p>
+
+              <p><b>What raises it.</b></p>
+              <ul style="margin:4px 0 4px 18px;padding:0;">
+                <li><b>Longer captures.</b> Aim for 10 minutes (36,000 frames at 60 fps) to max the volume +
+                duration components &mdash; 75% of the score.</li>
+                <li><b>Match the target framerate.</b> If the build targets 60 fps, capture in a scenario that
+                actually runs near 60. Wildly off ratios kill the consistency component.</li>
+                <li><b>Healthy metadata.</b> Make sure <code>DeviceProfile</code>, <code>BuildVersion</code>,
+                <code>CSVId</code>, and the like are present in the CSV footer. Each missing expected field
+                shaves the completeness component.</li>
+                <li><b>Configure BaseDeviceProfiles.ini in Cerebrus.</b> Lets the converter resolve
+                Scalability Tier, removing a sentinel from <code>device_tier</code>.</li>
+              </ul>
+
+              <p><b>What lowers it.</b></p>
+              <ul style="margin:4px 0 4px 18px;padding:0;">
+                <li><b>Short runs.</b> A 30-second capture caps the volume component at ~5% and duration at
+                ~5% &mdash; ceiling already &lt; 25 before quality is even considered.</li>
+                <li><b>Hitchy or off-target captures.</b> If observed framerate is far from the target, the
+                consistency band is missed.</li>
+                <li><b>Truncated or corrupt CSV.</b> Missing footer markers (<code>[csvid]</code>,
+                <code>[deviceprofile]</code>, <code>[buildversion]</code>) flip fields to sentinels and
+                drop completeness.</li>
+                <li><b>Data quality failure.</b> When <code>data_quality_has_corruption = 1</code>,
+                Report Value falls fast because many expected fields go missing at once.</li>
+              </ul>
+
+              <p><b>How Grafana uses it.</b> Every weighted_avg panel passes
+              <code>weight = report_value</code>. A run with Report Value 55 contributes ~5&times; more to
+              the cohort average than one with Report Value 11, so a single 5-minute clean capture can
+              outweigh ten noisy 10-second blips &mdash; the trend line follows the trustworthy data.</p>
+
+              <p><b>Practical targets.</b> 50+ is a strong report. 30&ndash;50 is acceptable trend fodder.
+              Below 25 is a short or partial capture; usable but should not dominate dashboards.
+              Below 10 typically means corruption; investigate the source.</p>
+            </div>
+          </details>
+        </td></tr>
         """
 
         content = html_file.read_text(encoding="utf-8")
@@ -607,6 +821,7 @@ def _inject_metadata_into_report(
             new_content = (
                 content[:insertion_point] + extra_rows + content[insertion_point:]
             )
+            new_content = _inject_cerebrus_metadata_script(new_content, metadata)
             html_file.write_text(new_content, encoding="utf-8")
             log_message(
                 state, "SUCCESS", f"Metadata successfully appended to {html_file.name}"
@@ -857,7 +1072,7 @@ def _inject_percentile_gauges_into_report(
 
             <div style="background: #fff3e0; border-left: 5px solid #e53935; padding: 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                 <h4 style="margin-top: 0; color: #c62828; font-size: 16px;">⏱️ Percentiles (1st, 5th, 50th, 95th, 99th)</h4>
-                <p style="font-size: 13px; color: #333; margin-bottom: 6px;"><strong>What they are:</strong> The <strong>1st/5th Percentile</strong> graphs show the FPS of the worst 1% and 5% of frames (the "lows"). The <strong>50th</strong> is your median FPS. The <strong>95th/99th</strong> show your peak smoothness.</p>
+                <p style="font-size: 13px; color: #333; margin-bottom: 6px;"><strong>What they are:</strong> Percentiles are computed from each frame's <strong>FrameTime</strong> converted to FPS. The <strong>1st/5th Percentile</strong> graphs show the FPS of the worst 1% and 5% of frame samples (the "lows"). The <strong>50th</strong> is your median FPS. The <strong>95th/99th</strong> show your peak smoothness.</p>
                 <p style="font-size: 13px; color: #333; margin-bottom: 6px;"><strong>Why they matter:</strong> Look at the <strong>1st Percentile gauge</strong> to see your true baseline performance. High average FPS can successfully hide game-breaking hitches, but 1st/5th Percentiles completely expose them.</p>
                 <p style="font-size: 13px; color: #333; margin-bottom: 0;"><strong>How to utilize:</strong> Prioritize optimizing the <strong>1st and 5th Percentile gauges</strong> to meet your target FPS. Raising the frame-rate floor (lows) is much more critical for perceived smoothness than raising the ceiling (99th).</p>
             </div>

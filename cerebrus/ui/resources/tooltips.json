@@ -22,5 +22,6 @@
     "minimize_app": "Sends the application to the background and returns the device to the home screen.",
     "clear_app_data": "Clears all application data and cache (equivalent to 'Clear Data' in Android settings).",
     "launch_package": "Launches the application on the device. If already running in background, brings it to foreground.",
-    "generate_ab_compare": "Compares two local profiling CSV files to generate an A/B statistical performance report."
+    "generate_ab_compare": "Compares two local profiling CSV files to generate an A/B statistical performance report.",
+    "device_profile_config": "Optional Unreal BaseDeviceProfiles.ini reference used to resolve captured DeviceProfile values into Low, Medium, High, or Epic metadata in generated HTML reports."
 }

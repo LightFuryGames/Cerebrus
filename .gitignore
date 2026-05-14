@@ -71,6 +71,12 @@ instance/
 # Sphinx documentation
 docs/_build/
 
+# Internal roadmap (not tracked in VCS)
+docs/ROADMAP.md
+
+# Editorial-pass guide preview (not shipped yet)
+cerebrus/resources/user_guide_v2.html
+
 # PyBuilder
 .pybuilder/
 target/
@@ -431,3 +437,6 @@ Desktop.ini
 ###############################################
 
 cerebrus/_frozen_version.py
+
+# Caveman skill (Codex-side install artifacts)
+.agents/

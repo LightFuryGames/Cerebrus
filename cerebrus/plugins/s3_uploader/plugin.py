@@ -6,6 +6,7 @@ import html
 import json
 import os
 import re
+import tempfile
 from pathlib import Path
 from typing import Optional
 
@@ -13,13 +14,15 @@ import dearpygui.dearpygui as dpg
 
 from cerebrus.core.plugins import TabPlugin
 from cerebrus.ui.components.file_manager import _open_folder_in_explorer
-from cerebrus.ui.state import UIState
-from cerebrus.ui.themes import get_theme_manager
 from cerebrus.ui.components.shared import (
     _add_plugin_help_button as add_plugin_help_button,
+)
+from cerebrus.ui.components.shared import (
     load_plugin_tooltips,
     log_message,
 )
+from cerebrus.ui.state import UIState
+from cerebrus.ui.themes import get_theme_manager
 
 
 def _clean_html_fragment(value: str) -> str:
@@ -188,13 +191,81 @@ def _upload_file_to_s3(
         s3_client.upload_file(source_path, bucket_name, s3_key)
 
 
-S3_TOOLTIPS = load_plugin_tooltips("s3_uploader_tooltips.json")
+def _strip_raw_csv_tab_from_report(content: str) -> str:
+    """Remove embedded raw CSV tab payload before cloud upload."""
+    stripped = re.sub(
+        r"\s*<button class=\"perf-tab-btn\" onclick=\"openPerfTab\(event, 'RawCSVTab'\)\">Raw CSV Data</button>",
+        "",
+        content,
+    )
+    stripped = re.sub(
+        r"\s*<div id=\"RawCSVTab\" class=\"perf-tab-content\">.*?<script>\s*// Update the download link.*?</script>",
+        "",
+        stripped,
+        flags=re.DOTALL,
+    )
+    stripped = re.sub(
+        r"\s*function downloadRawCSV\(\) \{.*?\n\}",
+        "",
+        stripped,
+        flags=re.DOTALL,
+    )
+    return stripped
+
+
+def _upload_html_report_without_raw_csv(
+    s3_client,
+    source_path: str,
+    bucket_name: str,
+    s3_key: str,
+    content_type: str | None = None,
+) -> bool:
+    """Upload a temporary slim HTML copy when the report embeds raw CSV data."""
+    content = Path(source_path).read_text(encoding="utf-8", errors="ignore")
+    slim_content = _strip_raw_csv_tab_from_report(content)
+    if slim_content == content:
+        _upload_file_to_s3(
+            s3_client,
+            source_path,
+            bucket_name,
+            s3_key,
+            content_type=content_type,
+        )
+        return False
+
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            suffix=".html",
+            delete=False,
+        ) as temp_file:
+            temp_file.write(slim_content)
+            temp_path = temp_file.name
+        _upload_file_to_s3(
+            s3_client,
+            temp_path,
+            bucket_name,
+            s3_key,
+            content_type=content_type,
+        )
+        return True
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
+
+
+S3_TOOLTIPS = load_plugin_tooltips("s3_uploader/resources/tooltips.json")
 
 # We import the secrets manager to fetch credentials dynamically
 try:
-    from cerebrus.plugins.aws_secrets import AWSSecretsManager
+    from cerebrus.plugins.aws_secrets.plugin import AWSSecretsManager
 except ImportError:
-    AWSSecretsManager = None
+    AWSSecretsManager = None  # type: ignore[assignment,misc]
 
 
 class S3UploaderPlugin(TabPlugin):
@@ -222,7 +293,7 @@ class S3UploaderPlugin(TabPlugin):
         # Check dynamic dependencies
         try:
             import boto3
-            from botocore.exceptions import NoCredentialsError, ClientError
+            from botocore.exceptions import ClientError, NoCredentialsError
 
             has_boto3 = True
         except ImportError:
@@ -238,7 +309,7 @@ class S3UploaderPlugin(TabPlugin):
             )
             return
 
-        if not AWSSecretsManager:
+        if AWSSecretsManager is None:
             dpg.add_text(
                 "Missing Dependency: AWS Secrets Manager plugin is required.",
                 color=[255, 100, 100],
@@ -257,7 +328,7 @@ class S3UploaderPlugin(TabPlugin):
             hint_file: str,
             hint_dest: str,
             expected_exts: tuple[str, ...],
-            content_type: str = None,
+            content_type: str | None = None,
         ):
             file_path_tag = f"{form_id}_source_file"
             bucket_combo_tag = f"{form_id}_bucket_select"
@@ -368,7 +439,7 @@ class S3UploaderPlugin(TabPlugin):
                         "Error", f"Failed to parse report: {e}", color=[255, 100, 100]
                     )
 
-            def _show_popup(title: str, message: str, color: list[int] = None):
+            def _show_popup(title: str, message: str, color: list[int] | None = None):
                 if dpg.does_item_exist("s3_uploader_popup"):
                     dpg.delete_item("s3_uploader_popup")
 
@@ -502,7 +573,7 @@ class S3UploaderPlugin(TabPlugin):
                 s3_key = f"{dest_dir}/{file_name}" if dest_dir else file_name
 
                 import boto3
-                from botocore.exceptions import NoCredentialsError, ClientError
+                from botocore.exceptions import ClientError, NoCredentialsError
 
                 try:
                     log_message(
@@ -523,18 +594,29 @@ class S3UploaderPlugin(TabPlugin):
                         f"Uploading '{source_path}' to 's3://{bucket_name}/{s3_key}' ...",
                     )
 
-                    log_message(
-                        state,
-                        "INFO",
-                        f"Uploading original '{source_path}' to 's3://{bucket_name}/{s3_key}' ...",
-                    )
-                    _upload_file_to_s3(
-                        s3_client,
-                        source_path,
-                        bucket_name,
-                        s3_key,
-                        content_type=content_type,
-                    )
+                    stripped_raw_csv = False
+                    if source_path.lower().endswith(".html"):
+                        stripped_raw_csv = _upload_html_report_without_raw_csv(
+                            s3_client,
+                            source_path,
+                            bucket_name,
+                            s3_key,
+                            content_type=content_type,
+                        )
+                    else:
+                        _upload_file_to_s3(
+                            s3_client,
+                            source_path,
+                            bucket_name,
+                            s3_key,
+                            content_type=content_type,
+                        )
+                    if stripped_raw_csv:
+                        log_message(
+                            state,
+                            "INFO",
+                            "Removed embedded Raw CSV Data tab from the uploaded cloud copy.",
+                        )
 
                     log_message(state, "SUCCESS", f"Upload successful: {s3_key}")
 

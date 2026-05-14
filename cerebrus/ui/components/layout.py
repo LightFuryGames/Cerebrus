@@ -54,9 +54,9 @@ def _get_viewport_size() -> tuple[int, int]:
 def _calculate_responsive_layout() -> dict[str, int]:
     width, height = _get_viewport_size()
 
-    tab_height = _clamp(int(height * 0.44) + 100, 440, 470)
-    panel_height = _clamp(tab_height - 150, 185, 210)
-    log_height = _clamp(int(height * 0.26) - 100, 90, 150)
+    tab_height = _clamp(int(height * 0.50) + 110, 500, 560)
+    panel_height = _clamp(tab_height - 220, 210, 240)
+    log_height = _clamp(int(height * 0.22) - 100, 80, 130)
 
     available_width = max(760, width - 24)
     group_gap = 24

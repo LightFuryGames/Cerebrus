@@ -5,6 +5,7 @@ pywin32
 pyyaml
 requests
 pytest
+pytest-cov
 mypy
 black
 isort

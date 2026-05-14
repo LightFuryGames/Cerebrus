@@ -19,6 +19,7 @@ class Profile:
     input_path: str = "C:/"
     output_path: str = "C:/"
     config_output_path: str = "C:/"
+    device_profile_config_path: str = ""
     use_prefix_only: bool = False
 
     move_logs_enabled: bool = True
@@ -56,6 +57,7 @@ class Profile:
             "input_path",
             "output_path",
             "config_output_path",
+            "device_profile_config_path",
             "use_prefix_only",
             "move_logs_enabled",
             "move_csv_enabled",

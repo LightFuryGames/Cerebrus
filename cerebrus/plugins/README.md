@@ -1,6 +1,9 @@
 # Cerebrus Plugins
 
-Plugin documentation lives beside the plugin code. Keep the detailed user and developer notes in this folder, then link to them from `README.md` and `docs/` instead of duplicating plugin behavior in many places.
+Plugin documentation lives beside the plugin code. Each runtime plugin owns a
+subdirectory under `cerebrus/plugins/<plugin_id>/`; keep detailed user and
+developer notes there, then link to them from this overview and `docs/` instead
+of duplicating plugin behavior in many places.
 
 ## Simple Picture
 
@@ -13,11 +16,16 @@ Think of Cerebrus as a work table with slots.
 
 ## Current Runtime Plugins
 
-| Plugin | File | User Purpose | Documentation |
+| Plugin | Package | User Purpose | Documentation |
 | --- | --- | --- | --- |
-| Profiling | `profiling_plugin.py` | Main device, capture, file move, and report workflow. | [profiling.md](profiling.md) |
-| AWS Secrets | `aws_secrets.py` | Local key and bucket manager used by cloud plugins. | [aws_secrets.md](aws_secrets.md) |
-| S3 Uploader - Profiling Reports | `s3_uploader.py` | Upload generated HTML profiling reports to mapped S3 buckets. | [s3_uploader.md](s3_uploader.md) |
+| Profiling | `profiling/plugin.py` | Main device, capture, file move, and report workflow. | [profiling/README.md](profiling/README.md) |
+| AWS Secrets | `aws_secrets/plugin.py` | Local key and bucket manager used by cloud plugins. | [aws_secrets/README.md](aws_secrets/README.md) |
+| S3 Uploader - Profiling Reports | `s3_uploader/plugin.py` | Upload generated HTML profiling reports to mapped S3 buckets. | [s3_uploader/README.md](s3_uploader/README.md) |
+| Analytics & Trends | `analytics/plugin.py` | Normalize generated reports into trend, comparison, and Elasticsearch-ready analytics files. | [analytics/README.md](analytics/README.md) |
+
+Plugin-owned support code should stay inside that plugin directory. For example,
+Analytics conversion/parsing code lives under `analytics/core` because it exists
+to support the Analytics plugin rather than a shared core application workflow.
 
 The top-level `Plugins/ConversionTools` directory is not part of the runtime tab plugin system. Treat it as experimental or legacy conversion utility code until it is either moved under `cerebrus/plugins` with a `TabPlugin` wrapper or formally archived.
 
@@ -56,7 +64,7 @@ Prefer explicit JSON contracts for plugin state and transfer files:
 - AWS local secret store: `%LOCALAPPDATA%/Cerebrus/aws_secrets.json`
 - AWS allowed regions: `%LOCALAPPDATA%/Cerebrus/aws_regions.json`
 - AWS portable mappings: `.cbx` JSON with `schema_version` and `contains_secret_values`
-- Plugin tooltip resources: `cerebrus/plugins/resources/*.json`
+- Plugin tooltip resources: `cerebrus/plugins/<plugin_id>/resources/tooltips.json`
 
 Do not encode behavior only in display strings when a JSON field can carry the meaning directly.
 
@@ -67,6 +75,8 @@ Do not encode behavior only in display strings when a JSON field can carry the m
 3. New plugins are enabled by default so users can see newly shipped features.
 4. Explicitly disabled plugins stay disabled because the cache tracks known plugin IDs.
 5. `render_tabs()` rebuilds the tab bar from enabled plugins.
+6. Users can reorder tabs from `Settings -> Plugins`; the order is cached in
+   `%LOCALAPPDATA%/Cerebrus/plugins.json`.
 
 ## Documentation Rules
 
@@ -77,7 +87,10 @@ Do not encode behavior only in display strings when a JSON field can carry the m
 
 ## Packaging Notes
 
-Plugins that use data files must ensure those resources are bundled in PyInstaller builds. Current plugin tooltip JSON files live in `cerebrus/plugins/resources`; the packaging spec should include that folder before release validation.
+Plugins that use data files must keep those files under their own plugin
+directory so PyInstaller can bundle them with the rest of the plugin package.
+Current plugin tooltip JSON files live at
+`cerebrus/plugins/<plugin_id>/resources/tooltips.json`.
 
 ## Test Index
 

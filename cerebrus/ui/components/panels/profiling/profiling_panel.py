@@ -2,8 +2,16 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+from tkinter import Tk, filedialog
+
 import dearpygui.dearpygui as dpg
 
+from cerebrus.plugins.analytics.core.settings import (
+    AnalyticsSettings,
+    load_analytics_settings,
+    save_analytics_settings,
+)
 from cerebrus.tools.adb import AdbClient  # Assuming this exists based on context
 
 from ....state import UIState
@@ -197,6 +205,29 @@ def _build_profiling_tab(state: UIState) -> None:
                     )
                 dpg.add_spacer()
 
+            with dpg.table_row():
+                with dpg.group(horizontal=True, horizontal_spacing=4):
+                    dpg.add_text("Device Profiles:")
+                    _add_help_button("device_profile_config")
+                dpg.add_input_text(
+                    tag="device_profile_config_label",
+                    default_value=_display_device_profile_config_path(state),
+                    width=-1,
+                    readonly=True,
+                )
+                with dpg.group(horizontal=True, horizontal_spacing=8):
+                    dpg.add_button(
+                        label="Browse",
+                        width=config.get_dimension("button_width_small"),
+                        callback=lambda: _browse_device_profile_config(state),
+                    )
+                    dpg.add_button(
+                        label="Clear",
+                        width=config.get_dimension("button_width_small"),
+                        callback=lambda: _clear_device_profile_config(state),
+                    )
+                dpg.add_spacer()
+
         with dpg.group(horizontal=True, horizontal_spacing=12):
             with dpg.child_window(
                 tag="bulk_actions_left_panel",
@@ -325,6 +356,55 @@ def _build_profiling_tab(state: UIState) -> None:
                             callback=lambda: _show_ab_compare_dialog(state),
                         )
                         _add_help_button("generate_ab_compare")
+
+
+def _browse_device_profile_config(state: UIState) -> None:
+    try:
+        root = Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        selected = filedialog.askopenfilename(
+            title="Select BaseDeviceProfiles.ini",
+            filetypes=[("Unreal config", "*.ini"), ("All files", "*.*")],
+        )
+        root.destroy()
+        if selected:
+            state.device_profile_config_path = Path(selected)
+            if dpg.does_item_exist("device_profile_config_label"):
+                dpg.set_value("device_profile_config_label", selected)
+            _cache_device_profile_config_path(selected)
+            from ...shared import _auto_save_profile
+
+            _auto_save_profile(state)
+            log_message(state, "SUCCESS", f"Device profile config selected: {selected}")
+    except Exception as e:
+        log_message(state, "ERROR", f"Failed to select device profile config: {e}")
+
+
+def _clear_device_profile_config(state: UIState) -> None:
+    state.device_profile_config_path = Path("")
+    if dpg.does_item_exist("device_profile_config_label"):
+        dpg.set_value("device_profile_config_label", "")
+    _cache_device_profile_config_path("")
+    from ...shared import _auto_save_profile
+
+    _auto_save_profile(state)
+    log_message(state, "INFO", "Device profile config cleared.")
+
+
+def _display_device_profile_config_path(state: UIState) -> str:
+    value = str(state.device_profile_config_path)
+    return "" if value in {"", "."} else value
+
+
+def _cache_device_profile_config_path(path: str) -> None:
+    current_settings = load_analytics_settings()
+    save_analytics_settings(
+        AnalyticsSettings(
+            elasticsearch_url=current_settings.elasticsearch_url,
+            device_profile_config_path=path,
+        )
+    )
 
 
 def _handle_launch_package(state: UIState) -> None:

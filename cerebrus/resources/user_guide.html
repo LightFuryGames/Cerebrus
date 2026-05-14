@@ -671,7 +671,8 @@
             <div class="toc-title">Documentation</div>
             <ul class="toc-list">
                 <li class="toc-item"><a href="#intro" class="toc-link"><span>1. Introduction</span></a></li>
-                <li class="toc-item"><a href="#getting-started" class="toc-link"><span>2. Getting Started</span></a>
+                <li class="toc-item"><a href="#whats-new" class="toc-link"><span>2. What's New</span></a></li>
+                <li class="toc-item"><a href="#getting-started" class="toc-link"><span>3. Getting Started</span></a>
                 </li>
                 <li class="toc-item"><a href="#data-concepts" class="toc-link"><span>3. Understanding Your
                             Data</span></a>
@@ -835,6 +836,171 @@
                     </div>
                 </div>
             </div>
+
+            <section id="whats-new">
+                <h2>What's New</h2>
+                <h1>Big additions since v2.4.0 &mdash; what changed and why you'll like it.</h1>
+                <p>If you have used Cerebrus before, the daily workflow is unchanged. Buttons sit where they
+                    were. Reports still land in <code>Profiling/</code>, <code>MemReports/</code>, and
+                    <code>Logs/</code>. The new things plug in <em>around</em> what already worked, so you can
+                    pick them up at your own pace.</p>
+                <p>If this is your first session: skip ahead to <a href="#getting-started">Getting Started</a>
+                    and come back here once a couple of reports are sitting in your output folder. The new
+                    features make the most sense once you have real data to look at.</p>
+
+                <div class="features-grid">
+                    <div class="card">
+                        <div class="feature-item">
+                            <div class="feature-icon">🧩</div>
+                            <div>
+                                <h4 class="highlight">Plugin System</h4>
+                                <p>Cerebrus is now built around a plugin core. Each tab you see &mdash;
+                                    Profiling, AWS Secrets, S3 Uploader, Analytics &mdash; is a discrete
+                                    plugin. New tools can be added without touching the rest of the app.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="feature-item">
+                            <div class="feature-icon">📊</div>
+                            <div>
+                                <h4 class="highlight">Analytics Pipeline</h4>
+                                <p>Every CSV/HTML report converts into a flat JSON document ready for
+                                    Elasticsearch + Grafana trend dashboards. No nested fields, no mapping
+                                    explosions, no manual cleanup.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="feature-item">
+                            <div class="feature-icon">🎚️</div>
+                            <div>
+                                <h4 class="highlight">Scalability Tier</h4>
+                                <p>Cerebrus reads <code>BaseDeviceProfiles.ini</code> and tags every report
+                                    with a tier (Low / Medium / High / Epic). You can compare cohorts without
+                                    memorizing which GPU family belongs where.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="feature-item">
+                            <div class="feature-icon">⭐</div>
+                            <div>
+                                <h4 class="highlight">Report Value (1&ndash;100)</h4>
+                                <p>One number per report. Longer, cleaner captures score higher. Grafana uses
+                                    it as a weight so a 10-minute capture matters more than a 5-second blip.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="feature-item">
+                            <div class="feature-icon">🛡️</div>
+                            <div>
+                                <h4 class="highlight">Data Quality Guardrails</h4>
+                                <p>Missing fields are filled with explicit sentinels (<code>-1</code>,
+                                    <code>"Unknown"</code>, default date). A red warning row appears in the
+                                    HTML when something looks off, so problems are never silent.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="feature-item">
+                            <div class="feature-icon">☁️</div>
+                            <div>
+                                <h4 class="highlight">AWS Secrets &amp; S3 Uploader</h4>
+                                <p>Securely manage cloud credentials in one tab. Push generated reports to S3
+                                    from another. Replaces the old AWS Sync dialog with a cleaner,
+                                    plugin-driven flow.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="margin-top: 2rem;">A short story: how a report becomes a trend</h3>
+                <div class="card">
+                    <p>You connect a phone. You hit <strong>Generate</strong>. Cerebrus pulls the CSV off the
+                        device and hands it to the bundled Unreal <code>PerfReportTool</code>, which spits out
+                        an HTML chart pack. So far this is the workflow you remember.</p>
+                    <p>Then four small workers walk through the HTML and decorate it:</p>
+                    <ol style="margin: 0.5rem 0 0.5rem 1.5rem;">
+                        <li>The <strong>metadata writer</strong> drops in device, build, and tier rows.</li>
+                        <li>The <strong>FPS Avg column</strong> shows up next to Frametime.</li>
+                        <li>The <strong>percentile gauges</strong> get pinned to the top.</li>
+                        <li>The <strong>raw CSV</strong> gets folded into the bottom of the HTML so the doc is
+                            self-contained.</li>
+                    </ol>
+                    <p>Last step: the <strong>Analytics</strong> plugin takes that decorated HTML, pulls the
+                        embedded CSV back out, and writes a flat JSON file. That JSON has a
+                        <code>report_fingerprint</code> on it. The fingerprint is what Elasticsearch uses as
+                        the document ID, so uploading the same report twice never creates a duplicate. Grafana
+                        reads the index, applies the <strong>Report Value</strong> as a weight, and your trend
+                        line is automatically biased toward the captures that have the most evidence.</p>
+                </div>
+
+                <h3 style="margin-top: 2rem;">What this means for you, depending on who you are</h3>
+                <div class="features-grid">
+                    <div class="card warning-cyan" style="border-left: 4px solid #06b6d4;">
+                        <h4 class="highlight">🆕 First-time user</h4>
+                        <p>Ignore everything in this section for now. The default workflow already gives you
+                            HTML reports. Once you have a few generated, come back and skim the cards above
+                            &mdash; each one is a one-paragraph idea, not a chapter to study.</p>
+                    </div>
+                    <div class="card warning-cyan" style="border-left: 4px solid #06b6d4;">
+                        <h4 class="highlight">🔁 Returning user</h4>
+                        <p>Your muscle memory still works. The biggest change you will <em>see</em> is a new
+                            row in the HTML metadata table called <strong>Report Value</strong>, with a small
+                            "What is this?" expander beneath it. Click it once and you have the full picture.</p>
+                    </div>
+                    <div class="card warning-cyan" style="border-left: 4px solid #06b6d4;">
+                        <h4 class="highlight">📈 Performance lead / TPM</h4>
+                        <p>Point Cerebrus at <code>BaseDeviceProfiles.ini</code> in Analytics Settings so tier
+                            shows up in every report. Then open the
+                            <a href="https://github.com/" target="_blank">Grafana + Elasticsearch Integration
+                                Guide</a> shipped under <code>docs/user/</code> and follow the panel recipes.</p>
+                    </div>
+                    <div class="card warning-cyan" style="border-left: 4px solid #06b6d4;">
+                        <h4 class="highlight">🛠️ DevOps</h4>
+                        <p>You only need three things from Cerebrus: the flat JSON it writes, the
+                            <code>report_fingerprint</code> field (use as ES <code>_id</code>), and the
+                            <code>report_value</code> field (use as Grafana weighted_avg weight). Everything
+                            else is sugar.</p>
+                    </div>
+                </div>
+
+                <h3 style="margin-top: 2rem;">How to get the most out of these new pieces</h3>
+                <div class="card">
+                    <ul style="margin: 0.5rem 0 0.5rem 1.5rem;">
+                        <li><strong>Capture longer.</strong> A 10-minute run unlocks both the volume and
+                            duration components of Report Value. Two minutes is the floor where dashboards
+                            start trusting the data.</li>
+                        <li><strong>Match the target framerate.</strong> If the build targets 60 fps, run a
+                            scenario that actually reaches 60. The consistency check looks for
+                            <code>observed_fps</code> within &plusmn;25% of target.</li>
+                        <li><strong>Keep the CSV footer healthy.</strong> Don't strip
+                            <code>[deviceprofile]</code>, <code>[buildversion]</code>, or
+                            <code>[csvid]</code> markers in pre-processing &mdash; missing footer fields cost
+                            you completeness points.</li>
+                        <li><strong>Point at the right ini.</strong> Configure
+                            <code>BaseDeviceProfiles.ini</code> once in Analytics Settings. Tier resolution
+                            uses it automatically afterwards; the file's SHA-1 is recorded in every doc for
+                            audit.</li>
+                        <li><strong>Trust the fingerprint.</strong> When uploading to Elasticsearch, always
+                            use <code>report_fingerprint</code> as the document ID. Saves you from cleaning up
+                            duplicate dashboards later.</li>
+                    </ul>
+                </div>
+
+                <div class="warning-box warning-orange" style="margin-top: 1.5rem;">
+                    <p><strong>Heads up:</strong> If your team already has Elasticsearch indices from earlier
+                        Cerebrus versions, the schema is now <code>schema_version: 2</code>. The fields are
+                        flat (<code>build_config</code>, not <code>build.config</code>) and a few new fields
+                        exist (<code>report_value</code>, <code>device_tier</code>,
+                        <code>data_quality_*</code>). The
+                        <a href="GRAFANA_ELASTICSEARCH_INTEGRATION.md">integration guide</a> covers the alias
+                        swap procedure.</p>
+                </div>
+            </section>
+
             <section id="getting-started">
                 <h2>Getting Started</h2>
                 <div class="card">
@@ -1486,19 +1652,19 @@ t.MaxFPS 30        // Lock framerate for consistency</code></pre>
                                 <td class="highlight">Profiling</td>
                                 <td>The main workbench for launch, kill, console commands, CSV captures, memreports,
                                     file movement, and report generation.</td>
-                                <td><code>cerebrus/plugins/profiling.md</code></td>
+                                <td><code>cerebrus/plugins/profiling/README.md</code></td>
                             </tr>
                             <tr>
                                 <td class="highlight">AWS Secrets</td>
                                 <td>The key locker. It stores friendly key labels and maps each S3 bucket to the key
                                     that should open it.</td>
-                                <td><code>cerebrus/plugins/aws_secrets.md</code></td>
+                                <td><code>cerebrus/plugins/aws_secrets/README.md</code></td>
                             </tr>
                             <tr>
                                 <td class="highlight">S3 Uploader - Profiling Reports</td>
                                 <td>The delivery cart. It picks up one generated HTML report and sends it to the
                                     selected S3 bucket path.</td>
-                                <td><code>cerebrus/plugins/s3_uploader.md</code></td>
+                                <td><code>cerebrus/plugins/s3_uploader/README.md</code></td>
                             </tr>
                         </tbody>
                     </table>
@@ -1579,8 +1745,8 @@ t.MaxFPS 30        // Lock framerate for consistency</code></pre>
                             the guided tour; the plugin markdown gives the exact notes for the feature.</p>
                         <ul style="font-size: 0.9rem;">
                             <li><code>cerebrus/plugins/README.md</code>: plugin system overview.</li>
-                            <li><code>cerebrus/plugins/aws_secrets.md</code>: AWS Secrets details.</li>
-                            <li><code>cerebrus/plugins/s3_uploader.md</code>: S3 Uploader details.</li>
+                            <li><code>cerebrus/plugins/aws_secrets/README.md</code>: AWS Secrets details.</li>
+                            <li><code>cerebrus/plugins/s3_uploader/README.md</code>: S3 Uploader details.</li>
                             <li><code>cerebrus/plugins/TESTING.md</code>: plugin test expectations.</li>
                         </ul>
                     </div>

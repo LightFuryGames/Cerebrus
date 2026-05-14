@@ -3,21 +3,22 @@
         "profiling_main_child": {
             "border": false,
             "autosize_x": true,
-            "autosize_y": true
+            "autosize_y": true,
+            "no_scrollbar": true
         },
         "bulk_actions_left_child": {
             "border": true,
-            "height": 195,
+            "height": 225,
             "width": 360
         },
         "bulk_actions_right_child": {
             "border": true,
-            "height": 195,
+            "height": 225,
             "width": 460
         },
         "local_report_comparison_child": {
             "border": true,
-            "height": 195,
+            "height": 225,
             "width": 460
         }
     }

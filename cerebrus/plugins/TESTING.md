@@ -34,7 +34,7 @@ This file is the source of truth for plugin-related test expectations.
 
 `tests/core/test_build_spec.py` covers:
 
-- `cerebrus/plugins/resources` is collected by the PyInstaller spec.
+- `cerebrus/plugins/<plugin_id>/resources` is collected by the PyInstaller spec.
 - `boto3` and `botocore` data files remain collected.
 
 ### Profiling Plugin Dependencies
@@ -60,7 +60,7 @@ Add tests for:
 
 ### AWS Secrets Plugin
 
-Add tests listed in [aws_secrets.md](aws_secrets.md). The short version:
+Add tests listed in [aws_secrets/README.md](aws_secrets/README.md). The short version:
 
 - Key CRUD.
 - Bucket mapping CRUD.
@@ -72,7 +72,7 @@ Add tests listed in [aws_secrets.md](aws_secrets.md). The short version:
 
 ### S3 Uploader Plugin
 
-Add tests listed in [s3_uploader.md](s3_uploader.md). The short version:
+Add tests listed in [s3_uploader/README.md](s3_uploader/README.md). The short version:
 
 - Validation warnings.
 - Dear PyGui form behavior with mocked UI calls.
@@ -82,8 +82,8 @@ Add tests listed in [s3_uploader.md](s3_uploader.md). The short version:
 
 Keep release/build checks that verify:
 
-- `cerebrus/plugins/resources/aws_secrets_tooltips.json` is bundled.
-- `cerebrus/plugins/resources/s3_uploader_tooltips.json` is bundled.
+- `cerebrus/plugins/aws_secrets/resources/tooltips.json` is bundled.
+- `cerebrus/plugins/s3_uploader/resources/tooltips.json` is bundled.
 - `boto3` and `botocore` data files are still collected.
 
 ## Test Style

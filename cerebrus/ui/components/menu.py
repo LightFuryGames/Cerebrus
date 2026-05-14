@@ -185,6 +185,13 @@ def build_menu_bar(state: UIState) -> None:
 
             dpg.add_separator()
             with dpg.menu(label="Plugins"):
+                dpg.add_menu_item(
+                    label="Manage Tab Order...",
+                    callback=lambda: _safe_run(
+                        state, lambda: _show_plugin_tab_order_dialog(state)
+                    ),
+                )
+                dpg.add_separator()
                 for plugin in PluginManager.get_all_plugins():
                     # If the plugin has a custom menu builder, create a submenu for it
                     if isinstance(plugin, MenuPlugin):
@@ -234,6 +241,108 @@ def build_menu_bar(state: UIState) -> None:
 
 def _handle_plugin_toggle(state: UIState, plugin_id: str, enabled: bool) -> None:
     PluginManager.set_enabled(plugin_id, enabled)
+    render_tabs(state)
+
+
+def _show_plugin_tab_order_dialog(state: UIState) -> None:
+    window_tag = "plugin_tab_order_dialog"
+    list_tag = "plugin_tab_order_list"
+    if dpg.does_item_exist(window_tag):
+        dpg.delete_item(window_tag)
+
+    labels = _plugin_order_labels()
+    with dpg.window(
+        label="Plugin Tab Order",
+        tag=window_tag,
+        modal=True,
+        width=440,
+        height=360,
+        no_collapse=True,
+    ):
+        dpg.add_text("Visible plugin tabs")
+        dpg.add_listbox(
+            labels,
+            tag=list_tag,
+            width=-1,
+            num_items=max(4, min(8, len(labels))),
+            default_value=labels[0] if labels else "",
+        )
+        with dpg.group(horizontal=True):
+            dpg.add_button(
+                label="Top",
+                callback=lambda: _safe_run(
+                    state, lambda: _move_selected_plugin_tab(state, list_tag, "top")
+                ),
+            )
+            dpg.add_button(
+                label="Up",
+                callback=lambda: _safe_run(
+                    state, lambda: _move_selected_plugin_tab(state, list_tag, "up")
+                ),
+            )
+            dpg.add_button(
+                label="Down",
+                callback=lambda: _safe_run(
+                    state, lambda: _move_selected_plugin_tab(state, list_tag, "down")
+                ),
+            )
+            dpg.add_button(
+                label="Bottom",
+                callback=lambda: _safe_run(
+                    state, lambda: _move_selected_plugin_tab(state, list_tag, "bottom")
+                ),
+            )
+        dpg.add_separator()
+        with dpg.group(horizontal=True):
+            dpg.add_button(
+                label="Close",
+                callback=lambda: dpg.delete_item(window_tag),
+            )
+
+
+def _plugin_order_labels() -> list[str]:
+    return [
+        f"{plugin.name} ({plugin.id})" for plugin in PluginManager.get_enabled_plugins()
+    ]
+
+
+def _plugin_id_from_order_label(label: str) -> str | None:
+    if not label.endswith(")") or "(" not in label:
+        return None
+    return label.rsplit("(", 1)[1][:-1]
+
+
+def _move_selected_plugin_tab(state: UIState, list_tag: str, action: str) -> None:
+    selected = dpg.get_value(list_tag)
+    plugin_id = _plugin_id_from_order_label(selected)
+    if not plugin_id:
+        return
+
+    labels = _plugin_order_labels()
+    selected_index = labels.index(selected) if selected in labels else -1
+    if selected_index < 0:
+        return
+
+    if action == "top":
+        direction = -selected_index
+    elif action == "bottom":
+        direction = len(labels) - selected_index - 1
+    elif action == "up":
+        direction = -1
+    elif action == "down":
+        direction = 1
+    else:
+        return
+
+    PluginManager.move_plugin(plugin_id, direction)
+    labels = _plugin_order_labels()
+    new_label = next(
+        (label for label in labels if _plugin_id_from_order_label(label) == plugin_id),
+        labels[0] if labels else "",
+    )
+    dpg.configure_item(list_tag, items=labels)
+    if new_label:
+        dpg.set_value(list_tag, new_label)
     render_tabs(state)
 
 

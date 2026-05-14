@@ -352,7 +352,9 @@ def _show_theme_editor(state: UIState, palette: str = None) -> None:
 
     def _color_to_hex(value):
         color = _normalize_color(value)
-        return "#{:02X}{:02X}{:02X}".format(*[max(0, min(255, int(c))) for c in color[:3]])
+        return "#{:02X}{:02X}{:02X}".format(
+            *[max(0, min(255, int(c))) for c in color[:3]]
+        )
 
     def _safe_tag(value):
         return "".join(ch if ch.isalnum() else "_" for ch in str(value))
@@ -481,7 +483,9 @@ def _show_theme_editor(state: UIState, palette: str = None) -> None:
         dpg.add_text(f"Palette: {palette}", color=tm.get_header_color())
         dpg.add_spacer(height=4)
         with dpg.group(horizontal=True):
-            dpg.add_button(label="Save Changes", width=130, height=28, callback=_on_save)
+            dpg.add_button(
+                label="Save Changes", width=130, height=28, callback=_on_save
+            )
             dpg.add_button(label="Cancel", width=110, height=28, callback=_on_cancel)
         dpg.add_separator()
 
@@ -512,7 +516,9 @@ def _show_theme_editor(state: UIState, palette: str = None) -> None:
                 with dpg.tab_bar():
                     with dpg.tab(label="Quick Edit"):
                         for group_name, items in quick_color_groups.items():
-                            if dpg.collapsing_header(label=group_name, default_open=True):
+                            if dpg.collapsing_header(
+                                label=group_name, default_open=True
+                            ):
                                 with dpg.table(
                                     header_row=False,
                                     policy=dpg.mvTable_SizingFixedFit,

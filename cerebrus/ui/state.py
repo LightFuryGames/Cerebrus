@@ -25,6 +25,7 @@ class UIState:
     input_path: Path = Path("C:/")
     output_path: Path = Path("C:/")
     config_output_path: Path = Path("C:/")
+    device_profile_config_path: Path = Path("")
     logs: list[tuple[str, str, str]] = field(default_factory=list)
     log_filter: str = ""
     log_selection_mode: bool = False
