@@ -1,6 +1,6 @@
 # Project Cerebrus Architecture Overview
 
-This document describes the high-level architecture of Cerebrus. All implementation work—human and Codex—must align with these boundaries.
+This document describes the high-level architecture of Cerebrus. All implementation work—human and AI—must align with these boundaries.
 
 ## Top-Level Modules
 
@@ -10,19 +10,19 @@ This document describes the high-level architecture of Cerebrus. All implementat
   - Project configuration and profile definitions.
 - `cerebrus.ui`
   - Dear ImGui-based UI.
-  - Panels for devices, captures, reports, and configuration.
+  - Panels for devices, captures, reports, logs, and plugin tabs.
   - Error and notification surfaces.
 - `cerebrus.tools`
   - Thin, testable wrappers around external tools:
-    - UAFT (Unreal Android File Tool)
-    - CsvTools:
-      - CSVCollate
-      - CsvConvert
-      - CSVFilter
-      - CSVSplit
-      - CsvToSVG
-      - csvinfo
+    - ADB (Android Debug Bridge)
+    - CsvTools (CSVCollate, CsvConvert, CSVFilter, CSVSplit, CsvToSVG, csvinfo)
     - PerfReportTool
+    - MemReport (Modular generic parsing and HTML visualizer)
+- `cerebrus.plugins`
+  - Runtime plugins that add tabs and optional menu actions.
+  - Plugin-specific markdown lives beside the plugin code.
+  - Current plugins: Profiling, AWS Secrets, and S3 Uploader.
+  - Detailed plugin docs: `cerebrus/plugins/README.md`.
 - `cerebrus.config`
   - Loading, validating, and persisting project configuration.
   - Tool-path configuration and per-project overrides.
@@ -56,14 +56,14 @@ This document describes the high-level architecture of Cerebrus. All implementat
 
 ## External Tools Integration
 
-### UAFT
-
-- Responsible for communicating with Android devices and retrieving artifacts (logs, CSVs, PRCs, Insights captures).
-- Cerebrus should:
-  - Encapsulate UAFT usage in `cerebrus.tools.uaft`.
-  - Provide high-level operations like:
-    - `pull_logcat(device, output_dir)`
-    - `pull_csv_profiles(device, project_profile, output_dir)`
+### ADB Wrapper
+- Responsible for communicating with Android devices via `adb` to manage application state and retrieve artifacts (logs, CSVs, PRCs, Insights captures).
+- Cerebrus encapsulates ADB usage in `cerebrus.tools.adb.AdbClient`.
+- High-level operations include:
+  - `list_devices()`
+  - `get_package_info(device, package)`
+  - `pull_file(device, remote_path, local_path)`
+  - `shell_command(device, cmd)`
 
 ### CsvTools
 
@@ -88,16 +88,48 @@ This document describes the high-level architecture of Cerebrus. All implementat
   - Bulk directory processing with optional recursion and metadata filters.
   - Summary table and JSON export flows.
 
+### MemReport Tool
+- **Pattern**: Modular Tool Pattern (Data -> Parser -> Analyzer -> Renderer).
+- **Extensibility**: Logic is split into independent `ReportTabs`.
+- **Output**: Single-file, self-contained HTML with embedded JS for interactivity.
+
 ## UI Layer
 
-- Use Dear ImGui panels for:
-  - Device list and selection.
-  - Capture orchestration.
-  - Report generation and browsing.
-  - Configuration editing (tool paths, profiles, cache settings).
-- Follow immediate-mode patterns:
-  - Read current state, draw, then apply mutations explicitly.
-- Keep business logic in `core` and `tools`; the UI calls into those modules.
+Cerebrus employs two distinct UI technologies optimized for different use cases:
+
+### 1. Control Plane (Desktop App)
+- **Technology**: **Dear PyGui** (wrapping Dear ImGui).
+- **Purpose**: Real-time control, device management, and tool orchestration.
+- **Characteristics**: Fast, native, immediate-mode, requires Python runtime.
+
+### 2. Data Plane (Generated Reports)
+- **Technology**: **HTML5 / CSS3 / Vanilla JS**.
+- **Purpose**: Viewing static analysis data (MemReports, Perf Diffs).
+- **Characteristics**: Portable (can be emailed), zero-dependency (runs in any browser), completely decoupled from the main app.
+- **Note**: These files do **not** use ImGui.
+
+- **Pattern**: Functional UI Components (Stateless rendering functions).
+  - Components receive `State` and return `Events`.
+  - No direct mutation of state inside draw calls.
+- **Scaling**: All layouts use relative sizing / DPI-aware style variables.
+
+## Plugin Architecture
+
+`cerebrus.core.plugins.PluginManager` is the central registry.
+
+- `CerebrusApp.build()` registers plugin instances.
+- `PluginManager.initialize()` loads enabled/disabled state from the user cache.
+- New plugins are enabled by default so shipped features are visible.
+- Known plugins that a user disabled remain disabled.
+- `render_tabs()` rebuilds the tab bar from enabled plugins.
+- Plugins that provide tabs implement `TabPlugin`.
+- Plugins that add `Settings -> Plugins` menu actions implement `MenuPlugin`.
+
+Plugin-level behavior, user help, and test expectations belong in `cerebrus/plugins/*.md`.
+
+## Future Architecture (Roadmap)
+- **Event Sourcing**:
+  - Central event bus for QA Macro recording/replay.
 
 ## Installer and Environment Validation
 
@@ -108,7 +140,7 @@ This document describes the high-level architecture of Cerebrus. All implementat
   - Avoid admin elevation unless strictly necessary.
 
 - Environment checks:
-  - Python version compatibility.
+  - Python version compatibility (3.12+).
   - Access to UAFT, CsvTools, PerfReportTool binaries.
   - Write access to cache and report directories.
 

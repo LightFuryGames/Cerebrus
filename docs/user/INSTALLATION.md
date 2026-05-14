@@ -5,24 +5,18 @@ This guide describes how to install and update Project Cerebrus on a Windows mac
 ## Prerequisites
 
 - Windows 10 or newer (64-bit).
+- **Python 3.12+** (if running from source or customizing).
 - Sufficient disk space for:
-  - Unreal Engine tools (UAFT, CsvTools, PerfReportTool).
+  - Unreal Engine tools (CsvTools, PerfReportTool).
   - Profiling captures (potentially tens of GB per project).
 - Access to:
   - Android SDK / ADB tools.
   - Unreal Engine installation that provides the required binaries.
 
-## Option 1: One-Click Installer (Recommended)
+## Option 1: Official Distribution (Recommended)
 
-Once available, the Cerebrus installer will:
-
-- Bundle a compatible Python runtime.
-- Install Python dependencies in an isolated environment.
-- Install required .NET Runtimes (.NET 6 and .NET 8).
-- Prompt for:
-  - Unreal Engine root or CsvTools/PerfReportTool locations.
-  - Default cache and reports directories.
-- Create Start Menu shortcuts and an optional desktop shortcut.
+- **Cerebrus_Setup.exe**: The official installer for end-users.
+- **Portable ZIP**: Self-contained archive for manual execution.
 
 Refer to `docs/installer/WINDOWS_INSTALLER_SPEC.md` for technical details.
 
@@ -48,10 +42,11 @@ Refer to `docs/installer/WINDOWS_INSTALLER_SPEC.md` for technical details.
    pip install -r requirements.txt
    ```
 
-4. Configure tool paths (see `docs/config/TOOLS_PATHS.md`):
+4. Verify bundled and local tools:
 
-   - Create `config/tools.paths.json` based on the example paths in that document.
-   - Ensure UAFT, CsvTools, and PerfReportTool paths are correct.
+   - Ensure `Binaries/CsvTools/PerfReportTool.exe` exists for performance report generation.
+   - Ensure ADB is available on PATH or let Cerebrus install Android platform tools during startup.
+   - Install plugin dependencies from `requirements.txt`, including `boto3` for the S3 Uploader plugin.
 
 5. (Optional) Run tests:
 
@@ -74,6 +69,14 @@ Refer to `docs/installer/WINDOWS_INSTALLER_SPEC.md` for technical details.
    ```
 
 3. Review `CHANGELOG.md` if present and relevant docs under `docs/developer` for any migration steps.
+
+## Plugin Documentation
+
+Runtime plugin docs live beside the plugin code:
+
+- `cerebrus/plugins/README.md`
+- `cerebrus/plugins/aws_secrets.md`
+- `cerebrus/plugins/s3_uploader.md`
 
 ## Uninstallation
 

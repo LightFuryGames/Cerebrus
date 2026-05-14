@@ -62,7 +62,24 @@ try {
     $zipPath = Join-Path $OutputDir $zipName
     
     if (Test-Path $zipPath) {
-        Remove-Item $zipPath -Force
+        $maxRetries = 3
+        $retryCount = 0
+        while ($retryCount -lt $maxRetries) {
+            try {
+                Remove-Item $zipPath -Force -ErrorAction Stop
+                break
+            }
+            catch {
+                Write-Host "File is in use, retrying removal in 2 seconds..." -ForegroundColor Yellow
+                Start-Sleep -Seconds 2
+                $retryCount++
+            }
+        }
+        if (Test-Path $zipPath) {
+            Write-Host "Failed to remove existing zip file. It might be in use." -ForegroundColor Red
+            # Proceeding might fail or compress to a new name, but let's throw to be safe
+            throw "Could not delete existing zip: $zipPath"
+        }
     }
     
     Compress-Archive -Path "$distFolder\*" -DestinationPath $zipPath

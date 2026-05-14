@@ -6,6 +6,7 @@ Technical specification for the Cerebrus Windows installer.
 
 - Use a robust Windows installer technology (e.g. WiX Toolset, NSIS, or similar).
 - Bundle a standalone Python environment (e.g. embeddable Python or a pre-built venv).
+- **IT Friendly**: Must support `/S` or `/VERYSILENT` flags to install without UI.
 
 ## Install Layout
 

@@ -44,14 +44,60 @@ Manage files between your PC and the connected Android device.
 - **Move Logs**: Copies logs from `Saved/Logs` on the device to your PC.
 - **Move CSV Data**: Copies profiling data from `Saved/Profiling/CSV` on the device to your PC.
 
+## Cloud Integration & AWS Plugins
+Cerebrus uses plugins for cloud workflows. A plugin is a small extra work area that can add a tab and menu actions without changing the whole app.
+
+For detailed plugin help, see:
+- `cerebrus/plugins/README.md`
+- `cerebrus/plugins/aws_secrets.md`
+- `cerebrus/plugins/s3_uploader.md`
+
+### AWS Secrets Manager
+Think of AWS Secrets as the key locker. You give a key a friendly label, then map that label to an S3 bucket. The uploader later asks the locker for the right key.
+
+- **Key Alias**: A friendly name for one AWS access key pair.
+- **Unique Credentials**: Key aliases, access key IDs, and secret access keys cannot be duplicated, including during imports.
+- **Bucket Mapping**: The bucket name, region, and key alias that belong together.
+- **Local Protection**: Credentials use Windows DPAPI. If DPAPI is unavailable, Cerebrus refuses to save new AWS keys instead of writing plaintext secrets.
+- **Portable Export**: Export/import `.cbx` JSON files when a teammate needs the same bucket map. These files include bucket mappings and key aliases, not AWS secret values.
+
+### S3 Uploader
+Think of S3 Uploader as the delivery cart. It picks up one generated HTML report, reads the hidden metadata note inside it, builds a tidy folder path, and uploads it to the bucket you selected.
+
+- **Automatic Pathing**: Reads metadata from reports to determine the S3 path (`BuildConfig/Device/CL/Date/Time`).
+- **Optimization**: Strips redundant raw memreport data before upload when possible.
+- **Requirements**: Requires the `boto3` Python package.
+
 ## Report Generation
 Process collected data into readable formats.
 
 ### Bulk Actions (PC to PC)
-- **Generate Perf Report Only**: Runs `PerfreportTool.exe` on CSV files.
+- **Generate Perf Report Only**: Runs `PerfreportTool.exe` on CSV files to create visual reports.
+    - **New Metrics**: Reports now include System Metadata, FPS Analysis, and Average FPS.
+- **Generate Memory Report Only**: Converts `.memreport` files into interactive HTML visualizations.
+    - **Visualization**: Provides tree maps and detailed object tracking for memory analysis.
+    - **Automatic Naming**: Reports are named as `{BuildConfig}_{Device}_{CL}_{Date}.html`.
+    - **Metadata**: Embeds session data for S3 uploading and downstream analysis.
 - **Generate Colored Logs Only**: Converts text logs to color-coded HTML files.
-- **Generate Perf Report + Colored Logs**: Performs both operations in sequence.
-- **View HTML Logs**: Opens the output folder to view generated HTML logs.
+- **Generate All**: Performs all enabled operations in sequence.
+- **View HTML Logs**: Opens the `Logs` output folder to view generated HTML logs.
+
+### Local Report Comparison
+- **Generate A/B Compare Report**: Compares two local profiling CSV runs and creates a statistical HTML comparison report.
+
+> **Note**: Generated reports are automatically organized into `Profiling/`, `Logs/`, and `MemReports/` subdirectories within your Output Path.
+
+## Plugins
+Access plugin tabs in the main tab area. Enable or disable plugins from **Settings -> Plugins**.
+
+- **Profiling**: Main capture and report workflow.
+- **AWS Secrets**: Key locker and bucket map.
+- **S3 Uploader - Profiling Reports**: Upload generated HTML reports.
+
+### Auto-Update
+Cerebrus automatically checks for updates on startup.
+- If a new version is available, a prompt will appear.
+- The update is downloaded and installed automatically.
 
 ## Settings
 Customize your experience via the Settings menu.
@@ -62,3 +108,5 @@ Customize your experience via the Settings menu.
 ## Troubleshooting
 - **No Devices Found**: Ensure USB debugging is enabled and ADB is running.
 - **Tool Not Found**: Verify that `PerfreportTool.exe` path is correctly configured in your environment or settings.
+- **Report Features**: Generated HTML reports include a **Dark Mode** toggle and **Scroll to Top** button for better readability.
+

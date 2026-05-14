@@ -13,37 +13,24 @@ The application will:
 
 - Initialize its Python environment.
 - Validate configuration and external tool availability.
+- **Check for Updates**: Automatically queries GitHub for a new version and prompts for update if available.
 - Open the Dear ImGui-based UI main window.
 
 ## From Source (Developer Mode)
 
-1. Activate your virtual environment:
+1. Activate your virtual environment and run the main entrypoint:
 
    ```bash
-   cd cerebrus
    .venv\Scripts\activate
-   ```
-
-2. Run the main entrypoint (to be implemented):
-
-   ```bash
    python -m cerebrus
    ```
-
-or
-
-   ```bash
-   python -m cerebrus.main
-   ```
-
-depending on the final structure.
 
 The main window will appear and present:
 
 - Device list panel.
 - Capture workflows.
 - Reporting and analysis tools.
-- Configuration access.
+- Plugin tabs for Profiling, AWS Secrets, and S3 Uploader when enabled.
 
 ## Command-Line Arguments (Planned)
 
@@ -53,7 +40,7 @@ Cerebrus will support a small set of CLI options, for example:
 - `--project <name>` – select a project profile on startup.
 - `--log-level <level>` – set initial log level (e.g. DEBUG, INFO, WARNING).
 
-See `docs/developer/SETUP.md` and `docs/developer/PROJECT_STRUCTURE.md` as the runtime entrypoints solidify.
+See `docs/developer/SETUP.md` and `docs/developer/PROJECT_STRUCTURE.md` as future runtime options solidify.
 
 ## Shutting Down
 

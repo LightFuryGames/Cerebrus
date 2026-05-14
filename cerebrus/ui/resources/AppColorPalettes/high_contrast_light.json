@@ -1,0 +1,66 @@
+{
+  "name": "High Contrast Light",
+  "palette": "High Contrast",
+  "mode": "Light",
+  "colors": {
+    "mvThemeCol_Text": [0, 0, 0],
+    "mvThemeCol_TextDisabled": [80, 80, 80],
+    "mvThemeCol_WindowBg": [255, 255, 255],
+    "mvThemeCol_ChildBg": [255, 255, 255],
+    "mvThemeCol_PopupBg": [255, 255, 255],
+    "mvThemeCol_Border": [0, 0, 0],
+    "mvThemeCol_FrameBg": [245, 245, 245],
+    "mvThemeCol_FrameBgHovered": [232, 232, 232],
+    "mvThemeCol_FrameBgActive": [215, 215, 215],
+    "mvThemeCol_TitleBg": [235, 235, 235],
+    "mvThemeCol_TitleBgActive": [220, 220, 220],
+    "mvThemeCol_MenuBarBg": [245, 245, 245],
+    "mvThemeCol_CheckMark": [0, 80, 160],
+    "mvThemeCol_Button": [240, 240, 240],
+    "mvThemeCol_ButtonHovered": [220, 235, 255],
+    "mvThemeCol_ButtonActive": [200, 225, 255],
+    "mvThemeCol_Header": [235, 235, 235],
+    "mvThemeCol_HeaderHovered": [220, 235, 255],
+    "mvThemeCol_HeaderActive": [200, 225, 255],
+    "mvThemeCol_Separator": [0, 0, 0],
+    "mvThemeCol_Tab": [240, 240, 240],
+    "mvThemeCol_TabHovered": [220, 235, 255],
+    "mvThemeCol_TabActive": [200, 225, 255],
+    "mvThemeCol_TabUnfocused": [245, 245, 245],
+    "mvThemeCol_TabUnfocusedActive": [225, 225, 225],
+    "mvThemeCol_TableHeaderBg": [235, 235, 235],
+    "mvThemeCol_TableBorderStrong": [0, 0, 0],
+    "mvThemeCol_TableBorderLight": [80, 80, 80],
+    "mvThemeCol_TableRowBg": [255, 255, 255],
+    "mvThemeCol_TableRowBgAlt": [245, 245, 245],
+    "mvThemeCol_NavHighlight": [0, 80, 160]
+  },
+  "styles": {
+    "mvStyleVar_WindowPadding": [8, 8],
+    "mvStyleVar_FramePadding": [8, 4],
+    "mvStyleVar_ItemSpacing": [7, 5],
+    "mvStyleVar_FrameRounding": 2,
+    "mvStyleVar_GrabRounding": 2,
+    "mvStyleVar_TabRounding": 2,
+    "mvStyleVar_ChildRounding": 1
+  },
+  "label_colors": {
+    "header": [0, 0, 0],
+    "subheader": [0, 0, 0],
+    "hyperlink": [0, 65, 140],
+    "help_button": [0, 0, 0]
+  },
+  "profile_status_colors": {
+    "DEFAULT": [120, 65, 0],
+    "LOADED": [0, 95, 35],
+    "ERROR": [170, 0, 0],
+    "INFO": [0, 65, 140]
+  },
+  "log_colors": {
+    "DEBUG": [55, 55, 55],
+    "INFO": [0, 65, 140],
+    "WARNING": [120, 65, 0],
+    "ERROR": [170, 0, 0],
+    "SUCCESS": [0, 95, 35]
+  }
+}

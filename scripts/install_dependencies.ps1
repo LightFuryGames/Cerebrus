@@ -19,19 +19,19 @@ function Install-Python {
 
     if ($python) {
         $version = & $python.Source -c "import sys; print('{}.{}'.format(*sys.version_info[:2]))" 2>$null
-        if ($version -and [version]$version -ge [version]"3.11") {
+        if ($version -and [version]$version -ge [version]"3.12") {
             Write-Log "Found Python $version. Skipping install."
             return
         }
     }
 
-    Write-Log "Downloading Python 3.11.9 installer..."
-    $installerUrl = "https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe"
-    $installerPath = "$env:TEMP\python-3.11.9-amd64.exe"
+    Write-Log "Downloading Python 3.12.4 installer..."
+    $installerUrl = "https://www.python.org/ftp/python/3.12.4/python-3.12.4-amd64.exe"
+    $installerPath = "$env:TEMP\python-3.12.4-amd64.exe"
     
     Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath
     
-    Write-Log "Installing Python 3.11.9..."
+    Write-Log "Installing Python 3.12.4..."
     $process = Start-Process -FilePath $installerPath -ArgumentList "/quiet", "InstallAllUsers=1", "PrependPath=1", "Include_test=0" -Wait -PassThru
     
     if ($process.ExitCode -eq 0) {

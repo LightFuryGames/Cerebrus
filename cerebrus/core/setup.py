@@ -44,12 +44,15 @@ def _install_adb(log_callback=None) -> bool:
     """Download and install platform-tools."""
     try:
         # Define install location: cerebrus/bin/platform-tools
+        from cerebrus.core.paths import get_app_data_dir
+
         if getattr(sys, "frozen", False):
-            base_path = Path(getattr(sys, "_MEIPASS"))
+            base_data_dir = get_app_data_dir()
+            bin_dir = base_data_dir / "bin"
         else:
             base_path = Path(__file__).resolve().parent.parent.parent
+            bin_dir = base_path / "cerebrus" / "bin"
 
-        bin_dir = base_path / "cerebrus" / "bin"
         bin_dir.mkdir(parents=True, exist_ok=True)
 
         platform_tools_dir = bin_dir / "platform-tools"

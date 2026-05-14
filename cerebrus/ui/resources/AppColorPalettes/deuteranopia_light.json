@@ -1,0 +1,66 @@
+{
+  "name": "Deuteranopia Light",
+  "palette": "Deuteranopia",
+  "mode": "Light",
+  "colors": {
+    "mvThemeCol_Text": [31, 41, 55],
+    "mvThemeCol_TextDisabled": [107, 114, 128],
+    "mvThemeCol_WindowBg": [248, 249, 252],
+    "mvThemeCol_ChildBg": [255, 255, 255],
+    "mvThemeCol_PopupBg": [255, 255, 255],
+    "mvThemeCol_Border": [195, 204, 217],
+    "mvThemeCol_FrameBg": [233, 237, 244],
+    "mvThemeCol_FrameBgHovered": [222, 229, 239],
+    "mvThemeCol_FrameBgActive": [210, 221, 235],
+    "mvThemeCol_TitleBg": [227, 232, 240],
+    "mvThemeCol_TitleBgActive": [211, 219, 232],
+    "mvThemeCol_MenuBarBg": [242, 245, 249],
+    "mvThemeCol_CheckMark": [0, 111, 169],
+    "mvThemeCol_Button": [226, 231, 240],
+    "mvThemeCol_ButtonHovered": [211, 222, 235],
+    "mvThemeCol_ButtonActive": [192, 214, 230],
+    "mvThemeCol_Header": [220, 229, 241],
+    "mvThemeCol_HeaderHovered": [198, 217, 237],
+    "mvThemeCol_HeaderActive": [179, 213, 232],
+    "mvThemeCol_Separator": [177, 187, 202],
+    "mvThemeCol_Tab": [225, 230, 238],
+    "mvThemeCol_TabHovered": [198, 217, 237],
+    "mvThemeCol_TabActive": [179, 213, 232],
+    "mvThemeCol_TabUnfocused": [233, 237, 244],
+    "mvThemeCol_TabUnfocusedActive": [211, 222, 235],
+    "mvThemeCol_TableHeaderBg": [226, 231, 240],
+    "mvThemeCol_TableBorderStrong": [140, 151, 170],
+    "mvThemeCol_TableBorderLight": [210, 216, 226],
+    "mvThemeCol_TableRowBg": [255, 255, 255],
+    "mvThemeCol_TableRowBgAlt": [246, 248, 252],
+    "mvThemeCol_NavHighlight": [0, 96, 145]
+  },
+  "styles": {
+    "mvStyleVar_WindowPadding": [8, 8],
+    "mvStyleVar_FramePadding": [8, 4],
+    "mvStyleVar_ItemSpacing": [7, 5],
+    "mvStyleVar_FrameRounding": 3,
+    "mvStyleVar_GrabRounding": 3,
+    "mvStyleVar_TabRounding": 3,
+    "mvStyleVar_ChildRounding": 2
+  },
+  "label_colors": {
+    "header": [17, 24, 39],
+    "subheader": [55, 65, 81],
+    "hyperlink": [0, 96, 145],
+    "help_button": [75, 85, 99]
+  },
+  "profile_status_colors": {
+    "DEFAULT": [126, 74, 0],
+    "LOADED": [0, 103, 128],
+    "ERROR": [122, 75, 150],
+    "INFO": [0, 89, 137]
+  },
+  "log_colors": {
+    "DEBUG": [75, 85, 99],
+    "INFO": [0, 89, 137],
+    "WARNING": [126, 74, 0],
+    "ERROR": [122, 75, 150],
+    "SUCCESS": [0, 103, 128]
+  }
+}

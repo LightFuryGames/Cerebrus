@@ -1,11 +1,13 @@
 import json
 import os
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Optional
 
+from cerebrus.core.paths import get_app_data_dir
+
 # Global config path
-CONFIG_DIR = Path.home() / ".cerebrus"
+CONFIG_DIR = get_app_data_dir()
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
 
@@ -16,6 +18,8 @@ class Profile:
     output_file_name: str = "perf_report"
     input_path: str = "C:/"
     output_path: str = "C:/"
+    config_output_path: str = "C:/"
+    device_profile_config_path: str = ""
     use_prefix_only: bool = False
 
     move_logs_enabled: bool = True
@@ -32,8 +36,9 @@ class Profile:
         return errors
 
     def save(self, path: Path) -> None:
+        data = asdict(self)
         with open(path, "w") as f:
-            json.dump(asdict(self), f, indent=4)
+            json.dump(data, f, indent=4)
 
     @classmethod
     def load(cls, path: Path) -> "Profile":
@@ -41,6 +46,7 @@ class Profile:
             raise FileNotFoundError(f"Profile not found at {path}")
         with open(path, "r") as f:
             data = json.load(f)
+
         # Filter to only use fields that exist in current Profile class (backward compatibility)
         valid_fields = {
             "nickname",
@@ -48,23 +54,26 @@ class Profile:
             "output_file_name",
             "input_path",
             "output_path",
+            "config_output_path",
+            "device_profile_config_path",
             "use_prefix_only",
             "move_logs_enabled",
             "move_csv_enabled",
             "generate_perf_report_enabled",
             "generate_colored_logs_enabled",
         }
+
         filtered_data = {k: v for k, v in data.items() if k in valid_fields}
         return cls(**filtered_data)
 
 
 class ProfileManager:
-    def __init__(self):
+    def __init__(self) -> None:
         self._ensure_config_dir()
         self.current_profile: Optional[Profile] = None
         self.current_profile_path: Optional[Path] = None
 
-    def _ensure_config_dir(self):
+    def _ensure_config_dir(self) -> None:
         if not CONFIG_DIR.exists():
             CONFIG_DIR.mkdir(parents=True)
 
@@ -83,7 +92,7 @@ class ProfileManager:
             pass
         return None
 
-    def set_last_used_profile_path(self, path: Path | None):
+    def set_last_used_profile_path(self, path: Optional[Path]) -> None:
         data = {}
         if CONFIG_FILE.exists():
             try:
@@ -165,6 +174,6 @@ class ProfileManager:
         self.set_last_used_profile_path(path)
         return profile
 
-    def save_current_profile(self):
+    def save_current_profile(self) -> None:
         if self.current_profile and self.current_profile_path:
             self.current_profile.save(self.current_profile_path)

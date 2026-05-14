@@ -4,6 +4,8 @@
 
 The "Output File Name" and "Use as Prefix Only" settings control how your generated reports and colored logs are named.
 
+> **Note**: Generated files are automatically organized into subdirectories (`Profiling/` or `MemReports/`) within your selected output path.
+
 ## Visual Examples
 
 ### Example 1: Use as Prefix (Checkbox CHECKED) ✓
@@ -109,10 +111,11 @@ If you generate a file that would have the same name as an existing file:
 **Example:**
 ```
 Output Folder:
-├── report.html          (from first run)
-├── report_1.html        (from second run)
-├── report_2.html        (from third run)
-└── old_data.html        (your existing file, untouched)
+├── Profiling/
+│   ├── report.html          (from first run)
+│   ├── report_1.html        (from second run)
+│   ├── report_2.html        (from third run)
+│   └── old_data.html        (your existing file, untouched)
 ```
 
 ---
@@ -154,8 +157,22 @@ Output Folder:
 ### Q: The counter went from _2 to _5, skipping _3 and _4. Why?
 **A:** The system finds the next available number. If `report_3.html` and `report_4.html` already exist in your folder, it will use `_5`.
 
-### Q: Can I use special characters in the Output File Name?
-**A:** Use only letters, numbers, underscores, and hyphens for best compatibility. Avoid: `/ \ : * ? " < > |`
+---
+
+## MemReport Automatic Naming
+
+For **Memory Reports**, Cerebrus uses an automatic, metadata-driven naming scheme that overrides the "Output File Name" setting to ensure consistency across the team.
+
+**Format:**
+`{BuildConfig}_{DeviceMake}_{DeviceModel}_{Changelist}_{DateTime}.html`
+
+**Example:**
+`Development_Samsung_SM-G991B_123456_2026.05.07-12.00.00.html`
+
+**Why?**
+- **Collision Avoidance**: Prevents overwriting reports from different builds or devices.
+- **S3 Integration**: This format is recognized by the S3 Uploader for automated path derivation. See `cerebrus/plugins/s3_uploader.md`.
+- **Organization**: Makes it easy to sort and find specific reports in the `MemReports/` directory.
 
 ---
 

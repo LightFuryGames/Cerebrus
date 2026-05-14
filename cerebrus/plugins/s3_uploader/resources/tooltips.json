@@ -1,0 +1,5 @@
+{
+    "s3_source_file": "The local HTML performance report file you want to upload.",
+    "s3_target_bucket": "The S3 bucket configured in AWS Secrets to upload to.",
+    "s3_dest_path": "The folder path inside the S3 bucket where the file will be placed (e.g., Development/OnePlus/)."
+}

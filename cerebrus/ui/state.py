@@ -20,12 +20,15 @@ class UIState:
     copy_directory: Path = Path("/path/to/copy")
     date_string: str = "2024-01-01"
     device_cell_tags: list[list[str]] = field(default_factory=list)
-    output_file_name: str = "perf_report"
+    output_file_name: str = ""
     use_prefix_only: bool = False
     input_path: Path = Path("C:/")
     output_path: Path = Path("C:/")
+    config_output_path: Path = Path("C:/")
+    device_profile_config_path: Path = Path("")
     logs: list[tuple[str, str, str]] = field(default_factory=list)
     log_filter: str = ""
+    log_selection_mode: bool = False
     profile_manager: ProfileManager = field(default_factory=ProfileManager)
     base_output_path: Path | None = (
         None  # Store the original path without device appended
@@ -36,3 +39,5 @@ class UIState:
     move_csv_enabled: bool = True
     generate_perf_report_enabled: bool = True
     generate_colored_logs_enabled: bool = True
+    move_memreport_enabled: bool = True
+    generate_memreport_enabled: bool = True

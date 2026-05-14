@@ -6,7 +6,12 @@ This project aims to provide a professional, respectful environment for all cont
 - Provide constructive feedback focused on the work, not the person.
 - Avoid harassment, discrimination, or demeaning behavior.
 - Respect different levels of experience and background.
-- Collaborate in good faith to improve the project.
+- Collaboration in good faith to improve the project.
+
+## Studio Environment
+When using this tool in a shared professional environment:
+- **Do not break the build**: Ensure configurations pushed to shared paths (e.g. Perforce) are valid.
+- **Respect Shared Resources**: Do not hog ADB connections or shared output drives.
 
 Maintainers may take appropriate action if behavior violates these principles, including:
 - Requesting a change in tone or approach.

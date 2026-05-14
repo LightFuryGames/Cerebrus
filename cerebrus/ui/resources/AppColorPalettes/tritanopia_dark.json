@@ -1,0 +1,66 @@
+{
+  "name": "Tritanopia Dark",
+  "palette": "Tritanopia",
+  "mode": "Dark",
+  "colors": {
+    "mvThemeCol_Text": [232, 235, 242],
+    "mvThemeCol_TextDisabled": [148, 151, 164],
+    "mvThemeCol_WindowBg": [23, 23, 31],
+    "mvThemeCol_ChildBg": [30, 30, 40],
+    "mvThemeCol_PopupBg": [36, 35, 47],
+    "mvThemeCol_Border": [82, 75, 91],
+    "mvThemeCol_FrameBg": [43, 41, 55],
+    "mvThemeCol_FrameBgHovered": [57, 53, 70],
+    "mvThemeCol_FrameBgActive": [73, 66, 86],
+    "mvThemeCol_TitleBg": [28, 27, 37],
+    "mvThemeCol_TitleBgActive": [42, 39, 53],
+    "mvThemeCol_MenuBarBg": [28, 27, 37],
+    "mvThemeCol_CheckMark": [240, 154, 164],
+    "mvThemeCol_Button": [48, 44, 60],
+    "mvThemeCol_ButtonHovered": [66, 58, 77],
+    "mvThemeCol_ButtonActive": [88, 73, 92],
+    "mvThemeCol_Header": [52, 47, 63],
+    "mvThemeCol_HeaderHovered": [72, 61, 78],
+    "mvThemeCol_HeaderActive": [159, 83, 96],
+    "mvThemeCol_Separator": [96, 86, 106],
+    "mvThemeCol_Tab": [41, 38, 51],
+    "mvThemeCol_TabHovered": [72, 61, 78],
+    "mvThemeCol_TabActive": [145, 77, 91],
+    "mvThemeCol_TabUnfocused": [32, 31, 42],
+    "mvThemeCol_TabUnfocusedActive": [48, 43, 58],
+    "mvThemeCol_TableHeaderBg": [50, 46, 59],
+    "mvThemeCol_TableBorderStrong": [111, 101, 120],
+    "mvThemeCol_TableBorderLight": [67, 61, 77],
+    "mvThemeCol_TableRowBg": [30, 30, 40],
+    "mvThemeCol_TableRowBgAlt": [36, 35, 47],
+    "mvThemeCol_NavHighlight": [240, 154, 164]
+  },
+  "styles": {
+    "mvStyleVar_WindowPadding": [8, 8],
+    "mvStyleVar_FramePadding": [8, 4],
+    "mvStyleVar_ItemSpacing": [7, 5],
+    "mvStyleVar_FrameRounding": 3,
+    "mvStyleVar_GrabRounding": 3,
+    "mvStyleVar_TabRounding": 3,
+    "mvStyleVar_ChildRounding": 2
+  },
+  "label_colors": {
+    "header": [246, 181, 190],
+    "subheader": [218, 211, 224],
+    "hyperlink": [240, 154, 164],
+    "help_button": [193, 184, 202]
+  },
+  "profile_status_colors": {
+    "DEFAULT": [245, 194, 117],
+    "LOADED": [126, 216, 205],
+    "ERROR": [255, 146, 162],
+    "INFO": [190, 171, 255]
+  },
+  "log_colors": {
+    "DEBUG": [174, 177, 190],
+    "INFO": [190, 171, 255],
+    "WARNING": [245, 194, 117],
+    "ERROR": [255, 146, 162],
+    "SUCCESS": [126, 216, 205]
+  }
+}

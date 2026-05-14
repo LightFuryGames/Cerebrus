@@ -1,0 +1,30 @@
+{
+    "component_settings": {
+        "input_path_dialog": {
+            "directory_selector": true,
+            "show": false,
+            "width": 600,
+            "height": 400,
+            "tag": "input_path_dialog"
+        },
+        "output_path_dialog": {
+            "directory_selector": true,
+            "show": false,
+            "width": 500,
+            "height": 400,
+            "tag": "output_path_dialog"
+        },
+        "html_viewer_dialog": {
+            "label": "Select HTML Log to View",
+            "modal": true,
+            "width": 600,
+            "height": 400,
+            "tag": "html_viewer_dialog"
+        },
+        "html_viewer_list": {
+            "border": true,
+            "autosize_x": true,
+            "height": 280
+        }
+    }
+}

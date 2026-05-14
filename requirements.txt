@@ -4,6 +4,11 @@ pywin32
 pyyaml
 requests
 pytest
+pytest-cov
 mypy
 black
 isort
+scipy
+numpy
+
+boto3

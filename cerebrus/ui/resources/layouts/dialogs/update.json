@@ -1,0 +1,12 @@
+{
+    "component_settings": {
+        "update_dialog": {
+            "label": "Update Available",
+            "modal": true,
+            "width": 500,
+            "height": 300,
+            "tag": "update_dialog",
+            "no_resize": true
+        }
+    }
+}

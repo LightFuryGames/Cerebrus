@@ -1,0 +1,5 @@
+{
+  "analytics_source_file": "A generated performance HTML report, raw CSV capture, or existing flat/analytics JSON file to normalize.",
+  "analytics_source_folder": "A folder of reports to scan for trend summaries.",
+  "analytics_upload_url": "Elasticsearch or OpenSearch document endpoint used by the upload button, for example http://host:9200/telemetry-cerebrus-performance/_doc."
+}

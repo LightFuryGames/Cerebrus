@@ -71,6 +71,12 @@ instance/
 # Sphinx documentation
 docs/_build/
 
+# Internal roadmap (not tracked in VCS)
+docs/ROADMAP.md
+
+# Editorial-pass guide preview (not shipped yet)
+cerebrus/resources/user_guide_v2.html
+
 # PyBuilder
 .pybuilder/
 target/
@@ -283,6 +289,14 @@ config/profiles/*.local.json
 # User profile directory (stores last used profile path)
 .cerebrus/
 
+# Cerebrus local secrets and portable internal config exports
+aws_secrets.json
+aws_regions.json
+*.cbx
+
+# Project-local pytest temp workaround used by agents on locked-down Windows hosts
+.pytest_run_tmp/
+
 # Test profiles (optional - remove if you want to commit test profiles)
 **/test_profiles/
 
@@ -338,6 +352,8 @@ cache/
 !cerebrus/cache/**
 !tests/cache/
 !tests/cache/**
+tests/cache/**/__pycache__/
+tests/cache/**/*.py[codz]
 
 ###############################################
 # Installer Artifacts
@@ -411,3 +427,8 @@ Desktop.ini
 ###############################################
 # END
 ###############################################
+
+cerebrus/_frozen_version.py
+
+# Caveman skill (Codex-side install artifacts)
+.agents/

@@ -1,0 +1,9 @@
+{
+    "component_settings": {
+        "sync_config_list": {
+            "border": true,
+            "height": 250,
+            "autosize_x": true
+        }
+    }
+}

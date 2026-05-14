@@ -1,6 +1,10 @@
 # Contributing to Project Cerebrus
 
-This document defines how humans and Codex contribute to the Cerebrus repository.
+This document defines how humans and AI Agents contribute to the Cerebrus repository.
+
+All AI agents must also read and follow `AGENTS.md` before editing. That file is
+the shared contract for Codex, Claude Code, Gemini, Antigravity, and other
+automation working in the same dirty worktree.
 
 The goals are:
 - Deterministic, reproducible behavior.
@@ -29,6 +33,28 @@ The goals are:
 - Use pull requests (PRs) for all merges into `main` and `develop`.
 - Rebase feature branches on `develop` when possible; avoid long-lived divergence.
 
+## AI-Assisted Contribution Workflow
+
+This project is primarily "AI-Driven". When asking the AI (or other agents) to work:
+
+1.  **Reference Standards**: Always explicitly direct the AI to read `CODE_STANDARDS.md` before starting complex architectural tasks.
+2.  **Scope Properly**:
+    *   *Bad*: "Make the UI better."
+    *   *Good*: "Refactor `components.py` to use a functional pattern as described in Priority 2 of Code Standards."
+3.  **Demand Tests**: "Implement feature X and add corresponding unit tests under the matching `tests/` area."
+
+## Working with AI Agents
+
+To keep the codebase clean:
+
+1.  **Ask for Diffs**: Unified diffs are easier to review than full file dumps.
+2.  **Verify Locally**: Always run `./scripts/run_lint.ps1` on AI-generated code before committing. The AI might write valid Python that violates strict Project structure rules.
+3.  **Documentation First**: For new features, ask the AI to draft the documentation update first. Plugin-specific docs belong in `cerebrus/plugins/`; general product docs belong in `docs/`.
+4.  **Respect Dirty Worktrees**: Agents must not overwrite or revert another agent's uncommitted work without explicit human approval.
+5.  **Preserve User Guide Style**: Updates to `cerebrus/resources/user_guide.html` must keep the existing Antigravity-style visual shell.
+
+See `AI_GUIDE.md` for detailed prompting strategies.
+
 ## Commit Messages
 
 Use concise, informative commit messages:
@@ -52,7 +78,8 @@ Every PR should:
 4. Update relevant documentation:
    - Architecture changes → `docs/ARCHITECTURE_OVERVIEW.md`
    - Tooling behavior changes → `docs/CSVTOOLS_REFERENCE.md` or `docs/PERFREPORTTOOL_REFERENCE.md`
-   - Developer workflow changes → `CONTRIBUTING.md` or `CODEX_GUIDE.md`
+   - Plugin behavior changes -> `cerebrus/plugins/<plugin_doc>.md`
+   - Developer workflow changes → `CONTRIBUTING.md` or `AI_GUIDE.md`
 
 ### Review Checklist
 
@@ -70,39 +97,15 @@ Reviewers should verify:
 - Docs:
   - Updated and accurate.
 
-## Working with Codex
-
-Codex is an integrated code-generation and refactoring engine. To keep Codex output aligned:
-
-1. **Write precise tasks**
-   - Example: “Add a wrapper module for CSVCollate with a function `run_collate(...)` that accepts a list of CSV paths and returns the output file path. Use dependency injection for the binary path.”
-
-2. **Constrain scope**
-   - Avoid asking Codex to “rewrite everything”.
-   - Prefer: “Refactor `tools/csv/collate.py` to split CLI composition from process invocation.”
-
-3. **Require diffs**
-   - Ask Codex to output unified diffs with `@@` hunk headers.
-   - Apply diffs locally using your preferred diff/merge tools.
-
-4. **Enforce project rules**
-   - No placeholders or “magic” behavior.
-   - All new features must:
-     - Log key operations.
-     - Surface errors to the UI with actionable messages.
-     - Allow paths and configuration to be controlled via config files.
-
-See `CODEX_GUIDE.md` for detailed patterns and examples.
-
 ## Code Style
 
 - Python:
-  - Target Python 3.11+ on Windows.
+  - Target Python 3.12+ on Windows.
   - Use type hints (`typing`) and `mypy`-friendly signatures.
   - Prefer composition over inheritance.
   - Keep functions small and single-responsibility.
 - Layout:
-  - Group modules by concern: `core`, `ui`, `tools`, `config`, `cache`, `installers`, `tests`.
+  - Group modules by concern: `core`, `ui` (components/resources), `tools`, `config`, `installers`, `tests`.
 - Formatting:
   - Use `black` and `isort` (or equivalent) for consistent formatting.
   - Run linting before sending PRs.
@@ -139,6 +142,7 @@ When integrating a new external tool (e.g. another Unreal utility):
 - Use `.gitignore` to exclude:
   - Local config files containing secrets.
   - Generated reports and large transient profiling data.
+  - `.cbx` internal transfer files.
 
 ## Large Files and Profiling Data
 

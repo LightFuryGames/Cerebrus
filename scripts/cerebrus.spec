@@ -14,15 +14,41 @@ print(f"DEBUG: Resolved root_dir={root_dir}")
 cerebrus_dir = root_dir / "cerebrus"
 binaries_dir = root_dir / "Binaries"
 resources_dir = cerebrus_dir / "resources"
+plugins_dir = cerebrus_dir / "plugins"
 
 # Collect all resource files
 datas = []
 
-# Add resources (icons, etc.)
+# Add resources (icons, user guide, etc.)
 if resources_dir.exists():
-    for resource_file in resources_dir.iterdir():
+    for resource_file in resources_dir.rglob('*'):
         if resource_file.is_file() and not resource_file.name.endswith('~'):
-            datas.append((str(resource_file), 'cerebrus/resources'))
+            rel_path = resource_file.relative_to(resources_dir)
+            dest_dir = f'cerebrus/resources/{rel_path.parent}' if str(rel_path.parent) != '.' else 'cerebrus/resources'
+            datas.append((str(resource_file), dest_dir))
+
+# Add UI resources (themes, layouts, tooltips)
+ui_resources_dir = cerebrus_dir / "ui" / "resources"
+if ui_resources_dir.exists():
+    for resource_file in ui_resources_dir.rglob('*'):
+        if resource_file.is_file() and not resource_file.name.endswith('~'):
+            rel_path = resource_file.relative_to(ui_resources_dir)
+            dest_dir = f'cerebrus/ui/resources/{rel_path.parent}' if str(rel_path.parent) != '.' else 'cerebrus/ui/resources'
+            datas.append((str(resource_file), dest_dir))
+
+# Add plugin resources (plugin tooltips, manifests, markdown docs, etc.)
+if plugins_dir.exists():
+    for resource_file in plugins_dir.rglob('*'):
+        if resource_file.is_file() and not resource_file.name.endswith('~'):
+            rel_path = resource_file.relative_to(plugins_dir)
+            if resource_file.suffix in {'.py', '.pyc'} or '__pycache__' in rel_path.parts:
+                continue
+            dest_dir = f'cerebrus/plugins/{rel_path.parent}' if str(rel_path.parent) != '.' else 'cerebrus/plugins'
+            datas.append((str(resource_file), dest_dir))
+            
+# Collect AWS data files (essential for boto3/botocore to work in frozen app)
+datas += collect_data_files('boto3')
+datas += collect_data_files('botocore')
 
 # Add Binaries folder if it exists
 binaries = []
@@ -61,15 +87,44 @@ a = Analysis(
 
 pyz = PYZ(a.pure)
 
-# Get version from cerebrus module
-version_file = cerebrus_dir / '_version.py'
-version = '0.0.0'
-if version_file.exists():
-    version_content = version_file.read_text()
-    for line in version_content.split('\n'):
-        if line.startswith('__version__'):
-            version = line.split('=')[1].strip().strip('"').strip("'")
-            break
+# Get version
+version = os.environ.get('CEREBRUS_BUILD_VERSION')
+if not version:
+    # Get version from cerebrus module
+    version_file = cerebrus_dir / '_version.py'
+    version = '0.0.0'
+    if version_file.exists():
+        version_content = version_file.read_text()
+        for line in version_content.split('\n'):
+            if line.startswith('__version__'):
+                # Avoid capturing function calls like get_version()
+                val = line.split('=')[1].strip()
+                if not val.endswith(')'):
+                    version = val.strip('"').strip("'")
+                break
+
+# Sanitize version for Windows version info (needs 4-part integer tuple)
+# This handles cases like '1.2.3', '.1.2.3', 'v1.2.3', '1.2.3-beta'
+clean_version = version.lstrip('v.')
+parts = clean_version.split('.')
+version_tuple_parts = []
+for i in range(4):
+    if i < len(parts):
+        # Keep only digits
+        p = "".join(filter(str.isdigit, parts[i]))
+        if p:
+            val = int(p)
+            # struct.pack('H') used by PyInstaller often expects short (0-65535) for version parts, 
+            # though 'L' error suggests it might be using Long somewhere. 
+            # Standard VERSIONINFO uses 16-bit integers for the 4 parts (MS/LS).
+            # To be safe, clamp to 0-65535 which is standard for file version parts.
+            version_tuple_parts.append(str(min(val, 65535)))
+        else:
+            version_tuple_parts.append("0")
+    else:
+        version_tuple_parts.append("0")
+
+version_tuple = ", ".join(version_tuple_parts)
 
 # Version info for Windows executable
 version_info_content = (

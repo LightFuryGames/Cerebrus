@@ -4,17 +4,14 @@ Cerebrus coordinates Android device profiling through Unreal Engine tools and AD
 
 ## Device Discovery
 
-- Cerebrus queries connected devices using ADB (and potentially UAFT).
+- Cerebrus queries connected devices using ADB through the `AdbClient` wrapper.
 - Device list shows:
   - Serial
   - Make / model
   - Android version
   - Connection type (USB, Wi-Fi)
 
-Devices can be:
-
-- Selected individually.
-- Multi-selected to trigger batch captures.
+Devices can be selected individually. The current UI acts on the selected device row.
 
 ## Capture Types
 
@@ -27,40 +24,23 @@ Typical capture types:
 - **Insights or PRC captures** (depending on your setup):
   - Captures deeper timing and event stream data.
 
-Capture definitions are controlled through **profiles** (see `docs/config/PROFILE_DEFINITIONS.md`).
+Capture behavior is controlled by the active profile plus the checkboxes in the Profiling plugin.
 
 ## Capture Workflow (High-Level)
 
-1. Select one or more devices in the Devices panel.
-2. Choose a project profile (e.g. `Android_Default`, `Android_RegressionSuite`).
-3. Select capture type:
-   - Logcat only
-   - CSV only
-   - CSV + PerfReport
-   - Custom combinations based on project config.
-4. Start capture:
-   - Cerebrus will:
-     - Invoke the appropriate scripts or UAFT workflows.
-     - Copy profiling output to the configured project directory.
-     - Apply any naming convention defined in the profile (e.g. build number, timestamp, device name).
+1. Select one device in the device table.
+2. Choose or load a project profile.
+3. Use the Profiling plugin buttons to launch the app, start/stop CSV profiling, or send `memreport`.
+4. Choose the checkboxes for file movement and report generation.
+5. Click **Generate**.
+6. Cerebrus pulls files from the Unreal `Saved` folders, writes them under the output path, and generates selected reports.
 
 ## Storage Layout
 
-Typical project capture layout:
+Typical project capture layout within the Output Folder:
 
-```text
-<ProjectRoot>/
-  captures/
-    <device>/<run-id>/
-      raw/
-        *.csv
-        *.prc
-        logcat_*.txt
-      processed/
-        collated/
-        reports/
-        svg/
-```
+- **`/Profiling`**: Performance Reports (`.html`), Collated CSVs, and Colored Logs.
+- **`/MemReports`**: Memory Analysis Reports (`.html`) generated from `.memreport` files.
 
 The exact layout is configurable but should be stable per project to keep reporting scripts reliable.
 
@@ -77,4 +57,4 @@ Cerebrus must:
   - Check device build or configuration.
   - Validate tool paths and permissions.
 
-Use this document as a conceptual guide; refer to the UI itself for the exact labels and steps when implemented.
+Use this document as a conceptual guide; refer to the Profiling plugin for exact labels.
