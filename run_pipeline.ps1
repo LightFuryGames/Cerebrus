@@ -134,39 +134,8 @@ try {
     if (Test-Path ".venv\Scripts\python.exe") {
         $PythonExe = ".venv\Scripts\python.exe"
     }
-    $SmokeArgs = @(
-        "-c",
-        @"
-from pathlib import Path
-from cerebrus.plugins.analytics.core.html_report_parser import PerformanceHTMLReportParser
-from cerebrus.plugins.analytics.core.csv_report_parser import PerformanceCSVReportParser
-from cerebrus.plugins.analytics.core.normalizer import build_analytics_document
-root = Path('TestData/Profiling')
-ini = root / 'BaseDeviceProfiles.ini'
-htmls = {p.stem: p for p in root.rglob('HTML/*.html')}
-checked = 0
-for csv_file in root.rglob('CSV/*.csv'):
-    stem = csv_file.stem
-    html_path = htmls.get(stem)
-    if html_path is None:
-        raw = PerformanceCSVReportParser(csv_file).parse()
-        doc = build_analytics_document(source_path=csv_file, source_type='profiling_csv', raw_values=raw, device_profile_config_path=ini)
-    else:
-        parser = PerformanceHTMLReportParser(html_path)
-        raw_csv = parser.extract_embedded_raw_csv()
-        embedded = parser.embedded_profile_name()
-        logical = html_path.with_name(f'{embedded}.csv') if embedded else html_path
-        raw = PerformanceCSVReportParser(logical, csv_text=raw_csv).parse()
-        doc = build_analytics_document(source_path=html_path, source_type='profiling_html_raw_csv', raw_values=raw, device_profile_config_path=ini)
-    assert doc['schema_version'] == 2, f'{stem}: schema_version={doc[\"schema_version\"]}'
-    assert 1 <= doc['report_value'] <= 100, f'{stem}: report_value out of range'
-    assert doc['report_fingerprint'], f'{stem}: empty fingerprint'
-    assert doc['data_quality_has_corruption'] in (0, 1), f'{stem}: bad corruption flag'
-    checked += 1
-print(f'Analytics smoke OK ({checked} samples)')
-"@
-    )
-    & $PythonExe @SmokeArgs
+    $SmokeScript = Join-Path $PSScriptRoot "scripts\smoke_analytics.py"
+    & $PythonExe $SmokeScript
     if ($LASTEXITCODE -ne 0) { throw "Analytics smoke test failed with exit code $LASTEXITCODE." }
     Write-Log "Analytics smoke test passed."
     Write-Host "Analytics Smoke Passed!" -ForegroundColor Green

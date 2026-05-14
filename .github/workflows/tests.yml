@@ -76,43 +76,5 @@ jobs:
           pip install -r requirements.txt
 
       - name: Smoke test analytics conversion on TestData
-        run: |
-          python -c "
-          import json
-          from pathlib import Path
-          from cerebrus.plugins.analytics.core.html_report_parser import PerformanceHTMLReportParser
-          from cerebrus.plugins.analytics.core.csv_report_parser import PerformanceCSVReportParser
-          from cerebrus.plugins.analytics.core.normalizer import build_analytics_document
-          root = Path('TestData/Profiling')
-          ini = root / 'BaseDeviceProfiles.ini'
-          htmls = {p.stem: p for p in root.rglob('HTML/*.html')}
-          failures = []
-          for csv_file in root.rglob('CSV/*.csv'):
-              stem = csv_file.stem
-              html_path = htmls.get(stem)
-              if html_path is None:
-                  raw = PerformanceCSVReportParser(csv_file).parse()
-                  doc = build_analytics_document(source_path=csv_file, source_type='profiling_csv',
-                      raw_values=raw, device_profile_config_path=ini)
-              else:
-                  parser = PerformanceHTMLReportParser(html_path)
-                  raw_csv = parser.extract_embedded_raw_csv()
-                  embedded = parser.embedded_profile_name()
-                  logical = html_path.with_name(f'{embedded}.csv') if embedded else html_path
-                  raw = PerformanceCSVReportParser(logical, csv_text=raw_csv).parse()
-                  doc = build_analytics_document(source_path=html_path, source_type='profiling_html_raw_csv',
-                      raw_values=raw, device_profile_config_path=ini)
-              if doc['schema_version'] != 2:
-                  failures.append(f'{stem}: schema_version={doc[\"schema_version\"]}')
-              if not (1 <= doc['report_value'] <= 100):
-                  failures.append(f'{stem}: report_value out of range = {doc[\"report_value\"]}')
-              if not doc['report_fingerprint']:
-                  failures.append(f'{stem}: empty fingerprint')
-              if doc['data_quality_has_corruption'] not in (0, 1):
-                  failures.append(f'{stem}: bad corruption flag = {doc[\"data_quality_has_corruption\"]}')
-          if failures:
-              for f in failures: print('FAIL:', f)
-              raise SystemExit(1)
-          print('Analytics smoke OK')
-          "
+        run: python scripts/smoke_analytics.py
         shell: pwsh
