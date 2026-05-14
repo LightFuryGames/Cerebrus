@@ -9,7 +9,16 @@
       "Bash(git check-ignore *)",
       "Bash(mkdir -p TestData/Junk)",
       "Bash(touch TestData/Junk/random.csv)",
-      "Bash(rm -rf TestData/Junk)"
+      "Bash(rm -rf TestData/Junk)",
+      "Bash(git rev-list *)",
+      "Bash(git push *)",
+      "PowerShell(black cerebrus/installers/builder.py cerebrus/tools/memreport/tabs/render_target_pool.py)",
+      "PowerShell(python -m black cerebrus/installers/builder.py cerebrus/tools/memreport/tabs/render_target_pool.py)",
+      "PowerShell(python -m black --check . 2>&1)",
+      "PowerShell(python -m mypy cerebrus 2>&1)",
+      "PowerShell(python -m pytest tests --co -q 2>&1)",
+      "PowerShell(python -m isort --check-only . 2>&1)",
+      "PowerShell(.\\\\run_pipeline.ps1 -SkipBuild 2>&1)"
     ]
   }
 }

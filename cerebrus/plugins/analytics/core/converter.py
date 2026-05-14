@@ -3,7 +3,7 @@ from __future__ import annotations
 import csv
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from cerebrus.plugins.analytics.core.csv_report_parser import PerformanceCSVReportParser
 from cerebrus.plugins.analytics.core.html_report_parser import (
@@ -99,7 +99,7 @@ def push_document_to_elasticsearch(
     import requests  # type: ignore[import-untyped]
 
     request_url = url.rstrip("/")
-    method = requests.post
+    method: Callable[..., Any] = requests.post
     fingerprint = document.get("report_fingerprint")
     if fingerprint and request_url.endswith("/_doc"):
         request_url = f"{request_url}/{fingerprint}"
