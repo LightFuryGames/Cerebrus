@@ -1,5 +1,8 @@
 {
-  "analytics_source_file": "A generated performance HTML report, raw CSV capture, or existing flat/analytics JSON file to normalize.",
-  "analytics_source_folder": "A folder of reports to scan for trend summaries.",
-  "analytics_upload_url": "Elasticsearch or OpenSearch document endpoint used by the upload button, for example http://host:9200/telemetry-cerebrus-performance/_doc."
+  "analytics_source_file": "A generated performance HTML report, raw CSV capture, or existing *.analytics.json to upload. After a successful Convert, this field is auto-filled with the generated JSON so Upload can run immediately.",
+  "analytics_output_dir": "Optional. Folder where *.analytics.json is written when you click Convert. If empty, the JSON is written next to the Source File. When set with no Source File, every *.analytics.json in this folder becomes the upload target list.",
+  "analytics_upload_url": "Elasticsearch or OpenSearch document endpoint, for example http://host:9200/telemetry-cerebrus-performance/_doc.",
+  "analytics_btn_convert": "Convert the selected Source File (HTML/CSV/JSON) into a normalized *.analytics.json. Written to Output File Path if set, otherwise next to the source. The generated path is auto-selected as the new Source File.",
+  "analytics_btn_upload": "Upload one document at a time. If Source File points to a *.analytics.json, that file is uploaded; if Source File is empty and Output File Path is a folder, every *.analytics.json in it is uploaded. PUT with report_fingerprint as _id keeps re-uploads idempotent.",
+  "analytics_btn_use_profiling_output": "Set Output File Path to the Profiling tab's current output directory."
 }

@@ -1,29 +1,37 @@
 from __future__ import annotations
 
 from datetime import datetime
-from pathlib import Path
-from tkinter import Tk, filedialog
 
 import dearpygui.dearpygui as dpg
 
-from ....state import UIState
+from ....state import LogEntry, UIState
 from ....themes import get_theme_manager
+from ...file_manager import pick_save_file
 
 
-def log_message(state: UIState, level: str, message: str) -> None:
+def _format_log_line(entry: LogEntry) -> str:
+    source_tag = f" [{entry.source.upper()}]" if entry.source else ""
+    return f"[{entry.timestamp}]{source_tag} [{entry.level}] {entry.message}"
+
+
+def log_message(
+    state: UIState,
+    level: str,
+    message: str,
+    source: str | None = None,
+) -> None:
     timestamp = datetime.now().strftime("%d-%m-%y %H:%M:%S")
-    state.logs.append((timestamp, level, message))
+    entry = LogEntry(timestamp=timestamp, level=level, source=source, message=message)
+    state.logs.append(entry)
 
-    # Constantly keep a temporary overwriteable file for ease of multi-line selection
     try:
         from cerebrus.core.paths import get_debug_dir
 
         debug_dir = get_debug_dir()
         debug_dir.mkdir(parents=True, exist_ok=True)
         live_log_file = debug_dir / "live_logs.txt"
-        # Always append to keep it "active"
         with open(live_log_file, "a", encoding="utf-8") as f:
-            f.write(f"[{timestamp}] [{level}] {message}\n")
+            f.write(_format_log_line(entry) + "\n")
     except Exception:
         pass
 
@@ -49,7 +57,9 @@ def _render_log_entries(state: UIState) -> None:
         filtered_logs = [
             entry
             for entry in display_logs
-            if filter_value in entry[1].lower() or filter_value in entry[2].lower()
+            if filter_value in entry.level.lower()
+            or filter_value in entry.message.lower()
+            or (entry.source is not None and filter_value in entry.source.lower())
         ]
 
         if not filtered_logs:
@@ -65,12 +75,12 @@ def _render_log_entries(state: UIState) -> None:
         # Group adjacent entries by level so users can select multi-line substrings
         # while preserving the level color for each visible block.
         grouped_logs = []
-        for timestamp, level, message in filtered_logs:
-            full_msg = f"[{timestamp}] [{level}] {message}"
-            if grouped_logs and grouped_logs[-1]["level"] == level:
+        for entry in filtered_logs:
+            full_msg = _format_log_line(entry)
+            if grouped_logs and grouped_logs[-1]["level"] == entry.level:
                 grouped_logs[-1]["lines"].append(full_msg)
             else:
-                grouped_logs.append({"level": level, "lines": [full_msg]})
+                grouped_logs.append({"level": entry.level, "lines": [full_msg]})
 
         for group in grouped_logs:
             level = group["level"]
@@ -142,16 +152,9 @@ def _clear_logs(state: UIState) -> None:
 def _handle_export_logs(state: UIState) -> None:
     """Export current logs to a text file."""
     try:
-        # Re-import because of dynamic callback scope
-        from tkinter import Tk, filedialog
-
-        root = Tk()
-        root.withdraw()
-        root.attributes("-topmost", True)
-
-        file_path = filedialog.asksaveasfilename(
+        file_path = pick_save_file(
             title="Export Logs",
-            defaultextension=".log",
+            default_extension=".log",
             filetypes=[
                 ("Log Files", "*.log"),
                 ("Text Files", "*.txt"),
@@ -159,12 +162,10 @@ def _handle_export_logs(state: UIState) -> None:
             ],
         )
 
-        root.destroy()
-
         if file_path:
             with open(file_path, "w", encoding="utf-8") as f:
-                for timestamp, level, message in state.logs:
-                    f.write(f"[{timestamp}] [{level}] {message}\n")
+                for entry in state.logs:
+                    f.write(_format_log_line(entry) + "\n")
 
             log_message(state, "SUCCESS", f"Logs exported to {file_path}")
 

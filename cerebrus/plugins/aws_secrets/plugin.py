@@ -16,7 +16,7 @@ except ImportError:
 from cerebrus.core.paths import get_app_data_dir
 from cerebrus.core.plugins import TabPlugin
 from cerebrus.ui.components.shared import (
-    _add_plugin_help_button as add_plugin_help_button,
+    add_plugin_help_button,
 )
 from cerebrus.ui.components.shared import (
     load_plugin_tooltips,

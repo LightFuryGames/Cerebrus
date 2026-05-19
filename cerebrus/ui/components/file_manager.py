@@ -4,10 +4,7 @@ import csv
 import html
 import json
 import math
-import os
 import re
-import subprocess
-import sys
 import webbrowser
 from pathlib import Path
 
@@ -20,9 +17,13 @@ from cerebrus.plugins.analytics.core.normalizer import parse_cpu_device
 from cerebrus.tools.adb import AdbClient, AdbError
 from cerebrus.tools.log_to_html import convert_log_to_html
 from cerebrus.tools.memreport.tool import process_memreport
+from cerebrus.tools.os_open import open_folder_in_explorer
+from cerebrus.tools.perfreport import find_perfreport_tool, run_perfreport_tool
 from cerebrus.ui.components.shared import _auto_save_profile, log_message
 from cerebrus.ui.state import UIState
 from cerebrus.ui.themes import get_theme_manager
+
+__all__ = ["open_folder_in_explorer", "pick_file", "pick_folder", "pick_save_file"]
 
 
 def _handle_output_file_name_change(
@@ -45,32 +46,66 @@ def _handle_bulk_action_toggle(
     _auto_save_profile(state)
 
 
-def _open_folder_in_explorer(path: Path | str) -> None:
-    """Open the folder in the OS file explorer."""
-    if isinstance(path, str):
-        path = Path(path)
+def pick_file(
+    title: str, filetypes: list[tuple[str, str]] | None = None
+) -> str | None:
+    """Show a native open-file dialog and return the chosen path (or None)."""
+    from tkinter import Tk, filedialog
 
-    if not path.exists():
-        return
-
+    root = Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
     try:
-        if sys.platform == "win32":
-            os.startfile(path)
-        elif sys.platform == "darwin":
-            subprocess.Popen(["open", str(path)])
-        else:
-            subprocess.Popen(["xdg-open", str(path)])
-    except Exception as e:
-        print(f"Failed to open folder: {e}")
+        result = filedialog.askopenfilename(
+            title=title, filetypes=filetypes or [("All files", "*.*")]
+        )
+        return result or None
+    finally:
+        root.destroy()
+
+
+def pick_folder(title: str) -> str | None:
+    """Show a native folder-picker dialog and return the chosen path (or None)."""
+    from tkinter import Tk, filedialog
+
+    root = Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+    try:
+        return filedialog.askdirectory(title=title) or None
+    finally:
+        root.destroy()
+
+
+def pick_save_file(
+    title: str,
+    default_extension: str = "",
+    filetypes: list[tuple[str, str]] | None = None,
+) -> str | None:
+    """Show a native save-file dialog and return the chosen path (or None)."""
+    from tkinter import Tk, filedialog
+
+    root = Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+    try:
+        result = filedialog.asksaveasfilename(
+            title=title,
+            defaultextension=default_extension,
+            filetypes=filetypes or [("All files", "*.*")],
+        )
+        return result or None
+    finally:
+        root.destroy()
 
 
 def _open_profile_folder(state: UIState) -> None:
     """Open the folder containing the current profile."""
     if state.profile_path and state.profile_path.exists():
         if state.profile_path.is_file():
-            _open_folder_in_explorer(state.profile_path.parent)
+            open_folder_in_explorer(state.profile_path.parent)
         else:
-            _open_folder_in_explorer(state.profile_path)
+            open_folder_in_explorer(state.profile_path)
     else:
         log_message(state, "WARNING", "Profile path does not exist.")
 
@@ -230,8 +265,12 @@ def _move_files_from_device(
     except AdbError as e:
         error_msg = str(e)
         if "does not exist" in error_msg or "No such file or directory" in error_msg:
-            file_type = "Logs" if "Logs" in dest_subpath else "CSV Data"
-            log_message(state, "ERROR", f"No {file_type} present on device.")
+            # ``dest_subpath`` is the bucket label passed in by the caller
+            # ("CSV", "Logs", "MemReports", ...). Using it directly avoids the
+            # legacy "CSV Data" fallback that misreported MemReport absences.
+            log_message(
+                state, "ERROR", f"No {dest_subpath} present on device."
+            )
         else:
             log_message(state, "ERROR", f"ADB Error: {e}")
     except Exception as e:
@@ -241,15 +280,9 @@ def _move_files_from_device(
 def _handle_generate_perf_report(state: UIState) -> None:
     """Run PerfreportTool on CSV files and delete them on success."""
     repo_root = Path(__file__).resolve().parent.parent.parent.parent
-    tool_path = repo_root / "Binaries" / "CsvTools" / "PerfReportTool.exe"
+    tool_path = find_perfreport_tool(repo_root)
 
     if not tool_path.exists():
-        # Fallback to dev path if deeper nesting (ui/components/files.py -> 3 levels up -> cerebrus. 4 levels? no)
-        # files.py is in cerebrus/ui/components/files.py.
-        # Parent 1: components
-        # Parent 2: ui
-        # Parent 3: cerebrus
-        # Parent 4: root
         log_message(state, "ERROR", f"PerfreportTool not found at: {tool_path}")
         return
 
@@ -284,38 +317,13 @@ def _handle_generate_perf_report(state: UIState) -> None:
                 state.output_file_name if state.output_file_name else csv_file.stem
             )
 
-        # User requested output directly in Profiling/ folder, not a subdir.
-        # PerfReportTool with -o <dir> usually creates <dir>/<InputName>.html
-        # We pass output_dir directly.
-
-        cmd = [
-            str(tool_path),
-            "-csv",
-            str(csv_file),
-            "-reportType",
-            "Default60fps",
-            "-o",
-            str(output_dir),
-            "-perfLog",
-        ]
-
         log_message(state, "INFO", f"Processing {csv_file.name}...")
 
         try:
-            startupinfo = None
-            if hasattr(subprocess, "STARTUPINFO"):
-                startupinfo = subprocess.STARTUPINFO()
-                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-
-            result = subprocess.run(
-                cmd, capture_output=True, text=True, startupinfo=startupinfo
-            )
+            result = run_perfreport_tool(tool_path, csv_file, output_dir)
 
             if result.returncode == 0:
-                # Tool outputs keys off the input filename usually.
-                # If we want to support state.output_file_name (renaming), we must find the generated file.
-                # Standard behavior: Input.csv -> OutputDir/Input.html
-                generated_html_path = output_dir / f"{csv_file.stem}.html"
+                generated_html_path = result.generated_html_path
 
                 if not generated_html_path.exists():
                     # Fallback check if it used some other naming convention?
@@ -554,6 +562,25 @@ def _html_escape(value: object) -> str:
     return html.escape(str(value), quote=True)
 
 
+def _inject_cerebrus_generator_meta(content: str) -> str:
+    """Stamp ``<meta name="generator" content="Cerebrus Profiling Tool"/>``
+    into the report's ``<head>`` so downstream consumers (s3_uploader) can
+    detect Cerebrus-processed HTML at a glance without parsing the JSON
+    payload. PerfReportTool's output omits this tag; we own it."""
+    if re.search(
+        r'<meta\s+name=["\']generator["\']\s+content=["\']Cerebrus Profiling Tool["\']',
+        content,
+        re.IGNORECASE,
+    ):
+        return content
+    tag = '<meta name="generator" content="Cerebrus Profiling Tool"/>'
+    head_match = re.search(r"<head\b[^>]*>", content, re.IGNORECASE)
+    if head_match:
+        insert_at = head_match.end()
+        return content[:insert_at] + "\n    " + tag + content[insert_at:]
+    return tag + content
+
+
 def _inject_cerebrus_metadata_script(content: str, metadata: dict) -> str:
     cpu_parts = parse_cpu_device(metadata.get("cpu"))
     payload = {
@@ -579,6 +606,7 @@ def _inject_cerebrus_metadata_script(content: str, metadata: dict) -> str:
     if not payload:
         return content
 
+    content = _inject_cerebrus_generator_meta(content)
     script = (
         '<script type="application/json" id="cerebrus-metadata">'
         f"{json.dumps(payload, sort_keys=True)}"

@@ -3,10 +3,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from cerebrus.tools.adb import AdbError
 from cerebrus.ui.components.file_manager import (
     _handle_generate_colored_logs,
     _handle_generate_mem_report,
     _handle_generate_perf_report,
+    _move_files_from_device,
 )
 from cerebrus.ui.state import UIState
 
@@ -78,6 +80,45 @@ def test_handle_generate_perf_report_directory(mock_state, temp_output_dir):
             assert expected_output_dir.exists()
             mock_metadata.assert_called()
             mock_post.assert_called()
+
+
+@pytest.mark.parametrize(
+    "dest_subpath,expected_message",
+    [
+        ("CSV", "No CSV present on device."),
+        ("Logs", "No Logs present on device."),
+        ("MemReports", "No MemReports present on device."),
+    ],
+)
+def test_move_files_from_device_reports_correct_bucket_when_missing(
+    mock_state, dest_subpath, expected_message
+):
+    """Regression for the 'NO CSV data found' log firing on MemReports/Logs
+    failures. The error log must name the actual bucket the caller asked
+    to move, not always default to 'CSV Data'."""
+    mock_state.package_name = "com.lightfury.titan"
+    mock_state.selected_device_serial = "ABCDEF"
+
+    fake_client = MagicMock()
+    fake_client.pull.side_effect = AdbError(
+        "adb: error: failed to stat remote object '/path/.': No such file or directory"
+    )
+
+    with (
+        patch(
+            "cerebrus.ui.components.file_manager.AdbClient", return_value=fake_client
+        ),
+        patch(
+            "cerebrus.ui.components.file_manager.log_message"
+        ) as captured_log,
+    ):
+        _move_files_from_device(mock_state, "Profiling/Source", dest_subpath)
+
+    levels_and_messages = [call.args[1:3] for call in captured_log.call_args_list]
+    assert (
+        "ERROR",
+        expected_message,
+    ) in levels_and_messages, levels_and_messages
 
 
 def test_handle_generate_mem_report_directory(mock_state, temp_output_dir):

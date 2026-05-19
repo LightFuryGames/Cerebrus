@@ -17,11 +17,11 @@ from cerebrus.ui.components.file_manager import (
     _handle_output_file_name_change,
     _handle_use_prefix_toggle,
     _handle_view_html_logs,
-    _open_folder_in_explorer,
+    open_folder_in_explorer,
     _open_profile_folder,
 )
 from cerebrus.ui.components.shared import (
-    _add_help_button,
+    add_help_button,
     _auto_save_profile,
     log_message,
 )
@@ -162,7 +162,7 @@ def build_profile_summary(state: UIState) -> None:
             tm.get_profile_status_theme(status),
         )
 
-        _add_help_button("package_name")
+        add_help_button("package_name")
         dpg.add_text("Profile Path:")
         with dpg.group(horizontal=True, horizontal_spacing=4):
             dpg.bind_item_theme(

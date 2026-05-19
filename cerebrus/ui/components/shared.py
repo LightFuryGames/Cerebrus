@@ -46,25 +46,36 @@ TOOLTIPS = _load_tooltips()
 S3_CONFIG_BASE_URL = "https://titan-cerebrus-configurations.s3.ap-south-1.amazonaws.com"
 
 
-def log_message(state: UIState, level: str, message: str) -> None:
+def log_message(
+    state: UIState,
+    level: str,
+    message: str,
+    source: str | None = None,
+) -> None:
     """Deprecating wrapper for centralized logging."""
     from cerebrus.ui.components.panels.logs_panel.logs_panel import log_message as _log
 
-    _log(state, level, message)
+    _log(state, level, message, source)
 
 
-def _add_help_button(tooltip_key: str, state: UIState | None = None) -> None:
-    """Add a small (?) help button with a tooltip."""
+def add_help_button(
+    tooltip_key: str,
+    tooltips: dict[str, str] | None = None,
+) -> None:
+    """Render a small (?) help button with a tooltip from the given map.
 
-    # Check if tooltip exists
-    if tooltip_key not in TOOLTIPS:
+    When ``tooltips`` is None, the global core ``TOOLTIPS`` table is used so
+    core panels keep working without passing a map. Plugins should pass their
+    own tooltip dict loaded via :func:`load_plugin_tooltips`.
+    """
+    table = tooltips if tooltips is not None else TOOLTIPS
+    if tooltip_key not in table:
         return
 
-    text = TOOLTIPS[tooltip_key]
+    text = table[tooltip_key]
 
     with dpg.group(horizontal=True):
-        btn = dpg.add_button(label="?", width=20, height=20, small=True)
-
+        dpg.add_button(label="?", width=20, height=20, small=True)
         with dpg.tooltip(dpg.last_item()):
             dpg.add_text(text, wrap=350)
 
@@ -87,16 +98,18 @@ def load_plugin_tooltips(filename: str) -> dict[str, str]:
     return {}
 
 
-def _add_plugin_help_button(tooltips: dict[str, str], tooltip_key: str) -> None:
-    """Add a small (?) help button using a plugin-local tooltip map."""
-    if tooltip_key not in tooltips:
-        return
+def add_plugin_help_button(tooltips: dict[str, str], tooltip_key: str) -> None:
+    """Plugin-flavoured wrapper for :func:`add_help_button`."""
+    add_help_button(tooltip_key, tooltips=tooltips)
 
-    text = tooltips[tooltip_key]
-    with dpg.group(horizontal=True):
-        dpg.add_button(label="?", width=20, height=20, small=True)
-        with dpg.tooltip(dpg.last_item()):
-            dpg.add_text(text, wrap=350)
+
+def add_button_tooltip(item: int | str, tooltips: dict[str, str], key: str) -> None:
+    """Attach a hover tooltip from ``tooltips[key]`` to an already-created item."""
+    text = tooltips.get(key, "")
+    if not text:
+        return
+    with dpg.tooltip(item):
+        dpg.add_text(text, wrap=350)
 
 
 # -----------------------------------------------------------------------------

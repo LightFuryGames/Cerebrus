@@ -24,9 +24,9 @@ from ...file_manager import (
     _handle_output_file_name_change,
     _handle_use_prefix_toggle,
     _handle_view_html_logs,
-    _open_folder_in_explorer,
+    open_folder_in_explorer,
 )
-from ...shared import _add_help_button, log_message
+from ...shared import add_help_button, log_message
 from ...ui_config import UIConfig
 from ..device.device_panel import _populate_devices
 
@@ -49,28 +49,28 @@ def _build_profiling_tab(state: UIState) -> None:
                     width=config.get_dimension("button_width_small"),
                     callback=lambda: _handle_launch_package(state),
                 )
-                _add_help_button("launch_package")
+                add_help_button("launch_package")
 
                 dpg.add_button(
                     label="Minimize",
                     width=config.get_dimension("button_width_small"),
                     callback=lambda: _handle_minimize_app(state),
                 )
-                _add_help_button("minimize_app")
+                add_help_button("minimize_app")
 
                 dpg.add_button(
                     label="Kill App",
                     width=config.get_dimension("button_width_standard"),
                     callback=lambda: _handle_force_stop_package(state),
                 )
-                _add_help_button("kill_app")
+                add_help_button("kill_app")
 
                 dpg.add_button(
                     label="Clear App Data",
                     width=config.get_dimension("button_width_standard"),
                     callback=lambda: _handle_clear_app_data(state),
                 )
-                _add_help_button("clear_app_data")
+                add_help_button("clear_app_data")
 
             dpg.add_spacer(width=config.get_spacer("section_gap"))
             # Vertical separator
@@ -93,7 +93,7 @@ def _build_profiling_tab(state: UIState) -> None:
                     width=config.get_dimension("button_width_small"),
                     callback=lambda: _handle_custom_command(state),
                 )
-                _add_help_button("custom_command")
+                add_help_button("custom_command")
 
         dpg.add_spacer(height=config.get_spacer("half"))
         dpg.add_separator()
@@ -112,13 +112,13 @@ def _build_profiling_tab(state: UIState) -> None:
                         width=config.get_dimension("button_width_standard"),
                         callback=lambda: _handle_start_profiling(state),
                     )
-                    _add_help_button("start_profiling")
+                    add_help_button("start_profiling")
                     dpg.add_button(
                         label="Stop Profiling",
                         width=config.get_dimension("button_width_standard"),
                         callback=lambda: _handle_stop_profiling(state),
                     )
-                    _add_help_button("stop_profiling")
+                    add_help_button("stop_profiling")
 
             dpg.add_spacer(width=15)
             # Use theme binding for separator
@@ -136,13 +136,13 @@ def _build_profiling_tab(state: UIState) -> None:
                         width=config.get_dimension("button_width_standard"),
                         callback=lambda: _handle_memreport(state),
                     )
-                    _add_help_button("memreport")
+                    add_help_button("memreport")
                     dpg.add_button(
                         label="Memreport Full",
                         width=config.get_dimension("button_width_standard"),
                         callback=lambda: _handle_memreport_full(state),
                     )
-                    _add_help_button("memreport_full")
+                    add_help_button("memreport_full")
 
         dpg.add_spacer(height=config.get_spacer("half"))
         dpg.add_separator()
@@ -163,7 +163,7 @@ def _build_profiling_tab(state: UIState) -> None:
             with dpg.table_row():
                 with dpg.group(horizontal=True, horizontal_spacing=4):
                     dpg.add_text("Output file Name:")
-                    _add_help_button("output_file_name")
+                    add_help_button("output_file_name")
                 dpg.add_input_text(
                     tag="output_file_name",
                     default_value=state.output_file_name,
@@ -179,13 +179,13 @@ def _build_profiling_tab(state: UIState) -> None:
                         callback=_handle_use_prefix_toggle,
                         user_data=state,
                     )
-                    _add_help_button("use_prefix_only")
+                    add_help_button("use_prefix_only")
                 dpg.add_spacer()
 
             with dpg.table_row():
                 with dpg.group(horizontal=True, horizontal_spacing=4):
                     dpg.add_text("Output Path:")
-                    _add_help_button("output_path")
+                    add_help_button("output_path")
                 dpg.add_input_text(
                     tag="output_path_label",
                     default_value=str(state.output_path),
@@ -201,14 +201,14 @@ def _build_profiling_tab(state: UIState) -> None:
                     dpg.add_button(
                         label="Open Folder",
                         width=config.get_dimension("button_width_standard"),
-                        callback=lambda: _open_folder_in_explorer(state.output_path),
+                        callback=lambda: open_folder_in_explorer(state.output_path),
                     )
                 dpg.add_spacer()
 
             with dpg.table_row():
                 with dpg.group(horizontal=True, horizontal_spacing=4):
                     dpg.add_text("Device Profiles:")
-                    _add_help_button("device_profile_config")
+                    add_help_button("device_profile_config")
                 dpg.add_input_text(
                     tag="device_profile_config_label",
                     default_value=_display_device_profile_config_path(state),
@@ -252,7 +252,7 @@ def _build_profiling_tab(state: UIState) -> None:
                             callback=_handle_bulk_action_toggle,
                             user_data=(state, "move_csv_enabled"),
                         )
-                        _add_help_button("move_csv")
+                        add_help_button("move_csv")
 
                     with dpg.table_row():
                         dpg.add_checkbox(
@@ -262,7 +262,7 @@ def _build_profiling_tab(state: UIState) -> None:
                             callback=_handle_bulk_action_toggle,
                             user_data=(state, "move_memreport_enabled"),
                         )
-                        _add_help_button("memreport")
+                        add_help_button("memreport")
 
                     with dpg.table_row():
                         dpg.add_checkbox(
@@ -272,7 +272,7 @@ def _build_profiling_tab(state: UIState) -> None:
                             callback=_handle_bulk_action_toggle,
                             user_data=(state, "move_logs_enabled"),
                         )
-                        _add_help_button("move_logs")
+                        add_help_button("move_logs")
 
             with dpg.child_window(
                 tag="bulk_actions_right_panel",
@@ -296,7 +296,7 @@ def _build_profiling_tab(state: UIState) -> None:
                             callback=_handle_bulk_action_toggle,
                             user_data=(state, "generate_perf_report_enabled"),
                         )
-                        _add_help_button("generate_perf")
+                        add_help_button("generate_perf")
 
                     with dpg.table_row():
                         dpg.add_checkbox(
@@ -306,7 +306,7 @@ def _build_profiling_tab(state: UIState) -> None:
                             callback=_handle_bulk_action_toggle,
                             user_data=(state, "generate_memreport_enabled"),
                         )
-                        _add_help_button("memreport_full")
+                        add_help_button("memreport_full")
 
                     with dpg.table_row():
                         dpg.add_checkbox(
@@ -316,7 +316,7 @@ def _build_profiling_tab(state: UIState) -> None:
                             callback=_handle_bulk_action_toggle,
                             user_data=(state, "generate_colored_logs_enabled"),
                         )
-                        _add_help_button("generate_logs")
+                        add_help_button("generate_logs")
 
                     with dpg.table_row():
                         dpg.add_button(
@@ -324,7 +324,7 @@ def _build_profiling_tab(state: UIState) -> None:
                             width=300,
                             callback=lambda: _handle_generate_actions(state),
                         )
-                        _add_help_button("generate_actions")
+                        add_help_button("generate_actions")
 
                     with dpg.table_row():
                         dpg.add_button(
@@ -332,7 +332,7 @@ def _build_profiling_tab(state: UIState) -> None:
                             width=300,
                             callback=lambda: _handle_view_html_logs(state),
                         )
-                        _add_help_button("view_html_logs")
+                        add_help_button("view_html_logs")
 
             with dpg.child_window(
                 tag="local_report_comparison_panel",
@@ -355,7 +355,7 @@ def _build_profiling_tab(state: UIState) -> None:
                             width=350,
                             callback=lambda: _show_ab_compare_dialog(state),
                         )
-                        _add_help_button("generate_ab_compare")
+                        add_help_button("generate_ab_compare")
 
 
 def _browse_device_profile_config(state: UIState) -> None:

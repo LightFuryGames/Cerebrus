@@ -1,31 +1,23 @@
-"""Analytics and telemetry trend plugin."""
+"""Analytics and telemetry trend plugin (DPG wiring layer)."""
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
-from tkinter import Tk, filedialog
+from typing import Callable
 
 import dearpygui.dearpygui as dpg
 
 from cerebrus.core.plugins import TabPlugin
-from cerebrus.plugins.analytics.core import (
-    convert_file_to_json,
-    summarize_folder,
-)
-from cerebrus.plugins.analytics.core.converter import (
-    convert_file_to_document,
-    push_document_to_elasticsearch,
-)
-from cerebrus.plugins.analytics.core.settings import (
-    AnalyticsSettings,
-    load_analytics_settings,
-    save_analytics_settings,
-)
-from cerebrus.ui.components.file_manager import _open_folder_in_explorer
-from cerebrus.ui.components.shared import (
-    _add_plugin_help_button as add_plugin_help_button,
+from cerebrus.plugins.analytics.controller import AnalyticsController
+from cerebrus.ui.components.file_manager import (
+    open_folder_in_explorer,
+    pick_file,
+    pick_folder,
 )
 from cerebrus.ui.components.shared import (
+    add_button_tooltip,
+    add_plugin_help_button,
     load_plugin_tooltips,
     log_message,
 )
@@ -34,25 +26,13 @@ from cerebrus.ui.themes import get_theme_manager
 
 ANALYTICS_TOOLTIPS = load_plugin_tooltips("analytics/resources/tooltips.json")
 
-
-def _choose_file(title: str, filetypes: list[tuple[str, str]]) -> str | None:
-    root = Tk()
-    root.withdraw()
-    root.attributes("-topmost", True)
-    try:
-        return filedialog.askopenfilename(title=title, filetypes=filetypes) or None
-    finally:
-        root.destroy()
-
-
-def _choose_folder(title: str) -> str | None:
-    root = Tk()
-    root.withdraw()
-    root.attributes("-topmost", True)
-    try:
-        return filedialog.askdirectory(title=title) or None
-    finally:
-        root.destroy()
+_FILE_DIALOG_TYPES = [
+    ("Report files", "*.html *.htm *.csv *.json"),
+    ("HTML reports", "*.html *.htm"),
+    ("CSV captures", "*.csv"),
+    ("JSON files", "*.json"),
+    ("All files", "*.*"),
+]
 
 
 class AnalyticsPlugin(TabPlugin):
@@ -71,158 +51,171 @@ class AnalyticsPlugin(TabPlugin):
     def build_tab(self, state: UIState) -> None:
         tm = get_theme_manager()
 
+        def _log(level: str, message: str) -> None:
+            log_message(state, level, message, source="ANALYTICS")
+
+        controller = AnalyticsController(logger=_log)
+        settings = controller.load_settings()
+
+        source_file_tag = "analytics_source_file"
+        output_dir_tag = "analytics_output_dir"
+        upload_url_tag = "analytics_upload_url"
+        delete_after_upload_tag = "analytics_delete_after_upload"
+
+        # Guards against double-clicks during a long-running upload — DPG
+        # callbacks are reentrant from the user's POV even while a worker
+        # thread is mid-request.
+        upload_in_flight = threading.Lock()
+
+        def _run_in_background(label: str, work: Callable[[], None]) -> None:
+            """Spawn ``work`` on a daemon thread; refuse if one is in flight.
+
+            Elasticsearch single uploads carry a 30s request timeout and bulk
+            uploads carry a 60s timeout. Running them on the DPG callback
+            thread freezes the entire UI for that duration. The worker logs
+            and mutates DPG state directly — DPG serialises those calls, so
+            no extra marshalling is required.
+            """
+            if not upload_in_flight.acquire(blocking=False):
+                _log("WARNING", f"{label} ignored: another upload is still running.")
+                return
+
+            def _runner() -> None:
+                try:
+                    work()
+                except Exception as exc:
+                    _log("ERROR", f"{label} crashed: {exc}")
+                finally:
+                    upload_in_flight.release()
+
+            threading.Thread(target=_runner, name=f"analytics-{label}", daemon=True).start()
+
+        def _emit_summary(lines: list[str] | str) -> None:
+            if isinstance(lines, str):
+                lines = lines.splitlines() or [lines]
+            for line in lines:
+                _log("INFO", line)
+
+        def _get_source_path() -> Path | None:
+            value = dpg.get_value(source_file_tag) or ""
+            return Path(value) if value else None
+
+        def _get_output_dir() -> Path | None:
+            value = (dpg.get_value(output_dir_tag) or "").strip()
+            return Path(value) if value else None
+
+        def _resolve_targets() -> list[Path]:
+            # The output-dir field doubles as a folder of pre-built
+            # ``.analytics.json`` files. If the user has set it AND the source
+            # file slot is empty, fall back to globbing the directory so a
+            # single Upload click can re-push everything in that folder.
+            return controller.resolve_targets(_get_source_path(), _get_output_dir())
+
+        def _save_upload_url() -> str:
+            return controller.save_upload_url(dpg.get_value(upload_url_tag) or "")
+
+        def _browse_source_file() -> None:
+            selected = pick_file("Select Analytics Source", _FILE_DIALOG_TYPES)
+            if selected:
+                dpg.set_value(source_file_tag, selected)
+
+        def _browse_output_dir() -> None:
+            selected = pick_folder("Select Output File Path")
+            if selected:
+                dpg.set_value(output_dir_tag, selected)
+
+        def _use_profiling_output() -> None:
+            profiling_output = Path(state.output_path)
+            if not profiling_output.exists() or not profiling_output.is_dir():
+                _log("ERROR", "Profiling output path is not set or does not exist.")
+                return
+            dpg.set_value(output_dir_tag, str(profiling_output))
+            _log("INFO", f"Output File Path set to Profiling output: {profiling_output}")
+
+        def _open_selected_source_folder() -> None:
+            source = _get_source_path()
+            folder = _get_output_dir()
+            if source and source.is_file():
+                open_folder_in_explorer(source.parent)
+            elif folder and folder.is_dir():
+                open_folder_in_explorer(folder)
+            elif Path(state.output_path).exists():
+                open_folder_in_explorer(Path(state.output_path))
+            else:
+                _log("ERROR", "No existing analytics folder to open.")
+
+        def _convert_source_to_json() -> None:
+            source = _get_source_path()
+            if not source or not source.is_file():
+                _log("ERROR", "Select an HTML, CSV, or JSON source file first.")
+                return
+            output_dir = _get_output_dir()
+            try:
+                output = controller.convert_to_json_file(source, output_dir=output_dir)
+                _log("SUCCESS", f"Analytics JSON written: {output}")
+                document = controller.convert_to_document(output)
+                _emit_summary(
+                    [
+                        f"Converted {source.name}",
+                        f"Timestamp: {document.get('@timestamp', 'not found')}",
+                        f"Fields: {len(document)}",
+                    ]
+                )
+                # Auto-select the generated JSON so the user can hit
+                # "Upload Analytics Document" immediately without re-browsing.
+                dpg.set_value(source_file_tag, str(output))
+            except Exception as exc:
+                _log("ERROR", f"Analytics conversion failed: {exc}")
+
+        def _prepare_upload() -> tuple[str, list[Path]] | None:
+            """Validate input on the UI thread before spawning a worker."""
+            url = _save_upload_url()
+            targets = _resolve_targets()
+            if not targets:
+                _log(
+                    "ERROR",
+                    "Select a Source File or an Output File Path containing "
+                    "*.analytics.json files first.",
+                )
+                return None
+            if not url:
+                _log(
+                    "ERROR",
+                    "Enter the Elasticsearch document endpoint URL before uploading.",
+                )
+                return None
+            return url, targets
+
+        def _upload_individual() -> None:
+            prep = _prepare_upload()
+            if prep is None:
+                return
+            url, targets = prep
+            delete_after = bool(dpg.get_value(delete_after_upload_tag))
+            _log("INFO", f"Upload started for {len(targets)} document(s).")
+
+            def _work() -> None:
+                outcome = controller.upload_individual(
+                    targets, url, delete_after_success=delete_after
+                )
+                _emit_summary(outcome.summary_lines)
+
+            _run_in_background("upload", _work)
+
+        def _save_settings_only() -> None:
+            url = _save_upload_url()
+            _emit_summary(
+                "Saved Elasticsearch upload endpoint."
+                if url
+                else "Cleared Elasticsearch upload endpoint."
+            )
+
         dpg.add_spacer(height=8)
         dpg.bind_item_theme(
             dpg.add_text("Analytics and Trend Prep"),
             tm.get_header_theme(),
         )
         dpg.add_spacer(height=6)
-
-        source_file_tag = "analytics_source_file"
-        source_folder_tag = "analytics_source_folder"
-        upload_url_tag = "analytics_upload_url"
-        preview_tag = "analytics_preview"
-        settings = load_analytics_settings()
-
-        def _set_preview(message: str) -> None:
-            if dpg.does_item_exist(preview_tag):
-                dpg.set_value(preview_tag, message)
-
-        def _browse_source_file() -> None:
-            selected = _choose_file(
-                "Select Analytics Source",
-                [
-                    ("Report files", "*.html *.htm *.csv *.json"),
-                    ("HTML reports", "*.html *.htm"),
-                    ("CSV captures", "*.csv"),
-                    ("JSON files", "*.json"),
-                    ("All files", "*.*"),
-                ],
-            )
-            if selected:
-                dpg.set_value(source_file_tag, selected)
-
-        def _browse_source_folder() -> None:
-            selected = _choose_folder("Select Folder of Reports")
-            if selected:
-                dpg.set_value(source_folder_tag, selected)
-
-        def _open_selected_source_folder() -> None:
-            source = Path(dpg.get_value(source_file_tag) or "")
-            folder = Path(dpg.get_value(source_folder_tag) or "")
-            if source.is_file():
-                _open_folder_in_explorer(source.parent)
-            elif folder.is_dir():
-                _open_folder_in_explorer(folder)
-            elif Path(state.output_path).exists():
-                _open_folder_in_explorer(Path(state.output_path))
-            else:
-                log_message(state, "ERROR", "No existing analytics folder to open.")
-
-        def _convert_source_to_json() -> None:
-            _save_upload_settings()
-            source = Path(dpg.get_value(source_file_tag) or "")
-            if not source.is_file():
-                log_message(
-                    state, "ERROR", "Select an HTML, CSV, or JSON source file first."
-                )
-                return
-            try:
-                output = convert_file_to_json(source)
-                log_message(state, "SUCCESS", f"Analytics JSON written: {output}")
-                document = convert_file_to_document(output)
-                _set_preview(
-                    f"Converted {source.name}\n"
-                    f"Timestamp: {document.get('@timestamp', 'not found')}\n"
-                    f"Fields: {len(document)}"
-                )
-            except Exception as exc:
-                log_message(state, "ERROR", f"Analytics conversion failed: {exc}")
-
-        def _summarize_folder() -> None:
-            _save_upload_settings()
-            folder = Path(dpg.get_value(source_folder_tag) or "")
-            if not folder.is_dir():
-                log_message(
-                    state, "ERROR", "Select a folder containing report files first."
-                )
-                return
-            try:
-                output = summarize_folder(folder)
-                log_message(state, "SUCCESS", f"Trend summary written: {output}")
-                _set_preview(f"Summary CSV written:\n{output}")
-            except Exception as exc:
-                log_message(state, "ERROR", f"Trend summary failed: {exc}")
-
-        def _save_upload_settings() -> str:
-            upload_url = (dpg.get_value(upload_url_tag) or "").strip()
-            current_settings = load_analytics_settings()
-            save_analytics_settings(
-                AnalyticsSettings(
-                    elasticsearch_url=upload_url,
-                    device_profile_config_path=current_settings.device_profile_config_path,
-                )
-            )
-            log_message(state, "SUCCESS", "Analytics upload endpoint saved.")
-            return upload_url
-
-        def _upload_source_to_elasticsearch() -> None:
-            upload_url = _save_upload_settings()
-            source = Path(dpg.get_value(source_file_tag) or "")
-            if not source.is_file():
-                log_message(
-                    state, "ERROR", "Select an HTML, CSV, or JSON source file first."
-                )
-                return
-
-            if not upload_url:
-                log_message(
-                    state,
-                    "ERROR",
-                    "Enter the Elasticsearch document endpoint URL before uploading.",
-                )
-                return
-
-            try:
-                document = convert_file_to_document(source)
-                status_code, response_text = push_document_to_elasticsearch(
-                    document,
-                    upload_url,
-                )
-                if status_code in {200, 201}:
-                    log_message(
-                        state,
-                        "SUCCESS",
-                        f"Uploaded analytics document to Elasticsearch: {source.name}",
-                    )
-                    _set_preview(
-                        f"Uploaded {source.name}\n"
-                        f"Endpoint: {upload_url}\n"
-                        f"Status: {status_code}\n"
-                        f"Timestamp: {document.get('@timestamp', 'not found')}"
-                    )
-                else:
-                    log_message(
-                        state,
-                        "ERROR",
-                        f"Elasticsearch upload failed: {status_code} {response_text}",
-                    )
-                    _set_preview(
-                        f"Upload failed for {source.name}\n"
-                        f"Endpoint: {upload_url}\n"
-                        f"Status: {status_code}\n"
-                        f"Response: {response_text}"
-                    )
-            except Exception as exc:
-                log_message(state, "ERROR", f"Elasticsearch upload failed: {exc}")
-
-        def _save_upload_settings_only() -> None:
-            upload_url = _save_upload_settings()
-            _set_preview(
-                "Saved Elasticsearch upload endpoint."
-                if upload_url
-                else "Cleared Elasticsearch upload endpoint."
-            )
 
         with dpg.table(
             header_row=False,
@@ -241,7 +234,7 @@ class AnalyticsPlugin(TabPlugin):
                 with dpg.group(horizontal=True):
                     dpg.add_input_text(
                         tag=source_file_tag,
-                        hint="HTML, CSV, or JSON report",
+                        hint="HTML, CSV, or JSON report (auto-filled after Convert)",
                         width=720,
                     )
                     dpg.add_button(label="Browse", callback=_browse_source_file)
@@ -250,15 +243,27 @@ class AnalyticsPlugin(TabPlugin):
                     )
 
             with dpg.table_row():
-                dpg.add_text("Report Folder:")
-                add_plugin_help_button(ANALYTICS_TOOLTIPS, "analytics_source_folder")
+                dpg.add_text("Output File Path:")
+                add_plugin_help_button(ANALYTICS_TOOLTIPS, "analytics_output_dir")
                 with dpg.group(horizontal=True):
                     dpg.add_input_text(
-                        tag=source_folder_tag,
-                        hint="Folder containing generated reports or converted JSON",
+                        tag=output_dir_tag,
+                        hint="Optional. If empty, .analytics.json is written next to the source.",
                         width=720,
                     )
-                    dpg.add_button(label="Browse", callback=_browse_source_folder)
+                    dpg.add_button(label="Browse", callback=_browse_output_dir)
+                    use_profiling_btn = dpg.add_button(
+                        label="Use Profiling Output",
+                        callback=_use_profiling_output,
+                    )
+                    add_button_tooltip(
+                        use_profiling_btn,
+                        ANALYTICS_TOOLTIPS,
+                        "analytics_btn_use_profiling_output",
+                    )
+                    add_plugin_help_button(
+                        ANALYTICS_TOOLTIPS, "analytics_btn_use_profiling_output"
+                    )
 
             with dpg.table_row():
                 dpg.add_text("Upload Endpoint:")
@@ -270,39 +275,32 @@ class AnalyticsPlugin(TabPlugin):
                         hint="http://host:9200/index-name/_doc",
                         width=720,
                     )
-                    dpg.add_button(label="Save", callback=_save_upload_settings_only)
+                    dpg.add_button(label="Save", callback=_save_settings_only)
 
         dpg.add_spacer(height=10)
         with dpg.group(horizontal=True):
-            dpg.add_button(
-                label="Convert File to Analytics JSON",
-                callback=_convert_source_to_json,
-                width=240,
-                height=30,
-            )
-            dpg.add_button(
-                label="Build Trend Summary CSV",
-                callback=_summarize_folder,
-                width=210,
-                height=30,
-            )
-            dpg.add_button(
-                label="Upload Analytics Document",
-                callback=_upload_source_to_elasticsearch,
-                width=220,
-                height=30,
-            )
+            for label, key, callback, width in (
+                (
+                    "Convert File to Analytics JSON",
+                    "analytics_btn_convert",
+                    _convert_source_to_json,
+                    240,
+                ),
+                (
+                    "Upload Analytics Document",
+                    "analytics_btn_upload",
+                    _upload_individual,
+                    220,
+                ),
+            ):
+                btn = dpg.add_button(
+                    label=label, callback=callback, width=width, height=30
+                )
+                add_button_tooltip(btn, ANALYTICS_TOOLTIPS, key)
+                add_plugin_help_button(ANALYTICS_TOOLTIPS, key)
 
-        dpg.add_spacer(height=8)
-        dpg.add_input_text(
-            tag=preview_tag,
-            multiline=True,
-            readonly=True,
-            width=-1,
-            height=95,
-            default_value=(
-                "Analytics output details will appear here.\n"
-                "Device profile tier enrichment uses the cached Profiling tab "
-                "BaseDeviceProfiles.ini reference when one is set."
-            ),
-        )
+            dpg.add_checkbox(
+                tag=delete_after_upload_tag,
+                label="Delete Analytics JSON after Upload Success",
+                default_value=True,
+            )

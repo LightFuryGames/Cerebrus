@@ -9,7 +9,10 @@ from cerebrus.plugins.analytics.core import (
     export_elasticsearch_bulk,
     summarize_folder,
 )
-from cerebrus.plugins.analytics.core.converter import push_document_to_elasticsearch
+from cerebrus.plugins.analytics.core.converter import (
+    ElasticsearchClient,
+    push_document_to_elasticsearch,
+)
 from cerebrus.plugins.analytics.core.device_profiles import (
     enrich_with_device_profile_tier,
 )
@@ -162,7 +165,7 @@ def test_summarize_folder_and_bulk_export(tmp_path: Path) -> None:
     assert "metrics_fps_avg" in summary_text
     assert "build_config" in summary_text
     assert len(bulk_lines) == 4
-    assert json.loads(bulk_lines[0])["create"]["_index"] == "telemetry-test"
+    assert json.loads(bulk_lines[0])["index"]["_index"] == "telemetry-test"
     assert json.loads(bulk_lines[1])["metrics_fps_avg"] == 58.2
 
 
@@ -222,23 +225,47 @@ def test_device_profile_reference_resolves_scalability_tier(tmp_path: Path) -> N
     assert enriched["device_profile_root"] == "Android_Epic"
 
 
+class _StubResponse:
+    def __init__(self, status_code: int = 200, text: str = "", payload: dict | None = None):
+        self.status_code = status_code
+        self.text = text
+        self._payload = payload or {}
+
+    def json(self) -> dict:
+        return self._payload
+
+
+class _StubSession:
+    """Records every HTTP method call against the ES client."""
+
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+        self.head_response = _StubResponse(status_code=200)
+        self.put_response = _StubResponse(status_code=201, text="created")
+        self.post_response = _StubResponse(status_code=200, text="ok")
+
+    def head(self, url, **kwargs):
+        self.calls.append({"method": "HEAD", "url": url, **kwargs})
+        return self.head_response
+
+    def put(self, url, **kwargs):
+        self.calls.append({"method": "PUT", "url": url, **kwargs})
+        return self.put_response
+
+    def post(self, url, **kwargs):
+        self.calls.append({"method": "POST", "url": url, **kwargs})
+        return self.post_response
+
+
 def test_push_document_to_elasticsearch_posts_canonical_payload(monkeypatch) -> None:
-    calls = {}
+    import cerebrus.plugins.analytics.core.converter as converter_module
 
-    class Response:
-        status_code = 201
-        text = "created"
-
-    def fake_put(url, json, headers, timeout):
-        calls["url"] = url
-        calls["json"] = json
-        calls["headers"] = headers
-        calls["timeout"] = timeout
-        return Response()
-
-    import requests
-
-    monkeypatch.setattr(requests, "put", fake_put)
+    session = _StubSession()
+    monkeypatch.setattr(
+        converter_module,
+        "_get_default_client",
+        lambda: ElasticsearchClient(session=session),
+    )
 
     status_code, response_text = push_document_to_elasticsearch(
         {
@@ -255,12 +282,14 @@ def test_push_document_to_elasticsearch_posts_canonical_payload(monkeypatch) -> 
         "http://localhost:9200/telemetry-cerebrus-performance/_doc",
     )
 
+    put_calls = [c for c in session.calls if c["method"] == "PUT"]
     assert status_code == 201
     assert response_text == "created"
+    assert len(put_calls) == 1
     assert (
-        calls["url"]
+        put_calls[0]["url"]
         == "http://localhost:9200/telemetry-cerebrus-performance/_doc/abc123"
     )
-    assert calls["json"]["metrics_fps_avg"] == 58.2
-    assert calls["json"]["build_config"] == "Development"
-    assert calls["headers"] == {"Content-Type": "application/json"}
+    assert put_calls[0]["json"]["metrics_fps_avg"] == 58.2
+    assert put_calls[0]["json"]["build_config"] == "Development"
+    assert put_calls[0]["headers"] == {"Content-Type": "application/json"}

@@ -43,18 +43,38 @@ def test_convert_csv_returns_flat_doc(tmp_path: Path) -> None:
 
 
 def test_convert_existing_flat_json_passes_through(tmp_path: Path) -> None:
-    """A pre-flattened JSON with schema_version and report_fingerprint
-    should be returned as-is, not re-built."""
+    """A pre-flattened JSON that satisfies the schema v2 identity contract
+    (schema_version, report_fingerprint, @timestamp, device_id) is returned
+    as-is. Missing any identity field triggers re-normalization, which is
+    what guards against accidentally re-uploading a stale v1 payload."""
     source = tmp_path / "preflat.json"
     payload = {
         "schema_version": 2,
         "report_fingerprint": "abc",
+        "@timestamp": "2026-04-27T15:20:33Z",
+        "device_id": "DeviceA",
         "metrics_fps_avg": 58.2,
     }
     source.write_text(json.dumps(payload), encoding="utf-8")
     doc = convert_file_to_document(source)
     assert doc["metrics_fps_avg"] == 58.2
     assert doc["report_fingerprint"] == "abc"
+
+
+def test_convert_v1_json_does_not_short_circuit(tmp_path: Path) -> None:
+    """Legacy v1 JSON with the fingerprint key but old schema must NOT
+    bypass v2 normalization — the schema_version guard is the safety belt."""
+    source = tmp_path / "v1.json"
+    payload = {
+        "schema_version": 1,
+        "report_fingerprint": "abc",
+        "@timestamp": "2026-04-27T15:20:33Z",
+        "device_id": "DeviceA",
+        "metrics_fps_avg": 58.2,
+    }
+    source.write_text(json.dumps(payload), encoding="utf-8")
+    doc = convert_file_to_document(source)
+    assert doc["schema_version"] == 2
 
 
 def test_convert_legacy_nested_json_rebuilds(tmp_path: Path) -> None:
@@ -102,8 +122,8 @@ def test_bulk_export_uses_fingerprint_as_id(tmp_path: Path) -> None:
     assert len(lines) == 4  # action + doc per file
     action1 = json.loads(lines[0])
     doc1 = json.loads(lines[1])
-    assert action1["create"]["_index"] == "telemetry-test"
-    assert action1["create"]["_id"] == doc1["report_fingerprint"]
+    assert action1["index"]["_index"] == "telemetry-test"
+    assert action1["index"]["_id"] == doc1["report_fingerprint"]
 
 
 def test_bulk_export_handles_mixed_sources(tmp_path: Path) -> None:

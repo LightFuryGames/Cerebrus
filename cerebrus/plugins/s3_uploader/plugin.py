@@ -13,9 +13,9 @@ from typing import Optional
 import dearpygui.dearpygui as dpg
 
 from cerebrus.core.plugins import TabPlugin
-from cerebrus.ui.components.file_manager import _open_folder_in_explorer
+from cerebrus.ui.components.file_manager import open_folder_in_explorer
 from cerebrus.ui.components.shared import (
-    _add_plugin_help_button as add_plugin_help_button,
+    add_plugin_help_button,
 )
 from cerebrus.ui.components.shared import (
     load_plugin_tooltips,
@@ -84,8 +84,106 @@ def _extract_device_parts(cpu_device: str) -> tuple[Optional[str], Optional[str]
     return make, model
 
 
+_CEREBRUS_JSON_KEY_MAP = {
+    "build_config": "Build Configuration",
+    "device_manufacturer": "Device Make",
+    "device_model": "Device Model",
+    "build_changelist": "Changelist",
+    "build_cl": "Changelist",
+    "build_version": "Changelist",
+}
+
+
+_TITLE_CASE_KEYS = (
+    "Build Configuration",
+    "Device Make",
+    "Device Model",
+    "Changelist",
+    "Date",
+    "Time",
+)
+
+
+_CEREBRUS_GENERATOR_RE = re.compile(
+    r'meta\s+name=["\']generator["\']\s+content=["\']Cerebrus Profiling Tool["\']',
+    re.IGNORECASE,
+)
+_CEREBRUS_METADATA_SCRIPT_RE = re.compile(
+    r'<script\s+type="application/json"\s+id="cerebrus-metadata"',
+    re.IGNORECASE,
+)
+
+
+def _is_cerebrus_html(path: Path) -> bool:
+    """Return True if the HTML at ``path`` was produced by the Cerebrus
+    post-processing pipeline.
+
+    Checks two signals: the ``<meta name="generator">`` tag that newer
+    pipelines stamp into ``<head>`` (cheap — first 4 KB), and the
+    ``cerebrus-metadata`` script which sits before ``</body>`` (legacy
+    Cerebrus reports only carry this). Reads the head first and falls
+    through to a full-file scan only when the cheap check misses.
+    """
+    try:
+        with open(path, "r", encoding="utf-8", errors="ignore") as fh:
+            head = fh.read(4096)
+            if _CEREBRUS_GENERATOR_RE.search(head) or _CEREBRUS_METADATA_SCRIPT_RE.search(head):
+                return True
+            rest = fh.read()
+    except OSError:
+        return False
+    return bool(_CEREBRUS_METADATA_SCRIPT_RE.search(rest))
+
+
+def _normalize_cerebrus_metadata(payload: dict) -> dict:
+    """Map cerebrus-metadata JSON keys (snake_case) onto the title-case
+    contract that :func:`_derive_s3_dir_from_metadata` expects.
+
+    The Cerebrus v3+ HTML injection emits keys like ``build_config`` and
+    ``device_manufacturer``; the S3 path builder still keys off the legacy
+    Cerebrus v2 PerfReportTool card labels (``Build Configuration``,
+    ``Device Make``, ...). Without this remap, every Cerebrus v3 upload
+    would land at ``UnknownConfig/UnknownMake/...``. Already-title-case
+    keys in the payload are passed through unchanged so callers that hand
+    us a hand-rolled JSON map still work.
+    """
+    metadata: dict = {}
+    for key in _TITLE_CASE_KEYS:
+        value = payload.get(key)
+        if value not in (None, ""):
+            metadata[key] = str(value)
+
+    for src_key, dest_key in _CEREBRUS_JSON_KEY_MAP.items():
+        if dest_key in metadata:
+            continue
+        value = payload.get(src_key)
+        if value in (None, ""):
+            continue
+        if dest_key == "Changelist":
+            metadata[dest_key] = _extract_changelist(str(value))
+        else:
+            metadata[dest_key] = str(value)
+    # ``cpu_device`` parses to Make/Model when the JSON omits them.
+    if "Device Make" not in metadata and payload.get("cpu_device"):
+        make, model = _extract_device_parts(str(payload["cpu_device"]))
+        if make:
+            metadata.setdefault("Device Make", make)
+        if model:
+            metadata.setdefault("Device Model", model)
+    return metadata
+
+
 def _extract_report_metadata(content: str) -> dict:
-    """Extract report metadata from embedded JSON, legacy cards, or PerfReportTool HTML."""
+    """Extract report metadata from embedded JSON, legacy cards, or PerfReportTool HTML.
+
+    Sources are merged in priority order so the title-case contract survives
+    Cerebrus v3 (JSON-injected) and v2 (PerfReportTool table/bracket) reports
+    simultaneously: JSON wins for fields it carries, the stat-card pattern
+    fills the rest, and the PerfReportTool table/bracket extractor backstops
+    fields the first two sources miss (notably Date/Time and Changelist).
+    """
+    metadata: dict = {}
+
     meta_match = re.search(
         r'<script type="application/json" id="cerebrus-metadata">(.*?)</script>',
         content,
@@ -93,7 +191,9 @@ def _extract_report_metadata(content: str) -> dict:
     )
     if meta_match:
         try:
-            return json.loads(meta_match.group(1).strip())
+            payload = json.loads(meta_match.group(1).strip())
+            if isinstance(payload, dict):
+                metadata.update(_normalize_cerebrus_metadata(payload))
         except json.JSONDecodeError:
             pass
 
@@ -104,39 +204,45 @@ def _extract_report_metadata(content: str) -> dict:
         "Changelist": r'<div class="stat-label">Changelist</div>\s*<div class="stat-value">(.*?)</div>',
         "Date": r'<div class="stat-label">Date</div>\s*<div class="stat-value">(.*?)</div>',
     }
-    metadata = {}
     for key, pattern in patterns.items():
+        if key in metadata:
+            continue
         match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
         if match:
             metadata[key] = _clean_html_fragment(match.group(1))
-    if metadata:
-        return metadata
 
-    config = _extract_table_value(content, "Configuration") or _extract_bracket_field(
-        content, "config"
-    )
-    build_version = _extract_table_value(
-        content, "Build Version"
-    ) or _extract_bracket_field(content, "buildversion")
-    cpu_device = _extract_table_value(content, "CPU/Device") or _extract_bracket_field(
-        content, "cpu"
-    )
-    date_part, time_part = _extract_profile_timestamp(content)
+    if "Build Configuration" not in metadata:
+        config = _extract_table_value(
+            content, "Configuration"
+        ) or _extract_bracket_field(content, "config")
+        if config:
+            metadata["Build Configuration"] = config
 
-    if config:
-        metadata["Build Configuration"] = config
-    if build_version:
-        metadata["Changelist"] = _extract_changelist(build_version)
-    if cpu_device:
-        make, model = _extract_device_parts(cpu_device)
-        if make:
-            metadata["Device Make"] = make
-        if model:
-            metadata["Device Model"] = model
-    if date_part:
-        metadata["Date"] = date_part
-    if time_part:
-        metadata["Time"] = time_part
+    if "Changelist" not in metadata:
+        build_version = _extract_table_value(
+            content, "Build Version"
+        ) or _extract_bracket_field(content, "buildversion")
+        if build_version:
+            metadata["Changelist"] = _extract_changelist(build_version)
+
+    if "Device Make" not in metadata or "Device Model" not in metadata:
+        cpu_device = _extract_table_value(
+            content, "CPU/Device"
+        ) or _extract_bracket_field(content, "cpu")
+        if cpu_device:
+            make, model = _extract_device_parts(cpu_device)
+            if make:
+                metadata.setdefault("Device Make", make)
+            if model:
+                metadata.setdefault("Device Model", model)
+
+    if "Date" not in metadata or "Time" not in metadata:
+        date_part, time_part = _extract_profile_timestamp(content)
+        if date_part and "Date" not in metadata:
+            metadata["Date"] = date_part
+        if time_part and "Time" not in metadata:
+            metadata["Time"] = time_part
+
     return metadata
 
 
@@ -381,13 +487,13 @@ class S3UploaderPlugin(TabPlugin):
             def _open_selected_folder():
                 source_path = Path(dpg.get_value(file_path_tag) or "")
                 if source_path.is_file():
-                    _open_folder_in_explorer(source_path.parent)
+                    open_folder_in_explorer(source_path.parent)
                 elif source_path.is_dir():
-                    _open_folder_in_explorer(source_path)
+                    open_folder_in_explorer(source_path)
                 else:
                     initial_path = Path(state.output_path)
                     if initial_path.exists():
-                        _open_folder_in_explorer(initial_path)
+                        open_folder_in_explorer(initial_path)
                     else:
                         log_message(state, "ERROR", "No existing folder to open.")
 
@@ -399,10 +505,23 @@ class S3UploaderPlugin(TabPlugin):
                     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                         content = f.read()
 
-                    # Check generator signature (flexible with quotes)
-                    is_cerebrus = re.search(
-                        r'meta\s+name=["\']generator["\']\s+content=["\']Cerebrus Profiling Tool["\']',
-                        content,
+                    # Detect Cerebrus-processed HTML. Two acceptable signals
+                    # (either is sufficient): the generator <meta> tag (added
+                    # by _inject_cerebrus_generator_meta) and/or the
+                    # cerebrus-metadata JSON payload (added by
+                    # _inject_cerebrus_metadata_script). Older Cerebrus
+                    # builds only emitted the script tag; the meta tag was
+                    # added later for cheap detection, so we accept both.
+                    is_cerebrus = bool(
+                        re.search(
+                            r'meta\s+name=["\']generator["\']\s+content=["\']Cerebrus Profiling Tool["\']',
+                            content,
+                        )
+                        or re.search(
+                            r'<script\s+type="application/json"\s+id="cerebrus-metadata"',
+                            content,
+                            re.IGNORECASE,
+                        )
                     )
                     if not is_cerebrus:
                         log_message(
@@ -544,17 +663,15 @@ class S3UploaderPlugin(TabPlugin):
                     return
                 bucket_name = creds.get("bucket_name", bucket_display_name)
 
-                # Validate it's a Cerebrus report if it's HTML
+                # Validate it's a Cerebrus report if it's HTML. Either the
+                # generator <meta> tag in <head> or the cerebrus-metadata
+                # JSON script anywhere in the body is sufficient evidence.
+                # Reports produced before the meta tag was added carry only
+                # the script tag, so we fall back to a full-file scan when
+                # the head doesn't match.
                 if source_path.lower().endswith(".html"):
                     try:
-                        with open(
-                            source_path, "r", encoding="utf-8", errors="ignore"
-                        ) as f:
-                            head = f.read(2048)  # Just check start
-                        if (
-                            'meta name="generator" content="Cerebrus Profiling Tool"'
-                            not in head
-                        ):
+                        if not _is_cerebrus_html(Path(source_path)):
                             log_message(
                                 state,
                                 "WARNING",

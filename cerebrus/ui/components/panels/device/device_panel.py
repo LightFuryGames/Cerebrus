@@ -2,15 +2,33 @@
 
 from __future__ import annotations
 
+import threading
+import time
+
 import dearpygui.dearpygui as dpg
 
 from cerebrus.core.devices import DeviceInfo, collect_device_info
-from cerebrus.tools.adb import AdbClient
+from cerebrus.core.jobs import Job, get_default_scheduler
+from cerebrus.tools.adb import AdbClient, AdbError
 
 from ....state import UIState
 from ....themes import get_theme_manager
-from ...shared import SELECTED_ROW_COLOR, _add_help_button, log_message
+from ...shared import SELECTED_ROW_COLOR, add_help_button, log_message
 from ...ui_config import UIConfig
+
+# How often the auto-detect watcher checks adb. 10 seconds is short enough
+# to feel "live" when a device is plugged in but long enough to avoid log
+# spam on machines with no device connected.
+_AUTODETECT_INTERVAL_S: float = 10.0
+# A submitted job whose timestamp is younger than this is treated as
+# "still in flight" so a fast manual click does not pile a second job on
+# top of the running one.
+_AUTODETECT_DEBOUNCE_S: float = 1.5
+
+_autodetect_stop: threading.Event | None = None
+_autodetect_thread: threading.Thread | None = None
+_last_submit_at: float = 0.0
+_submit_guard = threading.Lock()
 
 
 def build_device_controls(state: UIState) -> None:
@@ -19,13 +37,23 @@ def build_device_controls(state: UIState) -> None:
     dpg.add_separator()
     with dpg.group(horizontal=True, horizontal_spacing=8):
         dpg.bind_item_theme(dpg.add_text("Device(s)"), tm.get_header_theme())
-        _add_help_button("device_table")
+        add_help_button("device_table")
         dpg.add_button(
             label="List Devices",
             width=UIConfig.get_instance().get_dimension("button_width_standard"),
-            callback=lambda: _populate_devices(state),
+            callback=lambda: _trigger_device_detection(state, manual=True),
         )
-        _add_help_button("list_devices")
+        add_help_button("list_devices")
+        dpg.add_button(
+            label="Start ADB Server",
+            callback=lambda: _trigger_adb_server(state, action="start"),
+        )
+        add_help_button("start_adb_server")
+        dpg.add_button(
+            label="Stop ADB Server",
+            callback=lambda: _trigger_adb_server(state, action="stop"),
+        )
+        add_help_button("stop_adb_server")
     # Use autosize_x=False and width=0 to ensure it fills available space but respects window bounds
     settings = UIConfig.get_instance().get_component_settings(
         "device_table_container", {"tag": "device_table_container"}
@@ -39,28 +67,135 @@ def build_device_controls(state: UIState) -> None:
 
 
 def _populate_devices(state: UIState) -> None:
-    log_message(state, "DEBUG", "_populate_devices called")
+    """Backwards-compatible entry point.
+
+    Old call sites (profiling panel, layout module) invoke this name
+    directly. Route through the scheduler so they pick up the new
+    async + window-suppressed behaviour without each having to import
+    the Job system.
+    """
+    _trigger_device_detection(state, manual=True)
+
+
+def _trigger_device_detection(state: UIState, *, manual: bool) -> None:
+    """Submit a device-detection job to the global scheduler.
+
+    The actual adb work runs on a worker thread so the DPG callback returns
+    immediately. ``manual=True`` bypasses the debounce guard so the user's
+    "List Devices" click always fires; ``manual=False`` (the auto-detect
+    watcher) skips the submission when one is already in flight.
+    """
+    global _last_submit_at
+    now = time.monotonic()
+    with _submit_guard:
+        if not manual and (now - _last_submit_at) < _AUTODETECT_DEBOUNCE_S:
+            return
+        _last_submit_at = now
+
     package_value = (
         dpg.get_value("package_input") if dpg.does_item_exist("package_input") else ""
     )
     state.package_name = package_value or ""
-    log_message(state, "DEBUG", f"Package Name: {state.package_name}")
+    if manual:
+        log_message(state, "DEBUG", "List Devices clicked")
 
-    try:
-        state.devices = collect_device_info(state.package_name)
-        log_message(state, "DEBUG", f"Devices found: {len(state.devices)}")
-        for d in state.devices:
-            log_message(state, "DEBUG", f"Device: {d.serial} - {d.model}")
-    except Exception as e:
-        log_message(state, "ERROR", f"collect_device_info failed: {e}")
-        import traceback
+    def _work() -> None:
+        try:
+            devices = collect_device_info(state.package_name)
+        except Exception as exc:  # noqa: BLE001 - all errors land in the UI log
+            log_message(state, "ERROR", f"collect_device_info failed: {exc}")
+            return
+        prior_count = len(state.devices)
+        state.devices = devices
+        if manual or prior_count != len(devices):
+            log_message(
+                state,
+                "DEBUG" if not manual else "INFO",
+                f"Devices found: {len(devices)}",
+            )
+            for d in devices:
+                log_message(state, "DEBUG", f"Device: {d.serial} - {d.model}")
+        _refresh_device_table(state)
+        if manual and not devices:
+            _show_device_troubleshooting_dialog(state)
 
-        traceback.print_exc()
+    name = "detect-devices (manual)" if manual else "detect-devices (auto)"
+    get_default_scheduler().submit(Job(fn=_work, name=name))
 
-    if not state.devices:
-        _show_device_troubleshooting_dialog(state)
 
-    _refresh_device_table(state)
+def _trigger_adb_server(state: UIState, *, action: str) -> None:
+    """Submit a Start/Stop ADB Server job. Manual override only — never
+    auto-triggered."""
+
+    def _work() -> None:
+        client = AdbClient()
+        try:
+            if action == "start":
+                client.start_server()
+                log_message(state, "SUCCESS", "ADB server started.")
+            elif action == "stop":
+                client.kill_server()
+                log_message(state, "SUCCESS", "ADB server stopped.")
+            else:
+                log_message(state, "ERROR", f"Unknown ADB server action: {action!r}")
+                return
+        except AdbError as exc:
+            log_message(state, "ERROR", f"ADB server {action} failed: {exc}")
+            return
+        # Refresh the device list after the daemon state changed.
+        _trigger_device_detection(state, manual=True)
+
+    get_default_scheduler().submit(Job(fn=_work, name=f"adb-{action}-server"))
+
+
+# ---------------------------------------------------------------------------
+# Auto-detect watcher
+# ---------------------------------------------------------------------------
+
+
+def start_adb_autodetect(state: UIState) -> None:
+    """Start the background watcher that periodically refreshes the device
+    list.
+
+    Idempotent — calling twice has no extra effect. The watcher submits a
+    job to the global :class:`JobScheduler` every
+    :data:`_AUTODETECT_INTERVAL_S` seconds, with a debounce so manual
+    clicks don't double-queue.
+    """
+    global _autodetect_stop, _autodetect_thread
+    if _autodetect_thread is not None and _autodetect_thread.is_alive():
+        return
+    stop_event = threading.Event()
+
+    def _loop() -> None:
+        # Initial detect runs after a short delay so the UI has time to
+        # finish drawing before the first log line appears.
+        if stop_event.wait(1.0):
+            return
+        while not stop_event.is_set():
+            try:
+                _trigger_device_detection(state, manual=False)
+            except Exception as exc:  # noqa: BLE001
+                log_message(state, "ERROR", f"adb autodetect tick failed: {exc}")
+            if stop_event.wait(_AUTODETECT_INTERVAL_S):
+                return
+
+    _autodetect_stop = stop_event
+    _autodetect_thread = threading.Thread(
+        target=_loop, name="cerebrus-adb-autodetect", daemon=True
+    )
+    _autodetect_thread.start()
+
+
+def stop_adb_autodetect() -> None:
+    """Stop the auto-detect watcher. Idempotent."""
+    global _autodetect_stop, _autodetect_thread
+    if _autodetect_stop is not None:
+        _autodetect_stop.set()
+    if _autodetect_thread is not None:
+        _autodetect_thread.join(timeout=2.0)
+    _autodetect_stop = None
+    _autodetect_thread = None
 
 
 def _refresh_device_table(state: UIState) -> None:
@@ -253,13 +388,17 @@ def _show_device_troubleshooting_dialog(state: UIState) -> None:
     if dpg.does_item_exist("adb_troubleshoot_dialog"):
         dpg.delete_item("adb_troubleshoot_dialog")
 
-    # Center the dialog
-    viewport_width = dpg.get_viewport_width()
-    viewport_height = dpg.get_viewport_height()
-    width = 500
-    height = 320
-    pos_x = (viewport_width - width) // 2
-    pos_y = (viewport_height - height) // 2
+    # Centre the dialog. The previous 500x320 was too short for the
+    # four-step troubleshooting list — the OK button clipped behind the
+    # window border on standard scaling. 560x440 fits the content with
+    # breathing room and still leaves space on a 1280x720 viewport.
+    viewport_width = dpg.get_viewport_width() or 1200
+    viewport_height = dpg.get_viewport_height() or 800
+    width = 560
+    height = 440
+    text_wrap = width - 40
+    pos_x = max(20, (viewport_width - width) // 2)
+    pos_y = max(20, (viewport_height - height) // 2)
 
     with dpg.window(
         tag="adb_troubleshoot_dialog",
@@ -275,7 +414,7 @@ def _show_device_troubleshooting_dialog(state: UIState) -> None:
         )
         dpg.add_text(
             "If your device is connected but not showing up, please try the following:",
-            wrap=460,
+            wrap=text_wrap,
         )
         dpg.add_spacer(height=UIConfig.get_instance().get_spacer("standard"))
 
@@ -307,10 +446,14 @@ def _show_device_troubleshooting_dialog(state: UIState) -> None:
         dpg.add_separator()
         dpg.add_spacer(height=UIConfig.get_instance().get_spacer("standard"))
 
+        # Right-align the OK button by computing the spacer width from the
+        # actual dialog width, so any future width tweak doesn't push the
+        # button off-screen the way the hard-coded 380 did.
+        button_width = UIConfig.get_instance().get_dimension("button_width_small")
         with dpg.group(horizontal=True):
-            dpg.add_spacer(width=380)
+            dpg.add_spacer(width=max(0, width - button_width - 32))
             dpg.add_button(
                 label="OK",
-                width=UIConfig.get_instance().get_dimension("button_width_small"),
+                width=button_width,
                 callback=lambda: dpg.delete_item("adb_troubleshoot_dialog"),
             )

@@ -3,8 +3,41 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from dataclasses import dataclass
 from typing import List
+
+# 30 seconds is the audit-mandated upper bound for any single adb call
+# (full-codebase audit #5: "All ADB subprocess invocations have no timeout
+# - a frozen device hangs UI flows forever").
+DEFAULT_ADB_TIMEOUT_S: float = 30.0
+
+
+def _silent_subprocess_kwargs() -> dict:
+    """Return the kwargs needed to make ``subprocess.run`` / ``Popen``
+    silent on every platform.
+
+    On Windows the default ``subprocess`` invocation flashes a console
+    window every time ``adb`` runs because ``adb.exe`` is a console
+    subsystem binary. Pass ``CREATE_NO_WINDOW`` plus a ``STARTUPINFO`` with
+    ``SW_HIDE`` so end users never see those windows pop up and away — the
+    exact spam reported during post-install device enumeration.
+    """
+    kwargs: dict = {}
+    if sys.platform == "win32":
+        creationflags = 0
+        # ``CREATE_NO_WINDOW`` is the modern flag; ``DETACHED_PROCESS`` is
+        # avoided because it disconnects stdio we still want to capture.
+        creationflags |= getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+        kwargs["creationflags"] = creationflags
+        # Belt + braces: STARTUPINFO with SW_HIDE so even older Python
+        # builds that ignore the flag still suppress the window.
+        if hasattr(subprocess, "STARTUPINFO"):
+            startupinfo = subprocess.STARTUPINFO()  # type: ignore[attr-defined]
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW  # type: ignore[attr-defined]
+            startupinfo.wShowWindow = 0  # SW_HIDE
+            kwargs["startupinfo"] = startupinfo
+    return kwargs
 
 
 class AdbError(RuntimeError):
@@ -16,6 +49,7 @@ class AdbClient:
     """Execute adb commands and parse their output."""
 
     executable: str = "adb"
+    timeout_s: float = DEFAULT_ADB_TIMEOUT_S
 
     def list_devices(self) -> List[str]:
         """Return a list of connected device serial numbers."""
@@ -248,15 +282,31 @@ class AdbClient:
             # Silently fail if parsing or command fails, as it's a non-critical cleanup step
             pass
 
+    def start_server(self) -> None:
+        """Bring the local adb daemon up. Idempotent — ``adb start-server``
+        on an already-running daemon is a no-op."""
+        self._run(["start-server"])
+
+    def kill_server(self) -> None:
+        """Tear down the local adb daemon. Idempotent."""
+        self._run(["kill-server"])
+
     def _run(self, args: List[str]) -> subprocess.CompletedProcess[str]:
         command = [self.executable, *args]
-        completed = subprocess.run(
-            command,
-            check=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
+        try:
+            completed = subprocess.run(
+                command,
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=self.timeout_s,
+                **_silent_subprocess_kwargs(),
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise AdbError(
+                f"{' '.join(command)}: timed out after {self.timeout_s:.0f}s"
+            ) from exc
         if completed.returncode != 0:
             error_message = completed.stderr.strip() or "adb command failed"
             raise AdbError(f"{' '.join(command)}: {error_message}")

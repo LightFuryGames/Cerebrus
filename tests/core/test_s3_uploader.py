@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 from cerebrus.plugins.s3_uploader.plugin import (
     _derive_s3_dir_from_metadata,
     _extract_report_metadata,
+    _is_cerebrus_html,
     _strip_raw_csv_tab_from_report,
     _upload_file_to_s3,
 )
@@ -118,6 +119,93 @@ def test_derive_s3_dir_from_current_perf_report_metadata():
         _derive_s3_dir_from_metadata(metadata)
         == "Test/OnePlus/A3003/CL-33425/11-05-2026/082831"
     )
+
+
+def test_extract_report_metadata_from_v3_snake_case_json():
+    """Cerebrus v3+ HTML injection emits snake_case keys. The s3_uploader
+    derives its S3 path from title-case keys, so the normalizer must
+    bridge the two layouts. Regression for the
+    ``UnknownConfig/UnknownMake/...`` bug.
+    """
+    html = """
+    <html>
+      <head><title>60FPS Performance Report : Profile(20260519_110250)</title></head>
+      <body>
+        <table>
+          <tr><td>Build Version</td><td><b>++titan-game+development-CL-34344</b></td></tr>
+        </table>
+        <script type="application/json" id="cerebrus-metadata">
+          {"build_config": "Test", "cpu_device": "samsung|SM-S948U1|Adreno (TM) 840",
+           "device_manufacturer": "samsung", "device_model": "SM-S948U1"}
+        </script>
+      </body>
+    </html>
+    """
+
+    metadata = _extract_report_metadata(html)
+
+    assert metadata["Build Configuration"] == "Test"
+    assert metadata["Device Make"] == "samsung"
+    assert metadata["Device Model"] == "SM-S948U1"
+    # Changelist + Date/Time backfilled from table + filename.
+    assert metadata["Changelist"] == "CL-34344"
+    assert metadata["Date"] == "19-05-2026"
+    assert metadata["Time"] == "110250"
+    assert (
+        _derive_s3_dir_from_metadata(metadata)
+        == "Test/samsung/SM-S948U1/CL-34344/19-05-2026/110250"
+    )
+
+
+def test_extract_report_metadata_json_with_build_version_field():
+    """``build_version`` in the JSON maps to Changelist via _extract_changelist."""
+    html = """
+    <script type="application/json" id="cerebrus-metadata">
+      {"build_config": "Test", "device_manufacturer": "samsung",
+       "device_model": "SM-S948U1",
+       "build_version": "++titan-game+development-CL-99999"}
+    </script>
+    """
+
+    metadata = _extract_report_metadata(html)
+
+    assert metadata["Changelist"] == "CL-99999"
+
+
+def test_is_cerebrus_html_detects_generator_meta_tag(tmp_path):
+    """Newest pipeline stamps a generator <meta> tag into <head>."""
+    report = tmp_path / "with_meta.html"
+    report.write_text(
+        '<html><head><meta name="generator" content="Cerebrus Profiling Tool"/>'
+        "</head><body></body></html>",
+        encoding="utf-8",
+    )
+    assert _is_cerebrus_html(report) is True
+
+
+def test_is_cerebrus_html_detects_metadata_script_without_meta(tmp_path):
+    """Legacy Cerebrus reports (and v3.0.1 in the field) lack the meta tag
+    but carry the cerebrus-metadata <script> before </body>. Detection must
+    catch them; the absence-of-meta path was the source of the false
+    'Non-Cerebrus HTML' warning."""
+    report = tmp_path / "with_script.html"
+    body = (
+        "<html><head><title>perf</title></head><body>"
+        + ("x" * 6000)
+        + '<script type="application/json" id="cerebrus-metadata">{"build_config":"Test"}</script>'
+        + "</body></html>"
+    )
+    report.write_text(body, encoding="utf-8")
+    assert _is_cerebrus_html(report) is True
+
+
+def test_is_cerebrus_html_rejects_third_party_html(tmp_path):
+    report = tmp_path / "rando.html"
+    report.write_text(
+        "<html><head><title>not us</title></head><body>plain</body></html>",
+        encoding="utf-8",
+    )
+    assert _is_cerebrus_html(report) is False
 
 
 def test_upload_file_to_s3_includes_content_type_extra_args():

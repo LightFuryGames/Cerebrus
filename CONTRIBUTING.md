@@ -97,6 +97,15 @@ Reviewers should verify:
 - Docs:
   - Updated and accurate.
 
+### Code-Audit Cycles
+
+For larger PRs or refactors, a multi-agent audit cycle may be run before
+merge. Artefacts live under `CodeAuditReview/<YYYY-MM>-<scope>/`. See
+`CodeAuditReview/README.md` for the brief / parallel-audit / cross-review
+/ mutual-synthesis / optional post-fix-consent workflow. Reference the
+relevant `02_mutual_*.md` (or `03_mutual_*.md`) in the PR description
+when shipping anything that came out of an audit.
+
 ## Code Style
 
 - Python:

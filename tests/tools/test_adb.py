@@ -16,6 +16,24 @@ def _completed(
     )
 
 
+def _assert_adb_invoked(run_mock: MagicMock, expected_cmd: list[str]) -> None:
+    """Assert ``subprocess.run`` was called at least once with the exact
+    command list, ignoring extra kwargs the AdbClient adds (timeout, the
+    Windows window-suppression flags). Tests must not pin those kwargs
+    or they break the moment we tighten subprocess hygiene."""
+    for call in run_mock.call_args_list:
+        args, kwargs = call
+        if args and list(args[0]) == expected_cmd:
+            assert kwargs.get("check") is False
+            assert kwargs.get("stdout") == subprocess.PIPE
+            assert kwargs.get("stderr") == subprocess.PIPE
+            assert kwargs.get("text") is True
+            return
+    raise AssertionError(
+        f"expected adb call {expected_cmd!r} in {run_mock.call_args_list!r}"
+    )
+
+
 @patch("subprocess.run")
 def test_list_devices_parses_device_lines(run_mock: MagicMock) -> None:
     run_mock.return_value = _completed(
@@ -26,13 +44,7 @@ def test_list_devices_parses_device_lines(run_mock: MagicMock) -> None:
     devices = client.list_devices()
 
     assert devices == ["emulator-5554", "real"]
-    run_mock.assert_called_once_with(
-        ["adb", "devices"],
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
+    _assert_adb_invoked(run_mock, ["adb", "devices"])
 
 
 @patch("subprocess.run")
@@ -61,12 +73,9 @@ def test_force_stop_package(run_mock: MagicMock) -> None:
     client.force_stop_package("serial", "com.test.app")
     # AdbClient.force_stop_package makes two calls: am force-stop and am broadcast
     assert run_mock.call_count == 2
-    run_mock.assert_any_call(
+    _assert_adb_invoked(
+        run_mock,
         ["adb", "-s", "serial", "shell", "am", "force-stop", "com.test.app"],
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
     )
 
 
@@ -75,12 +84,9 @@ def test_clear_package_data(run_mock: MagicMock) -> None:
     run_mock.return_value = _completed("")
     client = AdbClient()
     client.clear_package_data("serial", "com.test.app")
-    run_mock.assert_called_once_with(
+    _assert_adb_invoked(
+        run_mock,
         ["adb", "-s", "serial", "shell", "pm", "clear", "com.test.app"],
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
     )
 
 
@@ -94,7 +100,8 @@ def test_launch_package(run_mock: MagicMock) -> None:
     assert run_mock.call_count == 2
 
     # Verify fallback call
-    run_mock.assert_any_call(
+    _assert_adb_invoked(
+        run_mock,
         [
             "adb",
             "-s",
@@ -107,10 +114,6 @@ def test_launch_package(run_mock: MagicMock) -> None:
             "android.intent.category.LAUNCHER",
             "1",
         ],
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
     )
 
 
@@ -119,7 +122,8 @@ def test_send_console_command(run_mock: MagicMock) -> None:
     run_mock.return_value = _completed("")
     client = AdbClient()
     client.send_console_command("serial", "stat unit")
-    run_mock.assert_called_once_with(
+    _assert_adb_invoked(
+        run_mock,
         [
             "adb",
             "-s",
@@ -133,8 +137,4 @@ def test_send_console_command(run_mock: MagicMock) -> None:
             "cmd",
             "'stat unit'",
         ],
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
     )

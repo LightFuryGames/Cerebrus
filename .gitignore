@@ -440,3 +440,12 @@ cerebrus/_frozen_version.py
 
 # Caveman skill (Codex-side install artifacts)
 .agents/
+
+# Scratch / temp clones / sandbox code
+temp/
+
+# Loose root-level audit scratch — durable audit artefacts live tracked
+# under CodeAuditReview/<cycle>/; only stray drafts at repo root are
+# ignored here so reviewers can drop briefs without committing them.
+/.audit_*.md
+/_audit_*.md

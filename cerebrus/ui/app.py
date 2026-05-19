@@ -128,6 +128,23 @@ class CerebrusApp:
         check_for_updates_ui(self.state, silent_on_up_to_date=True)
 
     def run(self) -> None:
+        from cerebrus.core.jobs import (
+            get_default_scheduler,
+            shutdown_default_scheduler,
+        )
+
+        # Boot the process-wide scheduler before any panel can submit work.
+        get_default_scheduler()
+
+        # Kick the ADB auto-detect watcher; it runs forever on its own
+        # daemon thread until the scheduler is shut down at exit.
+        from cerebrus.ui.components.panels.device.device_panel import (
+            start_adb_autodetect,
+            stop_adb_autodetect,
+        )
+
+        start_adb_autodetect(self.state)
+
         self.build()
         resources_dir = Path(__file__).resolve().parent.parent / "resources"
         small_icon_path = resources_dir / "icon64x64.ico"
@@ -145,5 +162,9 @@ class CerebrusApp:
         dpg.setup_dearpygui()
         dpg.show_viewport()
         apply_responsive_layout()
-        dpg.start_dearpygui()
-        dpg.destroy_context()
+        try:
+            dpg.start_dearpygui()
+        finally:
+            stop_adb_autodetect()
+            shutdown_default_scheduler()
+            dpg.destroy_context()

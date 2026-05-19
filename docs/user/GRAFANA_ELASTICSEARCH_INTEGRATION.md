@@ -180,8 +180,9 @@ curl -X PUT 'http://es:9200/_index_template/telemetry-cerebrus-performance' \
 
 ### Ingest
 
-- **Single doc:** `PUT /telemetry-cerebrus-performance/_doc/<report_fingerprint>` (Cerebrus does this when configured).
-- **Bulk:** Cerebrus `export_elasticsearch_bulk` → NDJSON → `POST /_bulk?refresh`.
+- **Single doc:** `PUT /telemetry-cerebrus-performance/_doc/<report_fingerprint>` (Cerebrus does this from the Analytics & Trends tab and `push_document_to_elasticsearch`).
+- **Bulk (offline file):** `export_elasticsearch_bulk` → NDJSON file → `POST /_bulk?refresh` against the cluster.
+- **Bulk (online HTTP):** `ElasticsearchClient.push_bulk` posts the same NDJSON directly to `<cluster>/_bulk` (still a library API; the in-app tab now exposes only single-doc upload).
 - `_id = report_fingerprint` ⇒ re-uploads are idempotent.
 
 ### ILM (recommended)
@@ -472,7 +473,8 @@ Same physical report → same hash → same ES `_id` → upsert. Different captu
 
 | Cerebrus method | Behavior |
 |---|---|
-| `export_elasticsearch_bulk` | Emits `{"create":{"_index":..., "_id": <report_fingerprint>}}` NDJSON action lines |
+| `export_elasticsearch_bulk` | Emits `{"index":{"_index":..., "_id": <report_fingerprint>}}` NDJSON action lines (upsert) |
+| `push_bulk_to_elasticsearch` / `ElasticsearchClient.push_bulk` | Posts the same `{"index": ...}` NDJSON to `<cluster>/_bulk` over HTTP |
 | `push_document_to_elasticsearch` | Issues `PUT /<index>/_doc/<report_fingerprint>` when the endpoint URL ends with `/_doc` |
 
 If you ingest using Cerebrus's own paths, dedup is automatic — re-uploading the same report overwrites the existing doc instead of creating a new one.

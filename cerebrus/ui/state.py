@@ -4,10 +4,19 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List
 
 from cerebrus.core.devices import DeviceInfo
 from cerebrus.core.profile import ProfileManager
+
+
+@dataclass
+class LogEntry:
+    """One row in the live log panel."""
+
+    timestamp: str
+    level: str
+    source: str | None
+    message: str
 
 
 @dataclass
@@ -15,7 +24,7 @@ class UIState:
     package_name: str = ""
     profile_nickname: str = "Nickname"
     profile_path: Path = Path("/complete/path/to/profile")
-    devices: List[DeviceInfo] = field(default_factory=list)
+    devices: list[DeviceInfo] = field(default_factory=list)
     selected_device_serial: str | None = None
     copy_directory: Path = Path("/path/to/copy")
     date_string: str = "2024-01-01"
@@ -26,7 +35,7 @@ class UIState:
     output_path: Path = Path("C:/")
     config_output_path: Path = Path("C:/")
     device_profile_config_path: Path = Path("")
-    logs: list[tuple[str, str, str]] = field(default_factory=list)
+    logs: list[LogEntry] = field(default_factory=list)
     log_filter: str = ""
     log_selection_mode: bool = False
     profile_manager: ProfileManager = field(default_factory=ProfileManager)

@@ -1,6 +1,6 @@
 [tool.black]
 line-length = 88
-target-version = ['py311']
+target-version = ['py312']
 extend-exclude = '''
 /(
     \.agents
@@ -48,6 +48,5 @@ module = [
     "cerebrus.plugins.s3_uploader.*",
     "cerebrus.tools.memreport.*",
     "cerebrus.plugins.analytics.core.csv_report_parser",
-    "cerebrus.plugins.analytics.core.normalizer",
 ]
 ignore_errors = true

@@ -738,6 +738,8 @@
                                 Secrets</a></li>
                         <li class="toc-item"><a href="#plugin-s3-uploader" class="toc-link toc-sub-link">S3
                                 Uploader</a></li>
+                        <li class="toc-item"><a href="#plugin-analytics" class="toc-link toc-sub-link">Analytics
+                                &amp; Trends</a></li>
                         <li class="toc-item"><a href="#plugin-docs-tests" class="toc-link toc-sub-link">Docs &
                                 Tests</a></li>
                     </ul>
@@ -954,9 +956,9 @@
                     <div class="card warning-cyan" style="border-left: 4px solid #06b6d4;">
                         <h4 class="highlight">📈 Performance lead / TPM</h4>
                         <p>Point Cerebrus at <code>BaseDeviceProfiles.ini</code> in Analytics Settings so tier
-                            shows up in every report. Then open the
-                            <a href="https://github.com/" target="_blank">Grafana + Elasticsearch Integration
-                                Guide</a> shipped under <code>docs/user/</code> and follow the panel recipes.</p>
+                            shows up in every report. Ask the Tech &amp; Tools team for the team's Grafana board
+                            URL and Elasticsearch endpoint; both are shared internally because they change with
+                            project / environment.</p>
                     </div>
                     <div class="card warning-cyan" style="border-left: 4px solid #06b6d4;">
                         <h4 class="highlight">🛠️ DevOps</h4>
@@ -994,10 +996,9 @@
                     <p><strong>Heads up:</strong> If your team already has Elasticsearch indices from earlier
                         Cerebrus versions, the schema is now <code>schema_version: 2</code>. The fields are
                         flat (<code>build_config</code>, not <code>build.config</code>) and a few new fields
-                        exist (<code>report_value</code>, <code>device_tier</code>,
-                        <code>data_quality_*</code>). The
-                        <a href="GRAFANA_ELASTICSEARCH_INTEGRATION.md">integration guide</a> covers the alias
-                        swap procedure.</p>
+                        exist (<code>report_value</code>, <code>device_tier</code>, <code>data_quality_*</code>).
+                        The Tech &amp; Tools team owns the index-alias swap procedure on the Grafana side;
+                        ping them before re-pointing any production dashboard.</p>
                 </div>
             </section>
 
@@ -1111,11 +1112,16 @@
                             <p>Enable USB debugging and connect via USB cable.</p>
                         </li>
                         <li class="step-item">
-                            <h4 class="highlight">List Devices</h4>
-                            <p>Click <code>List Devices</code> to scan.</p>
-                            <span class="note-orange" style="display: block; margin-top: 0.5rem;">Note: If this fails,
-                                run <code>adb devices</code> in a Command
-                                Prompt once to initialize the daemon.</span>
+                            <h4 class="highlight">List Devices &mdash; or just wait</h4>
+                            <p>Cerebrus continuously rescans connected devices on a background thread &mdash; plug
+                                a phone in and the device row appears within a few seconds without you touching the
+                                UI. Click <code>List Devices</code> to force an immediate refresh. The button next
+                                to it is <code>Start ADB Server</code> (boots the local ADB daemon if it is asleep)
+                                and <code>Stop ADB Server</code> (kills a wedged daemon, useful after a USB
+                                hot-swap). Both buttons trigger a fresh scan automatically afterwards.</p>
+                            <span class="note-orange" style="display: block; margin-top: 0.5rem;">Note: The
+                                background scan and every ADB command run silently &mdash; no command-prompt windows
+                                flash on screen any more.</span>
                         </li>
                         <li class="step-item">
                             <h4 class="highlight">Select Device</h4>
@@ -1644,7 +1650,6 @@ t.MaxFPS 30        // Lock framerate for consistency</code></pre>
                             <tr>
                                 <th>Plugin</th>
                                 <th>Plain-English Job</th>
-                                <th>Where To Learn More</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1652,19 +1657,22 @@ t.MaxFPS 30        // Lock framerate for consistency</code></pre>
                                 <td class="highlight">Profiling</td>
                                 <td>The main workbench for launch, kill, console commands, CSV captures, memreports,
                                     file movement, and report generation.</td>
-                                <td><code>cerebrus/plugins/profiling/README.md</code></td>
                             </tr>
                             <tr>
                                 <td class="highlight">AWS Secrets</td>
                                 <td>The key locker. It stores friendly key labels and maps each S3 bucket to the key
                                     that should open it.</td>
-                                <td><code>cerebrus/plugins/aws_secrets/README.md</code></td>
                             </tr>
                             <tr>
                                 <td class="highlight">S3 Uploader - Profiling Reports</td>
                                 <td>The delivery cart. It picks up one generated HTML report and sends it to the
                                     selected S3 bucket path.</td>
-                                <td><code>cerebrus/plugins/s3_uploader/README.md</code></td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Analytics &amp; Trends</td>
+                                <td>The translator. It turns a finished HTML/CSV report into a flat
+                                    <code>.analytics.json</code> and uploads it to the team's Elasticsearch + Grafana
+                                    trend index. See <a href="#plugin-analytics">Analytics &amp; Trends</a> below.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1737,26 +1745,143 @@ t.MaxFPS 30        // Lock framerate for consistency</code></pre>
                     </div>
                 </div>
 
-                <div id="plugin-docs-tests" class="features-grid"
-                    style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1rem;">
-                    <div class="card warning-blue" style="border-left: 4px solid #3b82f6;">
-                        <h3>Plugin Markdown Ownership</h3>
-                        <p>Plugin-specific markdown should live under <code>cerebrus/plugins</code>. The user guide gives
-                            the guided tour; the plugin markdown gives the exact notes for the feature.</p>
-                        <ul style="font-size: 0.9rem;">
-                            <li><code>cerebrus/plugins/README.md</code>: plugin system overview.</li>
-                            <li><code>cerebrus/plugins/aws_secrets/README.md</code>: AWS Secrets details.</li>
-                            <li><code>cerebrus/plugins/s3_uploader/README.md</code>: S3 Uploader details.</li>
-                            <li><code>cerebrus/plugins/TESTING.md</code>: plugin test expectations.</li>
-                        </ul>
+                <div id="plugin-analytics" class="card">
+                    <h3>Analytics &amp; Trends</h3>
+                    <p><span class="highlight">Storybook version:</span> Analytics is the translator. You hand it the
+                        finished HTML report (or the raw CSV the report was built from); it writes a small, tidy
+                        <code>.analytics.json</code> file that an Elasticsearch + Grafana dashboard can read. You then
+                        send that JSON to the dashboard with one click. That is the whole tab.</p>
+
+                    <h4 class="highlight" style="margin-top: 1.5rem;">When to open this tab</h4>
+                    <ul style="font-size: 0.95rem; line-height: 1.65;">
+                        <li>You generated an HTML perf report and now want the trend dashboard to see it.</li>
+                        <li>You have a folder full of older reports and you want to convert them to JSON in one pass.</li>
+                        <li>You want to re-send a report whose JSON already exists on disk (idempotent &mdash; the
+                            dashboard treats two uploads of the same fingerprint as one record).</li>
+                    </ul>
+
+                    <h4 class="highlight" style="margin-top: 1.5rem;">What every field means</h4>
+                    <div class="features-grid" style="grid-template-columns: 1fr; gap: 0.75rem; margin-top: 0.5rem;">
+                        <div class="card" style="padding: 0.85rem 1rem;">
+                            <p style="margin: 0;"><strong>Source File</strong> &mdash; the report you want to convert
+                                or upload. Accepts <code>.html</code>, <code>.csv</code>, or
+                                <code>.analytics.json</code>. Click <code>Browse</code> or paste a full path. After you
+                                click <code>Convert</code>, this field is rewritten to point at the freshly-generated
+                                JSON so the next click can be <code>Upload</code>.</p>
+                        </div>
+                        <div class="card" style="padding: 0.85rem 1rem;">
+                            <p style="margin: 0;"><strong>Output File Path</strong> (optional) &mdash; the folder
+                                where <code>Convert</code> writes the JSON. If you leave this blank, Cerebrus writes
+                                the JSON next to the Source File. If you fill it in <em>and leave Source File empty</em>,
+                                <code>Upload</code> treats every <code>.analytics.json</code> in that folder as a target
+                                so you can push a backlog of converted reports in one go.</p>
+                        </div>
+                        <div class="card" style="padding: 0.85rem 1rem;">
+                            <p style="margin: 0;"><strong>Use Profiling Output</strong> button &mdash; fills the Output
+                                File Path with the same folder the Profiling tab is currently writing reports into.
+                                Convenient when you just generated reports and want the JSONs to sit next to them.</p>
+                        </div>
+                        <div class="card" style="padding: 0.85rem 1rem;">
+                            <p style="margin: 0;"><strong>Upload Endpoint</strong> &mdash; the Elasticsearch (or
+                                OpenSearch) document URL your team has agreed on. Looks like
+                                <code>http://hostname:9200/your-index-name/_doc</code>. Ask your DevOps lead if you
+                                are not sure. The <code>Save</code> button next to the field stores the URL on this
+                                machine so you don't retype it next time.</p>
+                        </div>
+                        <div class="card" style="padding: 0.85rem 1rem;">
+                            <p style="margin: 0;"><strong>Delete Analytics JSON after Upload Success</strong>
+                                checkbox &mdash; when on, Cerebrus removes the <code>.analytics.json</code> file from
+                                disk once the dashboard confirms it received it cleanly. Failed uploads keep their
+                                files so you can retry. Turn this off if you want to keep a local copy of every JSON
+                                you ever uploaded.</p>
+                        </div>
                     </div>
-                    <div class="card warning-orange" style="border-left: 4px solid #f59e0b;">
-                        <h3>Plugin Test Expectations</h3>
-                        <p>New plugin work should include tests for discovery, settings, resource loading, and the main
-                            success/failure paths. For AWS and S3 plugins, also test secret import/export behavior,
-                            bucket mapping, missing dependency messages, upload destination construction, and metadata
-                            handling.</p>
+
+                    <h4 class="highlight" style="margin-top: 1.5rem;">The two buttons, in plain English</h4>
+                    <ol class="steps">
+                        <li class="step-item">
+                            <h4 class="highlight">Convert File to Analytics JSON</h4>
+                            <p>Reads the Source File, extracts every field the dashboard cares about (device,
+                                configuration, FPS metrics, percentile breakdowns, Report Value, data-quality flag,
+                                Scalability Tier, and so on), and writes a single flat <code>.analytics.json</code>
+                                document. The JSON name matches the source file name, so
+                                <code>samsung_SM-S948U1_4.html</code> becomes
+                                <code>samsung_SM-S948U1_4.analytics.json</code>. After it writes, the Source File
+                                box updates to point at the JSON so you can hit Upload right away without
+                                re-browsing.</p>
+                        </li>
+                        <li class="step-item">
+                            <h4 class="highlight">Upload Analytics Document</h4>
+                            <p>Sends the JSON to the Upload Endpoint. If Source File is a single
+                                <code>.analytics.json</code>, that one record is sent. If Source File is empty and
+                                Output File Path is a folder, every <code>.analytics.json</code> in that folder is
+                                sent, one per HTTP request. Each upload uses the report's
+                                <strong>fingerprint</strong> as the document ID, which means re-uploading the same
+                                report does not create a duplicate row &mdash; the dashboard just overwrites the
+                                existing record.</p>
+                        </li>
+                    </ol>
+
+                    <h4 class="highlight" style="margin-top: 1.5rem;">The shortest possible workflow</h4>
+                    <div class="card" style="background: rgba(59,130,246,0.06); border-left: 4px solid #3b82f6;">
+                        <ol style="margin: 0 0 0 1.25rem;">
+                            <li>Generate a perf report in the Profiling tab as usual.</li>
+                            <li>Open the Analytics &amp; Trends tab.</li>
+                            <li>Click <code>Browse</code> next to Source File and pick the HTML report.</li>
+                            <li>Click <code>Convert File to Analytics JSON</code>. A green log line confirms the
+                                JSON was written; the Source File box now points to that JSON.</li>
+                            <li>Click <code>Upload Analytics Document</code>. A green
+                                <code>Uploaded analytics document: ...</code> log line means the dashboard has it.</li>
+                        </ol>
+                        <p style="margin: 0.75rem 0 0; font-size: 0.92rem;">If you want to push a folder of reports at
+                            once, set Output File Path to the folder, leave Source File empty, then click Upload. Each
+                            report uploads in turn; failed ones stay on disk so you can retry without losing data.</p>
                     </div>
+
+                    <h4 class="highlight" style="margin-top: 1.5rem;">Reading the log lines</h4>
+                    <ul style="font-size: 0.92rem; line-height: 1.65;">
+                        <li><span class="highlight">SUCCESS</span> <code>Analytics JSON written: ...</code> &mdash;
+                            conversion done; JSON exists on disk at the shown path.</li>
+                        <li><span class="highlight">SUCCESS</span> <code>Uploaded analytics document: ...</code>
+                            &mdash; one record landed in the dashboard.</li>
+                        <li><span class="highlight">INFO</span> <code>Uploaded: 5 / 7</code> &mdash; folder upload
+                            summary; the two missing rows had their reasons listed below as
+                            <code>Failures:</code>.</li>
+                        <li><span class="highlight-orange">WARNING</span> <code>upload ignored: another upload is
+                            still running.</code> &mdash; you clicked Upload while a previous one was still in
+                            flight. Wait for the green SUCCESS line, then click again.</li>
+                        <li><span class="highlight-red">ERROR</span> <code>Enter the Elasticsearch document
+                            endpoint URL before uploading.</code> &mdash; you forgot to fill in Upload Endpoint.</li>
+                        <li><span class="highlight-red">ERROR</span> <code>Select a Source File or an Output File
+                            Path containing *.analytics.json files first.</code> &mdash; nothing to send; the tab
+                            needs either a specific file or a folder of converted JSONs.</li>
+                    </ul>
+
+                    <div class="card warning-orange" style="border-left: 4px solid #f59e0b; margin-top: 1.5rem;">
+                        <h4 class="highlight-orange">If the Upload Endpoint is wrong</h4>
+                        <p style="font-size: 0.95rem; margin: 0;">Cerebrus never silently swallows a failed upload.
+                            If the server is down, the URL is malformed, the index does not exist, or only some of the
+                            records in a folder make it through, the log shows the exact HTTP status code returned by
+                            the dashboard, and the failed JSONs are kept on disk so you can retry once the endpoint is
+                            healthy. The "delete after success" checkbox only ever fires on truly clean uploads.</p>
+                    </div>
+
+                    <div class="card warning-cyan" style="border-left: 4px solid #06b6d4; margin-top: 1rem;">
+                        <h4 class="highlight">Why this is separate from the Profiling tab</h4>
+                        <p style="font-size: 0.95rem; margin: 0;">Profiling captures a single run and produces an HTML
+                            you can hand to a teammate. Analytics turns that human-readable HTML into the
+                            machine-readable record the team's trend dashboards live on. Splitting them keeps the
+                            Profiling tab small and means you can re-analyse old reports months later without redoing
+                            the capture.</p>
+                    </div>
+                </div>
+
+                <div id="plugin-docs-tests" class="card warning-blue" style="border-left: 4px solid #3b82f6;">
+                    <h3>One Source of Truth</h3>
+                    <p>This user guide is the only document you ever need to read to use Cerebrus. Every screen,
+                        every button, every troubleshooting recipe lives in this file. If something here disagrees
+                        with what the app does, the guide is wrong and we want to know — message the Tech &amp;
+                        Tools team and we will fix it in the next build.</p>
                 </div>
             </section>
 
