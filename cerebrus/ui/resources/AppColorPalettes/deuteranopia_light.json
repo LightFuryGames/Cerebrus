@@ -5,13 +5,16 @@
   "colors": {
     "mvThemeCol_Text": [31, 41, 55],
     "mvThemeCol_TextDisabled": [107, 114, 128],
+    "mvThemeCol_InputTextCursor": [17, 24, 39],
+    "mvThemeCol_TextSelectedBg": [185, 205, 228, 180],
     "mvThemeCol_WindowBg": [248, 249, 252],
     "mvThemeCol_ChildBg": [255, 255, 255],
     "mvThemeCol_PopupBg": [255, 255, 255],
-    "mvThemeCol_Border": [195, 204, 217],
+    "mvThemeCol_Border": [196, 204, 216],
+    "mvThemeCol_BorderShadow": [0, 0, 0, 0],
     "mvThemeCol_FrameBg": [233, 237, 244],
-    "mvThemeCol_FrameBgHovered": [222, 229, 239],
-    "mvThemeCol_FrameBgActive": [210, 221, 235],
+    "mvThemeCol_FrameBgHovered": [216, 226, 239],
+    "mvThemeCol_FrameBgActive": [185, 205, 228],
     "mvThemeCol_TitleBg": [227, 232, 240],
     "mvThemeCol_TitleBgActive": [211, 219, 232],
     "mvThemeCol_MenuBarBg": [242, 245, 249],
@@ -42,7 +45,8 @@
     "mvStyleVar_FrameRounding": 3,
     "mvStyleVar_GrabRounding": 3,
     "mvStyleVar_TabRounding": 3,
-    "mvStyleVar_ChildRounding": 2
+    "mvStyleVar_ChildRounding": 2,
+    "mvStyleVar_FrameBorderSize": 1
   },
   "label_colors": {
     "header": [17, 24, 39],

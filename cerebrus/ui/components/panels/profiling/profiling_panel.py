@@ -352,7 +352,7 @@ def _build_profiling_tab(state: UIState) -> None:
                     with dpg.table_row():
                         dpg.add_button(
                             label="Generate A/B Compare Report (WIP-Early Access)",
-                            width=350,
+                            width=0,
                             callback=lambda: _show_ab_compare_dialog(state),
                         )
                         add_help_button("generate_ab_compare")

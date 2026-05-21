@@ -5,6 +5,8 @@
   "colors": {
     "mvThemeCol_Text": [0, 0, 0],
     "mvThemeCol_TextDisabled": [80, 80, 80],
+    "mvThemeCol_InputTextCursor": [0, 0, 0],
+    "mvThemeCol_TextSelectedBg": [200, 225, 255, 200],
     "mvThemeCol_WindowBg": [255, 255, 255],
     "mvThemeCol_ChildBg": [255, 255, 255],
     "mvThemeCol_PopupBg": [255, 255, 255],
@@ -42,7 +44,8 @@
     "mvStyleVar_FrameRounding": 2,
     "mvStyleVar_GrabRounding": 2,
     "mvStyleVar_TabRounding": 2,
-    "mvStyleVar_ChildRounding": 1
+    "mvStyleVar_ChildRounding": 1,
+    "mvStyleVar_FrameBorderSize": 1
   },
   "label_colors": {
     "header": [0, 0, 0],

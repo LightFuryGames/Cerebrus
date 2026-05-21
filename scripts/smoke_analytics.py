@@ -1,8 +1,8 @@
 """Analytics pipeline smoke test.
 
 End-to-end sanity check over TestData/Profiling. Invoked by
-run_pipeline.ps1 and .github/workflows/tests.yml so local and CI
-exercise the exact same code path.
+run_pipeline.ps1 (local) so the pipeline exercises the same code path
+as targeted unit tests.
 """
 
 from __future__ import annotations

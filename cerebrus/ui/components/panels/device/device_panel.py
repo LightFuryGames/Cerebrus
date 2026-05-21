@@ -64,6 +64,7 @@ def build_device_controls(state: UIState) -> None:
     settings["tag"] = "device_table_container"
     with dpg.child_window(**settings):
         _render_device_table(state)
+    _resize_device_table_container(state)
 
 
 def _populate_devices(state: UIState) -> None:
@@ -207,6 +208,25 @@ def _refresh_device_table(state: UIState) -> None:
         dpg.delete_item(existing_table)
 
     _render_device_table(state)
+    _resize_device_table_container(state)
+
+
+def _resize_device_table_container(state: UIState) -> None:
+    """Shrink the device table container to fit the current row count.
+
+    Empty state shows a single placeholder row; otherwise we size for the
+    actual device count, clamped so a long list doesn't push the rest of
+    the UI off-screen.
+    """
+    if not dpg.does_item_exist("device_table_container"):
+        return
+    row_count = max(1, len(state.devices))
+    # 32px header + ~30px per row + 16px padding.
+    height = 32 + 30 * min(row_count, 6) + 16
+    try:
+        dpg.configure_item("device_table_container", height=height)
+    except Exception:
+        pass
 
 
 def _render_device_table(state: UIState) -> None:

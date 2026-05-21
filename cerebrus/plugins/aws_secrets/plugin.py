@@ -15,10 +15,15 @@ except ImportError:
 
 from cerebrus.core.paths import get_app_data_dir
 from cerebrus.core.plugins import TabPlugin
-from cerebrus.ui.components.shared import (
-    add_plugin_help_button,
+from cerebrus.plugins.aws_secrets.portable_crypto import (
+    DecryptionFailed,
+    PassphraseRequired,
+    decrypt_payload,
+    encrypt_payload,
+    looks_like_cbx3,
 )
 from cerebrus.ui.components.shared import (
+    add_plugin_help_button,
     load_plugin_tooltips,
     log_message,
 )
@@ -32,8 +37,36 @@ class AWSSecretsManager:
     """Singleton to manage AWS credentials locally."""
 
     _instance = None
-    EXPORT_SCHEMA_VERSION = "2.0"
+    EXPORT_SCHEMA_VERSION = "3.0"
+    # Oldest schema version this build is willing to import. Bump when a
+    # breaking change in payload shape lands and old files must be migrated
+    # or rejected with a clear error rather than silently misparsed.
+    MIN_SUPPORTED_SCHEMA = "2.0"
+    # Highest schema version this build understands. Files newer than this
+    # come from a future Cerebrus release; import refuses with a guidance
+    # message instead of dropping fields on the floor.
+    MAX_SUPPORTED_SCHEMA = "3.0"
     LEGACY_PORTABLE_KEY = "Cerebrus_AWS_Secret_Key_2026_!@#"
+
+    @staticmethod
+    def _parse_schema(value) -> tuple[int, ...]:
+        """Parse a schema_version string into a comparable tuple.
+
+        Tolerant of missing / non-numeric segments; unknown formats return
+        ``(0,)`` so ``_is_schema_supported`` rejects them rather than
+        crashing the import flow.
+        """
+        try:
+            return tuple(int(p) for p in str(value).split(".") if p.strip())
+        except Exception:
+            return (0,)
+
+    @classmethod
+    def _is_schema_supported(cls, schema_version) -> bool:
+        v = cls._parse_schema(schema_version)
+        lo = cls._parse_schema(cls.MIN_SUPPORTED_SCHEMA)
+        hi = cls._parse_schema(cls.MAX_SUPPORTED_SCHEMA)
+        return bool(v) and lo <= v <= hi
 
     def __init__(self):
         self.cache_file = get_app_data_dir() / "aws_secrets.json"
@@ -84,8 +117,17 @@ class AWSSecretsManager:
         key = self.LEGACY_PORTABLE_KEY
         return "".join(chr(ord(c) ^ ord(key[i % len(key)])) for i, c in enumerate(data))
 
-    def _build_export_payload(self) -> dict:
-        """Build a portable JSON export without secret values."""
+    def _build_export_payload(self, include_secrets: bool = True) -> dict:
+        """Build a portable export payload.
+
+        ``include_secrets=True`` embeds the plaintext access_key/secret_key
+        into the payload. The caller is responsible for encrypting the
+        resulting JSON before it touches disk (see ``export_data``).
+
+        ``include_secrets=False`` keeps the legacy metadata-only behavior
+        (``contains_secret_values: False``); kept for callers that want a
+        teardown/inspection view of what would be exported.
+        """
         keys = {}
         seen_access_keys = set()
         seen_secret_keys = set()
@@ -97,12 +139,19 @@ class AWSSecretsManager:
             if secret_key and secret_key in seen_secret_keys:
                 continue
 
-            keys[alias] = {
+            entry = {
                 "alias": alias,
-                "requires_reentry": True,
                 "has_access_key": bool(key_info.get("access_key")),
                 "has_secret_key": bool(key_info.get("secret_key")),
             }
+            if include_secrets:
+                entry["access_key"] = access_key
+                entry["secret_key"] = secret_key
+                entry["requires_reentry"] = False
+            else:
+                entry["requires_reentry"] = True
+
+            keys[alias] = entry
             if access_key:
                 seen_access_keys.add(access_key)
             if secret_key:
@@ -114,10 +163,25 @@ class AWSSecretsManager:
             if not bucket.get("key_alias") or bucket.get("key_alias") in keys
         ]
 
+        # Bake versioning into every export so future builds can identify
+        # the schema, the originating Cerebrus build, and the wall-clock
+        # creation time without relying on filename conventions.
+        try:
+            from cerebrus._version import __version__ as _cerebrus_version
+        except Exception:
+            _cerebrus_version = "unknown"
+
+        import datetime as _dt
+
         return {
             "schema_version": self.EXPORT_SCHEMA_VERSION,
+            "min_supported_schema": self.MIN_SUPPORTED_SCHEMA,
+            "cerebrus_version": _cerebrus_version,
+            "created_at": _dt.datetime.now(_dt.timezone.utc).isoformat(
+                timespec="seconds"
+            ),
             "export_type": "aws_bucket_mappings",
-            "contains_secret_values": False,
+            "contains_secret_values": bool(include_secrets),
             "keys": keys,
             "buckets": buckets,
         }
@@ -254,75 +318,133 @@ class AWSSecretsManager:
             print(f"Failed to save AWS secrets: {e}")
             return False
 
-    def export_data(self, path: Path) -> bool:
-        """Export portable bucket mappings as explicit JSON without secret values."""
+    def export_data(self, path: Path, passphrase: str | None = None) -> bool:
+        """Export portable AWS configuration as an encrypted CBX3 binary.
+
+        Payload includes plaintext access_key/secret_key values, wrapped in
+        two-layer authenticated encryption (AES-256-GCM inside Fernet, both
+        keys PBKDF2-HMAC-SHA256 derived with independent random salts).
+
+        ``passphrase`` selects the key source:
+          * non-empty  -> recipient must enter the same passphrase to import
+          * empty/None -> embedded app key (any Cerebrus install can decrypt)
+        """
         try:
-            with open(path, "w") as f:
-                json.dump(self._build_export_payload(), f, indent=4)
+            payload = self._build_export_payload(include_secrets=True)
+            blob = encrypt_payload(payload, passphrase or None)
+            with open(path, "wb") as f:
+                f.write(blob)
             return True
         except Exception as e:
             print(f"Failed to export data: {e}")
             return False
 
-    def import_data(self, path: Path) -> str:
-        """Imports portable configuration. Returns error message or empty string."""
-        try:
-            with open(path, "r") as f:
-                content = f.read()
+    def import_data(self, path: Path, passphrase: str | None = None) -> str:
+        """Import portable configuration. Returns error message or empty string.
 
+        Detects file format in this order:
+          1. CBX3 encrypted binary (current).
+          2. Legacy plain JSON (schema 2.0).
+          3. Legacy XOR+base64 (pre-2.0).
+
+        Special return value ``"PASSPHRASE_REQUIRED"`` signals the UI layer
+        that the caller must prompt the user for a passphrase and retry.
+        """
+        try:
+            raw = Path(path).read_bytes()
+        except Exception as e:
+            return f"Import failed: could not read file: {e}"
+
+        imported_data: dict | None = None
+
+        if looks_like_cbx3(raw):
+            try:
+                imported_data = decrypt_payload(raw, passphrase or None)
+            except PassphraseRequired:
+                return "PASSPHRASE_REQUIRED"
+            except DecryptionFailed as e:
+                return f"Decryption failed: {e}"
+            except Exception as e:
+                return f"Import failed: {e}"
+        else:
+            # Legacy text formats: JSON or XOR-scrambled JSON.
+            try:
+                content = raw.decode("utf-8", errors="replace")
+            except Exception as e:
+                return f"Import failed: {e}"
             try:
                 imported_data = json.loads(content)
             except json.JSONDecodeError:
                 imported_data = self._decrypt_legacy_portable(content)
 
-            if imported_data and "keys" in imported_data and "buckets" in imported_data:
-                contains_secret_values = imported_data.get(
-                    "contains_secret_values",
-                    imported_data.get("schema_version") is None,
-                )
-
-                for alias, key_info in imported_data.get("keys", {}).items():
-                    alias = self._normalize_key_value(key_info.get("alias", alias))
-                    access_key = self._normalize_key_value(key_info.get("access_key"))
-                    secret_key = self._normalize_key_value(key_info.get("secret_key"))
-                    if not alias:
-                        continue
-                    if alias in self.data["keys"]:
-                        continue
-                    if contains_secret_values and self._validate_unique_key(
-                        alias,
-                        access_key,
-                        secret_key,
-                    ):
-                        continue
-                    if contains_secret_values:
-                        self.data["keys"][alias] = {
-                            "alias": alias,
-                            "access_key": "",
-                            "secret_key": "",
-                            "requires_reentry": True,
-                        }
-                    else:
-                        self.data["keys"][alias] = {
-                            "alias": alias,
-                            "access_key": "",
-                            "secret_key": "",
-                            "requires_reentry": True,
-                        }
-
-                # Merge buckets (avoid exact duplicates)
-                imported_buckets = imported_data.get("buckets", [])
-                if isinstance(imported_buckets, dict):
-                    imported_buckets = list(imported_buckets.values())
-
-                for b in imported_buckets:
-                    if b not in self.data["buckets"]:
-                        self.data["buckets"].append(b)
-
-                if not self.save():
-                    return "Imported data could not be saved."
-                return ""
+        if not (
+            imported_data and "keys" in imported_data and "buckets" in imported_data
+        ):
             return "Invalid or corrupted export file."
+
+        # Version gate. Legacy files without ``schema_version`` are treated
+        # as the pre-versioning era and accepted (their shape is the same).
+        # Anything tagged with a version must fall inside the supported
+        # range so a file from a future Cerebrus build does not get parsed
+        # as if it were a current one.
+        schema_version = imported_data.get("schema_version")
+        if schema_version is not None and not self._is_schema_supported(schema_version):
+            return (
+                f"Unsupported export schema {schema_version!s}. "
+                f"This build accepts {self.MIN_SUPPORTED_SCHEMA}"
+                f"..{self.MAX_SUPPORTED_SCHEMA}. "
+                "Upgrade Cerebrus to import this file."
+            )
+
+        try:
+            contains_secret_values = imported_data.get(
+                "contains_secret_values",
+                imported_data.get("schema_version") is None,
+            )
+
+            for alias, key_info in imported_data.get("keys", {}).items():
+                alias = self._normalize_key_value(key_info.get("alias", alias))
+                access_key = self._normalize_key_value(key_info.get("access_key"))
+                secret_key = self._normalize_key_value(key_info.get("secret_key"))
+                if not alias:
+                    continue
+                if alias in self.data["keys"]:
+                    continue
+                if contains_secret_values and self._validate_unique_key(
+                    alias,
+                    access_key,
+                    secret_key,
+                ):
+                    continue
+                if contains_secret_values and (access_key or secret_key):
+                    # Real credentials present in payload -- store them.
+                    self.data["keys"][alias] = {
+                        "alias": alias,
+                        "access_key": access_key,
+                        "secret_key": secret_key,
+                        "requires_reentry": False,
+                    }
+                else:
+                    # Metadata-only entry; recipient must fill in credentials.
+                    self.data["keys"][alias] = {
+                        "alias": alias,
+                        "access_key": "",
+                        "secret_key": "",
+                        "requires_reentry": True,
+                    }
+
+            # Merge buckets (avoid exact duplicates)
+            imported_buckets = imported_data.get("buckets", [])
+            if isinstance(imported_buckets, dict):
+                imported_buckets = list(imported_buckets.values())
+
+            for b in imported_buckets:
+                if b not in self.data["buckets"]:
+                    self.data["buckets"].append(b)
+
+            if not self.save():
+                return "Imported data could not be saved."
+            return ""
         except Exception as e:
             return f"Import failed: {str(e)}"
 
@@ -728,13 +850,16 @@ class AWSSecretsPlugin(TabPlugin):
         # --- Main Modals ---
         def _show_edit_popup():
             if not dpg.does_item_exist("aws_edit_modal"):
+                from cerebrus.ui.components.ui_config import UIConfig
+
+                _aws_ui = UIConfig.get_instance()
                 with dpg.window(
                     tag="aws_edit_modal",
                     modal=True,
                     show=True,
                     label="Manage AWS Secrets",
-                    width=750,
-                    height=550,
+                    width=_aws_ui.scaled(750),
+                    height=_aws_ui.scaled(550),
                 ):
                     with dpg.tab_bar():
                         with dpg.tab(label="AWS Keys"):
@@ -756,13 +881,16 @@ class AWSSecretsPlugin(TabPlugin):
 
         def _show_regions_popup():
             if not dpg.does_item_exist("aws_regions_modal"):
+                from cerebrus.ui.components.ui_config import UIConfig
+
+                _regions_ui = UIConfig.get_instance()
                 with dpg.window(
                     tag="aws_regions_modal",
                     modal=True,
                     show=True,
                     label="Manage Allowed Regions",
-                    width=450,
-                    height=450,
+                    width=_regions_ui.scaled(450),
+                    height=_regions_ui.scaled(450),
                 ):
                     with dpg.group(horizontal=True):
                         dpg.add_input_text(
@@ -812,6 +940,112 @@ class AWSSecretsPlugin(TabPlugin):
                 callback=lambda: self._handle_import(manager, state),
             )
 
+    def _prompt_passphrase(
+        self,
+        title: str,
+        body: str,
+        on_submit,
+        require_confirm: bool = False,
+    ) -> None:
+        """Modal passphrase prompt. Calls ``on_submit(passphrase_or_None)``.
+
+        ``on_submit(None)`` indicates the user explicitly chose to proceed
+        without a passphrase (embedded-key mode for export, or no-passphrase
+        retry for import). The dialog closes itself before invoking the
+        callback so downstream UI work can mutate widgets freely.
+        """
+        tag = "aws_passphrase_dialog"
+        if dpg.does_item_exist(tag):
+            dpg.delete_item(tag)
+
+        def _close():
+            if dpg.does_item_exist(tag):
+                dpg.delete_item(tag)
+
+        def _submit_with(passphrase: str | None):
+            _close()
+            on_submit(passphrase)
+
+        def _on_ok():
+            pw = dpg.get_value(f"{tag}_pw") or ""
+            if require_confirm:
+                pw2 = dpg.get_value(f"{tag}_pw2") or ""
+                if pw != pw2:
+                    dpg.set_value(
+                        f"{tag}_err",
+                        "Passphrases do not match.",
+                    )
+                    return
+            _submit_with(pw if pw else None)
+
+        # Scale the dialog with the active UI scale so high-DPI / large-scale
+        # users do not get a clipped, scrollbar-padded modal. Base dimensions
+        # are tuned at 1.0x; everything else multiplies through UIConfig.
+        try:
+            from cerebrus.ui.components.ui_config import UIConfig
+
+            ui = UIConfig.get_instance()
+
+            def _s(v: int) -> int:
+                return ui.scaled(v)
+
+        except Exception:
+
+            def _s(v: int) -> int:
+                return v
+
+        # Wrap width drives the body-text line-wrap. Window is 40px wider so
+        # the wrap stays inside the content rect after padding.
+        wrap_w = _s(440)
+        win_w = _s(480)
+        # Sized for the largest layout (export with confirm field). Cheap to
+        # over-allocate vertically; the alternative is a scrollbar that
+        # clips the header text -- exactly what we are fixing here.
+        win_h = _s(300 if require_confirm else 230)
+        btn_w_primary = _s(90)
+        btn_w_secondary = _s(180 if not require_confirm else 90)
+
+        with dpg.window(
+            label=title,
+            tag=tag,
+            modal=True,
+            no_collapse=True,
+            no_resize=False,
+            no_scrollbar=True,
+            width=win_w,
+            height=win_h,
+        ):
+            dpg.add_text(body, wrap=wrap_w)
+            dpg.add_spacer(height=_s(8))
+            dpg.add_input_text(
+                tag=f"{tag}_pw",
+                hint=(
+                    "Passphrase (leave blank to use embedded key)"
+                    if not require_confirm
+                    else "Passphrase"
+                ),
+                password=True,
+                width=-1,
+            )
+            if require_confirm:
+                dpg.add_input_text(
+                    tag=f"{tag}_pw2",
+                    hint="Confirm passphrase",
+                    password=True,
+                    width=-1,
+                )
+            dpg.add_text("", tag=f"{tag}_err", color=(220, 80, 80), wrap=wrap_w)
+            dpg.add_spacer(height=_s(6))
+            with dpg.group(horizontal=True):
+                dpg.add_button(label="OK", width=btn_w_primary, callback=_on_ok)
+                dpg.add_button(
+                    label="Skip (embedded key)" if not require_confirm else "Cancel",
+                    width=btn_w_secondary,
+                    callback=(
+                        (lambda: _submit_with(None)) if not require_confirm else _close
+                    ),
+                )
+
     def _handle_export(self, manager, state):
         import tkinter as tk
         from tkinter import filedialog
@@ -826,13 +1060,38 @@ class AWSSecretsPlugin(TabPlugin):
                 filetypes=[("Cerebrus Export", "*.cbx"), ("All files", "*.*")],
             )
             root.destroy()
-            if path:
-                if manager.export_data(Path(path)):
-                    log_message(
-                        state, "SUCCESS", f"Exported AWS secrets to {Path(path).name}"
-                    )
-                else:
-                    log_message(state, "ERROR", "Failed to export AWS secrets.")
+            if not path:
+                return
+
+            def _do_export(passphrase: str | None):
+                try:
+                    if manager.export_data(Path(path), passphrase=passphrase):
+                        mode_label = (
+                            "passphrase-encrypted"
+                            if passphrase
+                            else "embedded-key encrypted"
+                        )
+                        log_message(
+                            state,
+                            "SUCCESS",
+                            f"Exported AWS secrets to {Path(path).name} "
+                            f"({mode_label}).",
+                        )
+                    else:
+                        log_message(state, "ERROR", "Failed to export AWS secrets.")
+                except Exception as e:
+                    log_message(state, "ERROR", f"Export failed: {e}")
+
+            self._prompt_passphrase(
+                title="Encrypt AWS Export",
+                body=(
+                    "Set a passphrase to encrypt this export. Teammates must "
+                    "enter the same passphrase to import. Leave blank to use "
+                    "the built-in app key (any Cerebrus install can decrypt)."
+                ),
+                on_submit=_do_export,
+                require_confirm=True,
+            )
         except Exception as e:
             log_message(state, "ERROR", f"Export failed: {e}")
 
@@ -849,16 +1108,38 @@ class AWSSecretsPlugin(TabPlugin):
                 filetypes=[("Cerebrus Export", "*.cbx"), ("All files", "*.*")],
             )
             root.destroy()
-            if path:
-                error = manager.import_data(Path(path))
-                if not error:
-                    log_message(
-                        state,
-                        "SUCCESS",
-                        f"Imported AWS secrets from {Path(path).name}",
-                    )
-                    self._refresh_ui(manager)
-                else:
-                    log_message(state, "ERROR", error)
+            if not path:
+                return
+
+            def _do_import(passphrase: str | None):
+                try:
+                    error = manager.import_data(Path(path), passphrase=passphrase)
+                    if error == "PASSPHRASE_REQUIRED":
+                        self._prompt_passphrase(
+                            title="Passphrase Required",
+                            body=(
+                                f"{Path(path).name} is passphrase-protected. "
+                                "Enter the passphrase provided by the exporter."
+                            ),
+                            on_submit=_do_import,
+                            require_confirm=False,
+                        )
+                        return
+                    if not error:
+                        log_message(
+                            state,
+                            "SUCCESS",
+                            f"Imported AWS secrets from {Path(path).name}",
+                        )
+                        self._refresh_ui(manager)
+                    else:
+                        log_message(state, "ERROR", error)
+                except Exception as e:
+                    log_message(state, "ERROR", f"Import failed: {e}")
+
+            # First attempt with no passphrase: covers embedded-key files,
+            # legacy JSON, and legacy XOR. Passphrase-mode files trigger the
+            # prompt via the PASSPHRASE_REQUIRED return value.
+            _do_import(None)
         except Exception as e:
             log_message(state, "ERROR", f"Import failed: {e}")

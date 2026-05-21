@@ -18,7 +18,11 @@
       "PowerShell(python -m mypy cerebrus 2>&1)",
       "PowerShell(python -m pytest tests --co -q 2>&1)",
       "PowerShell(python -m isort --check-only . 2>&1)",
-      "PowerShell(.\\\\run_pipeline.ps1 -SkipBuild 2>&1)"
+      "PowerShell(.\\\\run_pipeline.ps1 -SkipBuild 2>&1)",
+      "PowerShell(gh auth status 2>&1)",
+      "PowerShell(gh --version)",
+      "PowerShell(winget --version 2>&1)",
+      "PowerShell(winget install --id GitHub.cli --silent --accept-source-agreements --accept-package-agreements 2>&1)"
     ]
   }
 }

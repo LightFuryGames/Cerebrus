@@ -66,7 +66,6 @@ class CerebrusApp:
         from cerebrus.core.logging_setup import setup_logging
 
         setup_logging()
-
         dpg.create_context()
 
         from cerebrus.core.plugins import PluginManager
@@ -110,11 +109,22 @@ class CerebrusApp:
             label="Cerebrus - An Unreal Engine Perf Report UI Toolkit",
             width=1100,
             height=750,
+            no_scrollbar=True,
         ):
             build_menu_bar(self.state)
-            build_profile_summary(self.state)
-            build_device_controls(self.state)
-            build_file_actions(self.state)
+            # All non-menu content lives inside a scrollable child so content
+            # wider/taller than the viewport gets bars (matters at high DPI
+            # / large UI scale where buttons can spill past the right edge).
+            with dpg.child_window(
+                tag="MainScroll",
+                width=-1,
+                height=-1,
+                border=False,
+                horizontal_scrollbar=True,
+            ):
+                build_profile_summary(self.state)
+                build_device_controls(self.state)
+                build_file_actions(self.state)
 
         dpg.set_primary_window("MainWindow", True)
 
@@ -160,6 +170,17 @@ class CerebrusApp:
             lambda sender=None, app_data=None, user_data=None: apply_responsive_layout()
         )
         dpg.setup_dearpygui()
+        # Apply persisted UI scale (user override). dpg.set_global_font_scale
+        # multiplies all font sizes globally; on top of dpg's auto DPI scaling
+        # it lets the user nudge UI density without re-launching.
+        from cerebrus.ui.ui_prefs import load_ui_prefs
+
+        prefs = load_ui_prefs()
+        if abs(prefs.ui_scale - 1.0) > 0.01:
+            try:
+                dpg.set_global_font_scale(prefs.ui_scale)
+            except Exception:
+                pass
         dpg.show_viewport()
         apply_responsive_layout()
         try:

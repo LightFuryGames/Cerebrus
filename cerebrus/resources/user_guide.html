@@ -139,6 +139,49 @@
             color: white;
         }
 
+        /* Collapsible nav */
+        .toc-item.has-children > .toc-link {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+        }
+
+        .toc-chevron {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.2rem;
+            height: 1.2rem;
+            border-radius: 0.25rem;
+            font-size: 0.7rem;
+            line-height: 1;
+            color: var(--text-muted);
+            transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+            cursor: pointer;
+            flex-shrink: 0;
+            user-select: none;
+        }
+
+        .toc-chevron:hover {
+            background-color: rgba(59, 130, 246, 0.15);
+            color: var(--accent-color);
+        }
+
+        .toc-item.open > .toc-link .toc-chevron {
+            transform: rotate(90deg);
+        }
+
+        .toc-item.has-children > .toc-list {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.25s ease;
+        }
+
+        .toc-item.has-children.open > .toc-list {
+            max-height: 800px;
+        }
+
         /* Main Content */
         main {
             margin-left: var(--sidebar-width);
@@ -745,6 +788,10 @@
                     </ul>
                 </li>
                 <li class="toc-item"><a href="#tools-settings" class="toc-link"><span>12. Tools & Settings</span></a>
+                    <ul class="toc-list">
+                        <li class="toc-item"><a href="#ui-scale" class="toc-link toc-sub-link">UI Scale Override</a>
+                        </li>
+                    </ul>
                 </li>
                 <li class="toc-item"><a href="#advanced" class="toc-link"><span>13. Advanced Features</span></a></li>
                 <li class="toc-item"><a href="#best-practices" class="toc-link"><span>14. Best Practices &
@@ -842,6 +889,43 @@
             <section id="whats-new">
                 <h2>What's New</h2>
                 <h1>Big additions since v2.4.0 &mdash; what changed and why you'll like it.</h1>
+
+                <div class="card" style="border-left: 4px solid #06b6d4; margin-bottom: 1.5rem;">
+                    <h3 class="highlight" style="margin-top: 0;">v3.0.4 &mdash; Bug-fix &amp; hardening release</h3>
+                    <p style="margin-bottom: 0.5rem;">Targeted fixes on top of the v2.4.0 baseline most teams
+                        are upgrading from. No workflow changes; nothing to relearn. Highlights:</p>
+                    <ul style="margin: 0.25rem 0 0.5rem 1.25rem;">
+                        <li><strong>New profile package-name persistence</strong> &mdash; creating a new
+                            profile no longer loses the <code>Package Name</code> after a restart. Previously,
+                            cancelling the file-save dialog left the UI showing the new package name even
+                            though nothing reached disk; on next launch Cerebrus silently fell back to the
+                            default <code>com.lightfury.titan</code>. The save dialog now updates state
+                            <em>after</em> the file is written, and a cancelled save is logged as a warning
+                            so you know nothing was saved.</li>
+                        <li><strong>Encrypted <code>.cbx</code> AWS exports (CBX3, schema v3.0)</strong> &mdash;
+                            <code>.cbx</code> files now embed the actual <code>Access Key ID</code> /
+                            <code>Secret Access Key</code> behind two-layer authenticated encryption (AES-256-GCM
+                            inside Fernet, PBKDF2-HMAC-SHA256 key derivation, random per-export salts).
+                            Optional passphrase prompt on export; recipients must enter the same passphrase to
+                            import. Leave it blank for the embedded-key fallback if you just want
+                            tamper-evidence without managing a shared secret. Plaintext on disk is no longer
+                            possible. Legacy unencrypted and XOR-scrambled <code>.cbx</code> files continue to
+                            import.</li>
+                        <li><strong>Export versioning</strong> &mdash; every <code>.cbx</code> now carries
+                            <code>schema_version</code>, <code>min_supported_schema</code>,
+                            <code>cerebrus_version</code>, and <code>created_at</code>. Imports from a future
+                            Cerebrus release fail with a clear "upgrade Cerebrus" message instead of dropping
+                            fields silently.</li>
+                        <li><strong>Sub-window UI scale &amp; dialog scrollbars</strong> &mdash; the Encrypt /
+                            Decrypt AWS Export modals, Manage AWS Secrets, and Manage Allowed Regions windows
+                            now respect <em>Settings &rarr; UI Scale...</em>. The passphrase dialog no longer
+                            scrolls or clips its header at any scale.</li>
+                    </ul>
+                    <p style="margin: 0;"><em>Existing <code>.cbx</code> files from v2.4.0 still import
+                        normally; recipients on v3.0.4 can also read new encrypted exports. To exchange
+                        passphrase-protected files, both ends must be on v3.0.4 or newer.</em></p>
+                </div>
+
                 <p>If you have used Cerebrus before, the daily workflow is unchanged. Buttons sit where they
                     were. Reports still land in <code>Profiling/</code>, <code>MemReports/</code>, and
                     <code>Logs/</code>. The new things plug in <em>around</em> what already worked, so you can
@@ -1916,6 +2000,34 @@ t.MaxFPS 30        // Lock framerate for consistency</code></pre>
                             workflow.</li>
                     </ul>
                 </div>
+
+                <div id="ui-scale" class="card">
+                    <h3>UI Scale Override</h3>
+                    <p>Open <code>Settings → UI Scale...</code> to multiply the global font and widget sizing on top
+                        of your system DPI scaling. Useful when Windows is already at 125&ndash;200% and the default
+                        Cerebrus layout still feels too small/too large for your monitor.</p>
+                    <ul style="font-size: 0.9rem;">
+                        <li><strong>Range:</strong> <code>0.75x</code> &ndash; <code>2.00x</code>. Default is
+                            <code>1.00x</code>.</li>
+                        <li><strong>Live preview:</strong> Drag the slider to preview font scale in real time. The
+                            preview applies immediately to all rendered text.</li>
+                        <li><strong>Apply:</strong> Persists the value to
+                            <code>%LOCALAPPDATA%\Cerebrus\ui_prefs.json</code> so it survives restarts.</li>
+                        <li><strong>Reset:</strong> Restores <code>1.00x</code> and saves.</li>
+                        <li><strong>Cancel:</strong> Reverts to the last saved value without saving.</li>
+                    </ul>
+                    <p style="font-size: 0.9rem; margin-top: 0.75rem;">
+                        <code class="highlight-orange">Note:</code> Fonts re-scale instantly, but already-rendered
+                        button and panel widths keep their pixel sizes until the next launch. After clicking
+                        <code>Apply</code>, restart Cerebrus to let every control re-measure at the new scale &mdash;
+                        this is what eliminates label clipping (e.g. on long buttons such as
+                        <code>Generate A/B Compare Report</code>).
+                    </p>
+                    <p style="font-size: 0.9rem; margin-top: 0.5rem;">
+                        At extreme scales the main view also exposes horizontal and vertical scrollbars so wide tabs
+                        (Profiling, Analytics &amp; Trends) remain reachable without cropping.
+                    </p>
+                </div>
             </section>
 
             <section id="advanced">
@@ -2163,6 +2275,53 @@ t.MaxFPS 30        // Lock framerate for consistency</code></pre>
         const savedTheme = localStorage.getItem('docs-theme-pref') || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
         updateTheme(savedTheme === 'light');
 
+        // Collapsible TOC
+        const tocParents = document.querySelectorAll('.toc-item');
+        tocParents.forEach(item => {
+            const childList = item.querySelector(':scope > .toc-list');
+            const parentLink = item.querySelector(':scope > .toc-link');
+            if (!childList || !parentLink) return;
+            item.classList.add('has-children');
+            const chevron = document.createElement('span');
+            chevron.className = 'toc-chevron';
+            chevron.textContent = '▶';
+            chevron.setAttribute('aria-label', 'Toggle section');
+            chevron.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                item.classList.toggle('open');
+                const openIds = Array.from(document.querySelectorAll('.toc-item.has-children.open > .toc-link'))
+                    .map(a => a.getAttribute('href'))
+                    .filter(Boolean);
+                localStorage.setItem('docs-toc-open', JSON.stringify(openIds));
+            });
+            parentLink.appendChild(chevron);
+        });
+
+        function openTocSectionFor(hash) {
+            if (!hash) return;
+            const link = document.querySelector('.toc-link[href="' + hash + '"]');
+            if (!link) return;
+            let li = link.closest('.toc-item');
+            while (li) {
+                if (li.classList.contains('has-children')) li.classList.add('open');
+                const parentList = li.parentElement;
+                li = parentList ? parentList.closest('.toc-item') : null;
+            }
+        }
+
+        // Restore saved open state, then ensure active section is open
+        try {
+            const saved = JSON.parse(localStorage.getItem('docs-toc-open') || 'null');
+            if (Array.isArray(saved)) {
+                saved.forEach(h => openTocSectionFor(h));
+            } else {
+                openTocSectionFor(location.hash || '#intro');
+            }
+        } catch (_) {
+            openTocSectionFor(location.hash || '#intro');
+        }
+
         // Scroll Logic
         const scrollTopBtn = document.getElementById('scroll-top');
         const links = document.querySelectorAll('.toc-link');
@@ -2191,6 +2350,8 @@ t.MaxFPS 30        // Lock framerate for consistency</code></pre>
                     link.classList.add('active');
                 }
             });
+
+            if (current) openTocSectionFor("#" + current);
         };
 
         scrollTopBtn.addEventListener('click', () => {

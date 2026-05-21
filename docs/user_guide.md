@@ -153,3 +153,16 @@ Customize your experience via the Settings menu.
 - **Tool Not Found**: Verify that `PerfreportTool.exe` path is correctly configured in your environment or settings.
 - **Report Features**: Generated HTML reports include a **Dark Mode** toggle and **Scroll to Top** button for better readability.
 
+## Changelog
+
+### v3.0.4 — Bug-fix & hardening (against v2.4.0 baseline)
+Targeted fixes on top of the v2.4.0 baseline most teams are upgrading from. No workflow changes; nothing to relearn.
+
+- **New profile package-name persistence.** Creating a new profile no longer loses the `Package Name` after a restart. Previously, cancelling the file-save dialog left the UI showing the new package name even though nothing reached disk; on next launch Cerebrus silently fell back to the default `com.lightfury.titan`. The save dialog now updates state *after* the file is written, and a cancelled save is logged as a warning so you know nothing was saved.
+- **Encrypted `.cbx` AWS exports (CBX3, schema v3.0).** `.cbx` files now embed the actual `Access Key ID` / `Secret Access Key` behind two-layer authenticated encryption: AES-256-GCM inside Fernet, both keys derived via PBKDF2-HMAC-SHA256 with independent random per-export salts. Export accepts an optional passphrase — recipients must enter the same passphrase to import. Leave it blank to use the embedded-key fallback if you only want tamper-evidence. Plaintext credentials on disk are no longer possible. Legacy unencrypted JSON and XOR-scrambled `.cbx` files continue to import unchanged.
+- **Export versioning.** Every `.cbx` now carries `schema_version`, `min_supported_schema`, `cerebrus_version`, and `created_at`. Imports from a future Cerebrus release fail with a clear *"upgrade Cerebrus to import this file"* message instead of dropping fields silently. This build accepts schema versions 2.0 through 3.0.
+- **Sub-window UI scale & dialog scrollbars.** The Encrypt / Decrypt AWS Export modals, Manage AWS Secrets, and Manage Allowed Regions windows now respect *Settings → UI Scale...*. The passphrase dialog no longer renders a scrollbar that clipped the header text at default scale.
+
+**Compatibility:** Existing `.cbx` files from v2.4.0 still import normally on v3.0.4. Passphrase-protected exports require both ends to run v3.0.4 or newer.
+
+

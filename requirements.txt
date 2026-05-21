@@ -13,3 +13,4 @@ scipy
 numpy
 
 boto3
+cryptography

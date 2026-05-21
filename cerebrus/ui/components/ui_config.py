@@ -11,7 +11,28 @@ class UIConfig:
 
     def __init__(self):
         self._config: dict[str, Any] = {}
+        self._scale: float = 1.0
         self._load_config()
+        self._load_scale()
+
+    def _load_scale(self) -> None:
+        try:
+            from cerebrus.ui.ui_prefs import load_ui_prefs
+
+            self._scale = max(0.5, float(load_ui_prefs().ui_scale))
+        except Exception:
+            self._scale = 1.0
+
+    def refresh_scale(self) -> None:
+        """Re-read the persisted UI scale. Existing widgets keep their sized
+        widths until rebuilt, but new widgets created after this call pick
+        up the new value.
+        """
+        self._load_scale()
+
+    def scaled(self, value: int | float) -> int:
+        """Multiply a raw pixel size by the current UI scale."""
+        return int(round(float(value) * self._scale))
 
     @classmethod
     def get_instance(cls) -> UIConfig:
@@ -78,8 +99,9 @@ class UIConfig:
         return self._config.get("spacers", {}).get(type_name, 10)
 
     def get_dimension(self, key: str, default: int = 100) -> int:
-        """Get a UI dimension from config."""
-        return self._config.get("dimensions", {}).get(key, default)
+        """Get a UI dimension from config, multiplied by the active UI scale."""
+        raw = self._config.get("dimensions", {}).get(key, default)
+        return int(round(raw * self._scale))
 
     def get_table_policy(self, key: str, default=None):
         """Get a DearPyGui table policy constant."""

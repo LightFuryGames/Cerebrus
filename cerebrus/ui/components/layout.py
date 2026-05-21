@@ -54,9 +54,14 @@ def _get_viewport_size() -> tuple[int, int]:
 def _calculate_responsive_layout() -> dict[str, int]:
     width, height = _get_viewport_size()
 
-    tab_height = _clamp(int(height * 0.50) + 110, 500, 560)
-    panel_height = _clamp(tab_height - 220, 210, 240)
-    log_height = _clamp(int(height * 0.22) - 100, 80, 130)
+    # Scale tab/log heights proportionally to viewport. Reserve fixed chrome
+    # (~180 px) for menu bar, profile summary, device controls, separators.
+    chrome_reserve = 180
+    available_height = max(420, height - chrome_reserve)
+    # Tab area gets ~72%, log gets ~28% of available vertical space.
+    tab_height = _clamp(int(available_height * 0.72), 420, available_height - 140)
+    log_height = _clamp(available_height - tab_height - 20, 100, available_height - 200)
+    panel_height = _clamp(tab_height - 240, 200, tab_height - 120)
 
     available_width = max(760, width - 24)
     group_gap = 24

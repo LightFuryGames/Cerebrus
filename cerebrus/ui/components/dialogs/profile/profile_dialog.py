@@ -136,22 +136,24 @@ def _handle_profile_save(state: UIState, is_edit: bool) -> None:
 
     dpg.delete_item("profile_dialog")
 
-    # Update state
-    state.package_name = package_name
-    if dpg.does_item_exist("package_input"):
-        dpg.set_value("package_input", package_name)
-
     # For NEW profiles, ALWAYS prompt for save location
     # For EDIT, only prompt if no path exists (shouldn't happen but safety check)
     if not is_edit or not state.profile_manager.current_profile_path:
-        # This is a new profile - prompt for location
-        # Store the temp values to save after path selection
+        # This is a new profile - prompt for location BEFORE mutating state,
+        # so a cancelled save dialog cannot leave the UI showing a package
+        # name that was never persisted to a profile file.
         state.temp_profile_data = {
             "nickname": nickname,
             "package_name": package_name,
         }
         _save_profile_native(state, nickname)
     else:
+        # Edit path: state mutation is safe here because the profile file
+        # already exists and is about to be re-saved below.
+        state.package_name = package_name
+        if dpg.does_item_exist("package_input"):
+            dpg.set_value("package_input", package_name)
+
         # Update existing profile
         profile = state.profile_manager.current_profile
         if profile:
@@ -197,6 +199,12 @@ def _save_profile_native(state: UIState, default_name: str) -> None:
         if file_path:
             path = Path(file_path)
             _finalize_profile_save(state, path)
+        else:
+            log_message(
+                state,
+                "WARNING",
+                "Profile save cancelled. No new profile was created.",
+            )
 
     except Exception as e:
         log_message(state, "ERROR", f"Failed to open save dialog: {e}")
@@ -234,7 +242,21 @@ def _finalize_profile_save(state: UIState, path: Path) -> None:
     profile.generate_perf_report_enabled = state.generate_perf_report_enabled
     profile.generate_colored_logs_enabled = state.generate_colored_logs_enabled
 
-    profile.save(path)
+    # Surface failures of the second (full-field) save. The first save inside
+    # create_new_profile already wrote a valid file with nickname/package_name,
+    # so a partial write here can leave the profile JSON truncated and
+    # unparseable on next launch -- which silently falls back to the default
+    # bundled profile (com.lightfury.titan).
+    try:
+        profile.save(path)
+    except Exception as e:
+        log_message(
+            state,
+            "ERROR",
+            f"Failed to persist profile fields to {path}: {e}. "
+            "Profile may be incomplete; reopen Cerebrus to verify it loads.",
+        )
+        return
 
     log_message(state, "SUCCESS", f"New profile '{nickname}' created at {path}")
 

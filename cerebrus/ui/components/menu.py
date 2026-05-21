@@ -27,6 +27,13 @@ from cerebrus.ui.components.panels.logs_panel.logs_panel import _render_log_entr
 from cerebrus.ui.components.shared import _update_profile_display_colors, log_message
 from cerebrus.ui.state import UIState
 from cerebrus.ui.themes import get_theme_manager
+from cerebrus.ui.ui_prefs import (
+    UI_SCALE_DEFAULT,
+    UI_SCALE_MAX,
+    UI_SCALE_MIN,
+    load_ui_prefs,
+    save_ui_prefs,
+)
 
 
 def _safe_run(state: UIState, func) -> None:
@@ -183,6 +190,11 @@ def build_menu_bar(state: UIState) -> None:
                     ),
                 )
 
+            dpg.add_separator()
+            dpg.add_menu_item(
+                label="UI Scale...",
+                callback=lambda: _safe_run(state, lambda: _show_ui_scale_dialog(state)),
+            )
             dpg.add_separator()
             with dpg.menu(label="Plugins"):
                 dpg.add_menu_item(
@@ -424,3 +436,95 @@ def _provide_feedback(state: UIState) -> None:
         log_message(state, "SUCCESS", "Opened Gmail for feedback")
     except Exception as e:
         log_message(state, "ERROR", f"Failed to open mail client: {e}")
+
+
+def _show_ui_scale_dialog(state: UIState) -> None:
+    """Slider dialog to override the global UI font scale. Persists on Apply."""
+    window_tag = "ui_scale_dialog"
+    slider_tag = "ui_scale_slider"
+    if dpg.does_item_exist(window_tag):
+        dpg.delete_item(window_tag)
+
+    prefs = load_ui_prefs()
+
+    def _apply(value: float) -> None:
+        try:
+            dpg.set_global_font_scale(value)
+        except Exception:
+            pass
+        prefs.ui_scale = value
+        save_ui_prefs(prefs)
+        # Refresh UIConfig so any widgets built AFTER this point pick up the
+        # new scale. Already-rendered widgets keep their current widths; full
+        # apply requires restart.
+        try:
+            from cerebrus.ui.components.ui_config import UIConfig
+
+            UIConfig.get_instance().refresh_scale()
+        except Exception:
+            pass
+        log_message(
+            state,
+            "INFO",
+            f"UI scale set to {value:.2f}x (saved). Restart for full layout reflow.",
+        )
+
+    def _on_apply() -> None:
+        value = float(dpg.get_value(slider_tag))
+        _apply(value)
+        dpg.delete_item(window_tag)
+
+    def _on_reset() -> None:
+        dpg.set_value(slider_tag, UI_SCALE_DEFAULT)
+        _apply(UI_SCALE_DEFAULT)
+
+    def _on_preview(_sender, app_data, _ud) -> None:
+        # Live preview without persisting until Apply.
+        try:
+            dpg.set_global_font_scale(float(app_data))
+        except Exception:
+            pass
+
+    # Size the dialog for the *current* scale so contents don't clip when
+    # the user opens it after picking a large multiplier. Base 420x190 at 1x,
+    # grows linearly with the active scale and capped at viewport bounds.
+    try:
+        active_scale = max(1.0, float(dpg.get_global_font_scale() or 1.0))
+    except Exception:
+        active_scale = max(1.0, prefs.ui_scale)
+    win_w = int(420 * active_scale) + 40
+    win_h = int(190 * active_scale) + 30
+
+    with dpg.window(
+        label="UI Scale",
+        tag=window_tag,
+        modal=True,
+        no_collapse=True,
+        no_resize=False,
+        width=win_w,
+        height=win_h,
+    ):
+        dpg.add_text("Multiplier applied on top of system DPI scaling.")
+        dpg.add_text("Changes save to your Cerebrus user profile.", color=(150, 150, 150))
+        dpg.add_spacer(height=6)
+        dpg.add_slider_float(
+            tag=slider_tag,
+            default_value=prefs.ui_scale,
+            min_value=UI_SCALE_MIN,
+            max_value=UI_SCALE_MAX,
+            format="%.2fx",
+            width=-1,
+            callback=_on_preview,
+        )
+        dpg.add_spacer(height=8)
+        with dpg.group(horizontal=True):
+            dpg.add_button(label="Apply", width=90, callback=lambda: _safe_run(state, _on_apply))
+            dpg.add_button(label="Reset", width=90, callback=lambda: _safe_run(state, _on_reset))
+            dpg.add_button(
+                label="Cancel",
+                width=90,
+                callback=lambda: (
+                    dpg.set_global_font_scale(prefs.ui_scale),
+                    dpg.delete_item(window_tag),
+                ),
+            )
