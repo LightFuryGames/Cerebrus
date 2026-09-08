@@ -19,8 +19,26 @@ from cerebrus.plugins.analytics.core.device_profiles import (
 from cerebrus.plugins.analytics.core.normalizer import parse_cpu_device
 from cerebrus.tools.adb import AdbClient, AdbError
 from cerebrus.tools.log_to_html import convert_log_to_html
+
 from cerebrus.tools.memreport.tool import process_memreport
 from cerebrus.ui.components.shared import _auto_save_profile, log_message
+
+from cerebrus.tools.memreport.tabs.battery_thermal import BatteryThermalTab
+from cerebrus.tools.memreport.tool import generate_html_report, parse_memreport
+from cerebrus.tools.thermal_to_html import (
+    _build_svg_chart,
+    _read_samples,
+    _status_for_temp,
+    generate_thermal_html,
+)
+from cerebrus.ui.components.shared import (
+    _auto_save_profile,
+    device_label,
+    device_output_subfolder_name,
+    log_message,
+    resolve_profiling_targets,
+)
+
 from cerebrus.ui.state import UIState
 from cerebrus.ui.themes import get_theme_manager
 
@@ -171,6 +189,46 @@ def _handle_generate_actions(state: UIState) -> None:
         _handle_generate_mem_report(state)
     if state.generate_colored_logs_enabled:
         _handle_generate_colored_logs(state)
+    if state.generate_thermal_report_enabled:
+        _handle_generate_thermal_report(state)
+
+
+def _handle_generate_thermal_report(state: UIState) -> None:
+    """Render an HTML report for any battery-thermal capture CSV(s) found
+    in the output folder. Unlike CSV/memreport, thermal CSVs are written
+    directly to the output folder by the sampler (there's no on-device
+    file to pull), so this just looks for `*_battery_thermal.csv` there.
+
+    Searches recursively: single-device sessions write the CSV directly
+    under `base_path`, but multi-device sessions nest it one level down,
+    inside a per-device subfolder (`base_path/{make}_{model}_{serial}/`),
+    to keep simultaneous captures from colliding.
+    """
+    base_path = state.base_output_path if state.base_output_path else state.output_path
+    if not base_path.exists():
+        return
+
+    csv_files = list(base_path.rglob("*_battery_thermal.csv"))
+    if not csv_files:
+        return
+
+    generated = 0
+    for csv_file in csv_files:
+        html_path = csv_file.with_suffix(".html")
+        if html_path.exists():
+            continue
+        try:
+            generate_thermal_html(csv_file, html_path)
+            generated += 1
+        except Exception as e:
+            log_message(
+                state,
+                "ERROR",
+                f"Failed to generate thermal report for {csv_file.relative_to(base_path)}: {e}",
+            )
+
+    if generated:
+        log_message(state, "SUCCESS", f"Generated {generated} battery thermal report(s).")
 
 
 def _handle_move_csv(state: UIState) -> None:
@@ -188,7 +246,8 @@ def _handle_move_logs(state: UIState) -> None:
 def _move_files_from_device(
     state: UIState, source_subpath: str, dest_subpath: str
 ) -> None:
-    if not state.selected_device_serial:
+    targets = resolve_profiling_targets(state)
+    if not targets:
         log_message(state, "ERROR", "No device selected.")
         return
 
@@ -204,38 +263,63 @@ def _move_files_from_device(
         return
     project_name = parts[-1]
 
-    # Source: /sdcard/Android/data/{package}/files/UnrealGame/{project}/{project}/Saved/{source_subpath}/
-    source_path = f"/sdcard/Android/data/{state.package_name}/files/UnrealGame/{project_name}/{project_name}/Saved/{source_subpath}/"
-
-    # Dest: Use base_output_path (not device-specific) / {dest_subpath}/
     base_path = state.base_output_path if state.base_output_path else state.output_path
-    dest_path = base_path / dest_subpath
-
-    if not dest_path.exists():
-        dest_path.mkdir(parents=True, exist_ok=True)
-
+    multi_device = len(targets) > 1
     client = AdbClient()
-    serial = state.selected_device_serial
 
-    log_message(state, "INFO", f"Moving files from {source_path} to {dest_path}...")
+    for device in targets:
+        label = device_label(device) if multi_device else ""
 
-    try:
-        # Pull all files from source directory
-        client.pull(serial, source_path + ".", str(dest_path))
+        # Source: /sdcard/Android/data/{package}/files/UnrealGame/{project}/{project}/Saved/{source_subpath}/
+        source_path = f"/sdcard/Android/data/{state.package_name}/files/UnrealGame/{project_name}/{project_name}/Saved/{source_subpath}/"
 
-        # Delete files from source
-        client.shell(serial, ["rm", "-rf", source_path + "*"])
+        # Dest: isolate per-device when multiple devices are active, so
+        # simultaneous pulls never overwrite each other's files.
+        dest_path = base_path / dest_subpath
+        if multi_device:
+            dest_path = base_path / device_output_subfolder_name(device) / dest_subpath
 
-        log_message(state, "SUCCESS", f"Moved files to {dest_path}")
-    except AdbError as e:
-        error_msg = str(e)
-        if "does not exist" in error_msg or "No such file or directory" in error_msg:
-            file_type = "Logs" if "Logs" in dest_subpath else "CSV Data"
-            log_message(state, "ERROR", f"No {file_type} present on device.")
-        else:
-            log_message(state, "ERROR", f"ADB Error: {e}")
-    except Exception as e:
-        log_message(state, "ERROR", f"Failed to move files: {e}")
+        if not dest_path.exists():
+            dest_path.mkdir(parents=True, exist_ok=True)
+
+        serial = device.serial
+        log_message(
+            state,
+            "INFO",
+            f"Moving files{f' from {label}' if label else ''} from {source_path} to {dest_path}...",
+        )
+
+        try:
+            # Pull all files from source directory
+            client.pull(serial, source_path + ".", str(dest_path))
+
+            # Delete files from source
+            client.shell(serial, ["rm", "-rf", source_path + "*"])
+
+            log_message(
+                state, "SUCCESS", f"Moved files{f' from {label}' if label else ''} to {dest_path}"
+            )
+        except AdbError as e:
+            error_msg = str(e)
+            if "does not exist" in error_msg or "No such file or directory" in error_msg:
+                file_type = "Logs" if "Logs" in dest_subpath else "CSV Data"
+                log_message(
+                    state,
+                    "ERROR",
+                    f"No {file_type} present{f' on {label}' if label else ' on device'}.",
+                )
+            else:
+                log_message(
+                    state,
+                    "ERROR",
+                    f"ADB Error{f' ({label})' if label else ''}: {e}",
+                )
+        except Exception as e:
+            log_message(
+                state,
+                "ERROR",
+                f"Failed to move files{f' from {label}' if label else ''}: {e}",
+            )
 
 
 def _handle_generate_perf_report(state: UIState) -> None:
@@ -244,37 +328,89 @@ def _handle_generate_perf_report(state: UIState) -> None:
     tool_path = repo_root / "Binaries" / "CsvTools" / "PerfReportTool.exe"
 
     if not tool_path.exists():
-        # Fallback to dev path if deeper nesting (ui/components/files.py -> 3 levels up -> cerebrus. 4 levels? no)
-        # files.py is in cerebrus/ui/components/files.py.
-        # Parent 1: components
-        # Parent 2: ui
-        # Parent 3: cerebrus
-        # Parent 4: root
         log_message(state, "ERROR", f"PerfreportTool not found at: {tool_path}")
         return
 
     base_path = state.base_output_path if state.base_output_path else state.output_path
-    csv_dir = base_path / "CSV"
-    if not csv_dir.exists():
-        log_message(state, "ERROR", f"CSV directory not found: {csv_dir}")
+
+    # A CSV directory can live directly under base_path (single-device
+    # sessions, unchanged from before) or nested one level down inside a
+    # per-device subfolder (multi-device sessions - see
+    # `_move_files_from_device`). Collect every CSV dir that actually
+    # exists so each device's captures get processed.
+    csv_dirs = []
+    flat_csv_dir = base_path / "CSV"
+    if flat_csv_dir.exists():
+        csv_dirs.append(flat_csv_dir)
+    csv_dirs.extend(sorted(base_path.glob("*/CSV")))
+
+    if not csv_dirs:
+        log_message(state, "ERROR", f"CSV directory not found: {flat_csv_dir}")
         return
 
-    output_dir = state.output_path / "Profiling"
+    total_processed = 0
+    for csv_dir in csv_dirs:
+        # Flat (single-device) CSVs keep the original shared Profiling
+        # output folder. Per-device CSVs get their own sibling Profiling
+        # folder, so each device's generated reports stay together.
+        if csv_dir == flat_csv_dir:
+            output_dir = state.output_path / "Profiling"
+            device_prefix = None
+            thermal_search_root = base_path
+        else:
+            output_dir = csv_dir.parent / "Profiling"
+            # Force the report filename to this device's own folder name
+            # rather than `state.output_file_name` - that's a single
+            # global value (whatever was last typed/auto-filled) with no
+            # reliable relation to which device's CSV is being processed
+            # here, which is what caused every device's report to be
+            # named after whichever device was selected last.
+            device_prefix = csv_dir.parent.name
+            thermal_search_root = csv_dir.parent
 
+        total_processed += _process_csv_directory(
+            state, tool_path, csv_dir, output_dir, device_prefix, thermal_search_root
+        )
+
+    log_message(state, "INFO", "Batch processing completed.")
+
+
+def _process_csv_directory(
+    state: UIState,
+    tool_path: Path,
+    csv_dir: Path,
+    output_dir: Path,
+    device_prefix: str | None,
+    thermal_search_root: Path,
+) -> int:
+    """Run PerfReportTool on every CSV file in one directory. Returns the
+    number of files processed (attempted), regardless of individual
+    success/failure - callers use this just for a summary count.
+    """
     if not output_dir.exists():
         output_dir.mkdir(parents=True, exist_ok=True)
 
     csv_files = list(csv_dir.glob("*.csv"))
     if not csv_files:
         log_message(state, "WARNING", f"No CSV files found in {csv_dir}")
-        return
+        return 0
 
     log_message(
-        state, "INFO", f"Found {len(csv_files)} CSV files. Starting processing..."
+        state, "INFO", f"Found {len(csv_files)} CSV files in {csv_dir}. Starting processing..."
     )
 
+    thermal_samples = []
+    thermal_csv_files = list(thermal_search_root.glob("*_battery_thermal.csv"))
+    if thermal_csv_files:
+        try:
+            thermal_samples = _read_samples(thermal_csv_files[0])
+        except Exception as e:
+            log_message(state, "WARNING", f"Could not read battery thermal CSV: {e}")
+
     for csv_file in csv_files:
-        if state.use_prefix_only:
+        if device_prefix is not None:
+            output_filename = f"{device_prefix}_{csv_file.stem}"
+        elif state.use_prefix_only:
             if state.output_file_name:
                 output_filename = f"{state.output_file_name}_{csv_file.stem}"
             else:
@@ -329,7 +465,9 @@ def _handle_generate_perf_report(state: UIState) -> None:
                 else:
                     # Rename if requested via UI state (Prefix/Output Name)
                     final_name = csv_file.stem
-                    if state.use_prefix_only:
+                    if device_prefix is not None:
+                        final_name = f"{device_prefix}_{csv_file.stem}"
+                    elif state.use_prefix_only:
                         if state.output_file_name:
                             final_name = f"{state.output_file_name}_{csv_file.stem}"
                     elif state.output_file_name:
@@ -381,6 +519,16 @@ def _handle_generate_perf_report(state: UIState) -> None:
                 except Exception as e:
                     log_message(state, "WARNING", f"Raw CSV injection failed: {e}")
 
+                if thermal_samples:
+                    try:
+                        _inject_battery_thermal_into_report(
+                            state, thermal_samples, generated_html_path
+                        )
+                    except Exception as e:
+                        log_message(
+                            state, "WARNING", f"Battery thermal injection failed: {e}"
+                        )
+
                 try:
                     csv_file.unlink()
                     log_message(state, "INFO", f"Deleted {csv_file.name}")
@@ -396,22 +544,65 @@ def _handle_generate_perf_report(state: UIState) -> None:
         except Exception as e:
             log_message(state, "ERROR", f"Exception processing {csv_file.name}: {e}")
 
-    log_message(state, "INFO", "Batch processing completed.")
+    return len(csv_files)
 
 
 def _handle_generate_mem_report(state: UIState) -> None:
     """Generate HTML reports from .memreport files."""
     base_path = state.base_output_path if state.base_output_path else state.output_path
 
-    # Input defined as where MemReports were moved to: base_path/MemReports
-    mem_dir = base_path / "MemReports"
+    # A MemReports directory can live directly under base_path
+    # (single-device sessions) or nested one level down inside a
+    # per-device subfolder (multi-device sessions - see
+    # `_move_files_from_device`). Collect every one that actually exists.
+    mem_dirs = []
+    flat_mem_dir = base_path / "MemReports"
+    if flat_mem_dir.exists():
+        mem_dirs.append(flat_mem_dir)
+    mem_dirs.extend(sorted(base_path.glob("*/MemReports")))
 
-    if not mem_dir.exists():
-        log_message(state, "ERROR", f"MemReports directory not found: {mem_dir}")
+    if not mem_dirs:
+        log_message(state, "ERROR", f"MemReports directory not found: {flat_mem_dir}")
         return
 
-    # Output to current output_path / MemReports
-    dest_dir = state.output_path / "MemReports"
+    for mem_dir in mem_dirs:
+        # Output goes next to where the source memreports actually live -
+        # NOT `state.output_path`, which reflects whichever device row was
+        # last clicked in the table and has no relation to which device's
+        # files are being processed in this iteration. Using a sibling of
+        # the discovered mem_dir keeps each device's generated reports
+        # with that device's own data, and never depends on UI selection
+        # state that can change between Start Profiling and Generate.
+        if mem_dir == flat_mem_dir:
+            dest_dir = state.output_path / "MemReports"
+        else:
+            dest_dir = mem_dir.parent / "MemReports"
+
+        # Thermal capture for this same device (if any) lives as a sibling
+        # of mem_dir too, so each device's memreport gets its OWN thermal
+        # tab, not another device's.
+        thermal_search_root = mem_dir.parent if mem_dir != flat_mem_dir else base_path
+
+        # For a per-device subfolder, force the filename prefix to that
+        # device's own folder name rather than `state.output_file_name`
+        # (which reflects whichever device row was last clicked and has
+        # no reliable relation to the device actually being processed
+        # here) - this is what prevents every device's reports from
+        # colliding on the same output filename.
+        device_prefix = mem_dir.parent.name if mem_dir != flat_mem_dir else None
+
+        _generate_mem_reports_in_directory(
+            state, mem_dir, dest_dir, thermal_search_root, device_prefix
+        )
+
+
+def _generate_mem_reports_in_directory(
+    state: UIState,
+    mem_dir: Path,
+    dest_dir: Path,
+    thermal_search_root: Path,
+    device_prefix: str | None,
+) -> None:
     if not dest_dir.exists():
         dest_dir.mkdir(parents=True, exist_ok=True)
 
@@ -421,11 +612,31 @@ def _handle_generate_mem_report(state: UIState) -> None:
         return
 
     log_message(
-        state, "INFO", f"Found {len(report_files)} memreport files. Generating..."
+        state, "INFO", f"Found {len(report_files)} memreport files in {mem_dir}. Generating..."
     )
+
+    # If a battery-thermal capture was taken alongside this profiling
+    # session, attach it as an extra tab on every generated report so the
+    # temperature chart lives inside the same HTML rather than a separate
+    # file. Scoped to this device's own subfolder, not the whole session,
+    # so a device never picks up another device's thermal chart.
+    thermal_samples = []
+    thermal_csv_files = list(thermal_search_root.glob("*_battery_thermal.csv"))
+    if thermal_csv_files:
+        try:
+            thermal_samples = _read_samples(thermal_csv_files[0])
+            log_message(
+                state,
+                "INFO",
+                f"Attaching battery thermal capture ({thermal_csv_files[0].name}, "
+                f"{len(thermal_samples)} samples) to reports in {dest_dir}.",
+            )
+        except Exception as e:
+            log_message(state, "WARNING", f"Could not read battery thermal CSV: {e}")
 
     for report_file in report_files:
         try:
+
             log_message(state, "INFO", f"Parsing {report_file.name}...")
             output_path = process_memreport(
                 input_file=report_file,
@@ -441,13 +652,33 @@ def _handle_generate_mem_report(state: UIState) -> None:
                 )
                 continue
 
+            output_filename = report_file.stem
+            if device_prefix is not None:
+                output_filename = f"{device_prefix}_{report_file.stem}"
+            elif state.use_prefix_only and state.output_file_name:
+                output_filename = f"{state.output_file_name}_{report_file.stem}"
+
+            output_filename += ".html"
+            output_path = dest_dir / output_filename
+
+            log_message(state, "INFO", f"Parsing {report_file.name}...")
+            context = parse_memreport(report_file)
+
+            if thermal_samples:
+                context["tabs"].append(BatteryThermalTab(thermal_samples))
+
+            log_message(state, "INFO", f"Generating HTML: {output_filename}...")
+            # Assuming generate_html_report exists and imported
+            generate_html_report(context, output_path)
+
+
             try:
                 report_file.unlink()
                 log_message(state, "INFO", f"Deleted source: {report_file.name}")
             except Exception as e:
                 log_message(state, "WARNING", f"Failed to delete source: {e}")
 
-            log_message(state, "SUCCESS", f"Report generated: {output_path.name}")
+            log_message(state, "SUCCESS", f"Report generated: {output_filename}")
 
         except Exception as e:
             import traceback
@@ -461,12 +692,31 @@ def _handle_generate_mem_report(state: UIState) -> None:
 def _handle_generate_colored_logs(state: UIState) -> None:
     """Convert text logs to colored HTML logs."""
     base_path = state.base_output_path if state.base_output_path else state.output_path
-    logs_dir = base_path / "Logs"
-    if not logs_dir.exists():
-        log_message(state, "ERROR", f"Logs directory not found: {logs_dir}")
+
+    logs_dirs = []
+    flat_logs_dir = base_path / "Logs"
+    if flat_logs_dir.exists():
+        logs_dirs.append(flat_logs_dir)
+    logs_dirs.extend(sorted(base_path.glob("*/Logs")))
+
+    if not logs_dirs:
+        log_message(state, "ERROR", f"Logs directory not found: {flat_logs_dir}")
         return
 
-    output_dir = state.output_path / "Logs"
+    for logs_dir in logs_dirs:
+        if logs_dir == flat_logs_dir:
+            output_dir = state.output_path / "Logs"
+            device_prefix = None
+        else:
+            output_dir = logs_dir  # convert in place, alongside the source .log files
+            device_prefix = logs_dir.parent.name
+
+        _generate_colored_logs_in_directory(state, logs_dir, output_dir, device_prefix)
+
+
+def _generate_colored_logs_in_directory(
+    state: UIState, logs_dir: Path, output_dir: Path, device_prefix: str | None
+) -> None:
     if not output_dir.exists():
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -476,11 +726,13 @@ def _handle_generate_colored_logs(state: UIState) -> None:
         return
 
     log_message(
-        state, "INFO", f"Found {len(log_files)} log files. Starting conversion..."
+        state, "INFO", f"Found {len(log_files)} log files in {logs_dir}. Starting conversion..."
     )
 
     for log_file in log_files:
-        if state.use_prefix_only:
+        if device_prefix is not None:
+            output_filename = f"{device_prefix}_{log_file.stem}"
+        elif state.use_prefix_only:
             if state.output_file_name:
                 output_filename = f"{state.output_file_name}_{log_file.stem}"
             else:
@@ -1109,6 +1361,86 @@ def _inject_percentile_gauges_into_report(
                 log_message(state, "SUCCESS", "Injected Percentile Gauges (Fallback).")
     except Exception as e:
         log_message(state, "ERROR", f"Failed to inject gauges into HTML: {e}")
+
+
+def _inject_battery_thermal_into_report(
+    state: UIState, thermal_samples: list, html_file: Path
+) -> None:
+    """Add a 'Battery Thermal' tab to an already-generated perf report,
+    reusing the same tab bar that `_inject_raw_csv_into_report` creates.
+    Must run after that function, since it relies on the tab bar already
+    existing in the file.
+    """
+    if not html_file.exists() or not thermal_samples:
+        return
+
+    content = html_file.read_text(encoding="utf-8")
+
+    raw_csv_button_marker = (
+        '<button class="perf-tab-btn" onclick="openPerfTab(event, \'RawCSVTab\')">'
+        "Raw CSV Data</button>"
+    )
+    if raw_csv_button_marker not in content:
+        # Tab bar doesn't exist yet (e.g. raw CSV injection failed/was
+        # skipped) - nothing safe to attach the new tab to.
+        log_message(
+            state, "WARNING", "Could not find tab bar to attach Battery Thermal tab."
+        )
+        return
+
+    new_button = (
+        raw_csv_button_marker
+        + '\n  <button class="perf-tab-btn" onclick="openPerfTab(event, \'BatteryThermalTab\')">'
+        "Battery Thermal</button>"
+    )
+    content = content.replace(raw_csv_button_marker, new_button, 1)
+
+    temps = [s.temp_c for s in thermal_samples]
+    min_temp, max_temp = min(temps), max(temps)
+    avg_temp = sum(temps) / len(temps)
+    duration = thermal_samples[-1].elapsed_seconds
+    peak_label, peak_color = _status_for_temp(max_temp)
+    chart_svg = _build_svg_chart(thermal_samples)
+
+    thermal_tab = f"""
+<div id="BatteryThermalTab" class="perf-tab-content">
+    <h2 style="font-family: sans-serif; color: #ddd;">Battery Thermal</h2>
+    <div style="display:flex; gap:16px; margin-bottom:20px; flex-wrap:wrap; font-family: sans-serif;">
+        <div style="background:#2d2d2d; border-radius:8px; padding:14px 20px; min-width:140px;">
+            <div style="color:#999; font-size:12px; text-transform:uppercase;">Peak Temp</div>
+            <div style="font-size:22px; font-weight:600; color:{peak_color};">{max_temp:.1f}&#176;C ({peak_label})</div>
+        </div>
+        <div style="background:#2d2d2d; border-radius:8px; padding:14px 20px; min-width:140px;">
+            <div style="color:#999; font-size:12px; text-transform:uppercase;">Min Temp</div>
+            <div style="font-size:22px; font-weight:600; color:#ddd;">{min_temp:.1f}&#176;C</div>
+        </div>
+        <div style="background:#2d2d2d; border-radius:8px; padding:14px 20px; min-width:140px;">
+            <div style="color:#999; font-size:12px; text-transform:uppercase;">Average Temp</div>
+            <div style="font-size:22px; font-weight:600; color:#ddd;">{avg_temp:.1f}&#176;C</div>
+        </div>
+        <div style="background:#2d2d2d; border-radius:8px; padding:14px 20px; min-width:140px;">
+            <div style="color:#999; font-size:12px; text-transform:uppercase;">Duration</div>
+            <div style="font-size:22px; font-weight:600; color:#ddd;">{duration:.0f}s</div>
+        </div>
+        <div style="background:#2d2d2d; border-radius:8px; padding:14px 20px; min-width:140px;">
+            <div style="color:#999; font-size:12px; text-transform:uppercase;">Samples</div>
+            <div style="font-size:22px; font-weight:600; color:#ddd;">{len(thermal_samples)}</div>
+        </div>
+    </div>
+    <div style="background:#1e1e1e; padding:15px; border-radius:6px; border:1px solid #444;">
+        {chart_svg}
+    </div>
+</div>
+"""
+
+    insertion_point = content.rfind("</body>")
+    if insertion_point == -1:
+        log_message(state, "WARNING", "Could not find </body> to inject Battery Thermal tab.")
+        return
+
+    content = content[:insertion_point] + thermal_tab + content[insertion_point:]
+    html_file.write_text(content, encoding="utf-8")
+    log_message(state, "SUCCESS", "Injected Battery Thermal Tab.")
 
 
 def _inject_raw_csv_into_report(

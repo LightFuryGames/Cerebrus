@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import dearpygui.dearpygui as dpg
 
+from cerebrus.core.devices import DeviceInfo
 from cerebrus.ui.state import UIState
 
 # Log colors reference (kept for compatibility if imported directly, though moved to ThemeManager)
@@ -13,6 +14,43 @@ SEARCH_BAR_WIDTH_PERCENT = 0.5  # 50% of available width
 import json
 import sys
 from pathlib import Path
+
+
+def resolve_profiling_targets(state: UIState) -> list[DeviceInfo]:
+    """Return the DeviceInfo objects that a profiling/file-management
+    action should target.
+
+    If one or more devices are checked in the "Profile" column, those are
+    used (simultaneous multi-device profiling). Otherwise falls back to
+    the single selected/highlighted device, so existing single-device
+    workflows are unaffected. Shared between profiling_panel.py and
+    file_manager.py so both agree on exactly which devices are "active"
+    at any given moment.
+    """
+    if state.profiling_device_serials:
+        serials = state.profiling_device_serials
+    elif state.selected_device_serial:
+        serials = {state.selected_device_serial}
+    else:
+        return []
+
+    return [d for d in state.devices if d.serial in serials]
+
+
+def device_output_subfolder_name(device: DeviceInfo) -> str:
+    """Folder name used to isolate one device's files when multiple
+    devices are being profiled/pulled from simultaneously.
+    """
+    # Wireless serials look like "192.168.1.42:5555" - ':' isn't safe in a
+    # folder name on Windows, so swap it out. Including the serial (not
+    # just make/model) guarantees uniqueness even when profiling two
+    # identical device models at once.
+    safe_serial = device.serial.replace(":", "_")
+    return f"{device.make}_{device.model}_{safe_serial}"
+
+
+def device_label(device: DeviceInfo) -> str:
+    return f"{device.make} {device.model} ({device.serial})"
 
 
 def _load_tooltips() -> dict[str, str]:

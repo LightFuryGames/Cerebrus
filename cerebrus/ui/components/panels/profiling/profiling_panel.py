@@ -7,18 +7,25 @@ from tkinter import Tk, filedialog
 
 import dearpygui.dearpygui as dpg
 
+
 from cerebrus.plugins.analytics.core.settings import (
     AnalyticsSettings,
     load_analytics_settings,
     save_analytics_settings,
 )
+
+from cerebrus.core.devices import DeviceInfo
+
 from cerebrus.tools.adb import AdbClient  # Assuming this exists based on context
+from cerebrus.tools.screenshot_capture import ScreenshotSampler
+from cerebrus.tools.thermal_capture import BatteryThermalSampler
 
 from ....state import UIState
 from ....themes import get_theme_manager
 from ...dialogs.files.compare_dialog import _show_ab_compare_dialog
 from ...dialogs.files.file_dialog import _browse_folder_native
 from ...file_manager import (
+    _get_unique_output_path,
     _handle_bulk_action_toggle,
     _handle_generate_actions,
     _handle_output_file_name_change,
@@ -26,7 +33,13 @@ from ...file_manager import (
     _handle_view_html_logs,
     _open_folder_in_explorer,
 )
-from ...shared import _add_help_button, log_message
+from ...shared import (
+    _add_help_button,
+    device_label as _device_label,
+    device_output_subfolder_name as _device_output_subfolder_name,
+    log_message,
+    resolve_profiling_targets as _resolve_profiling_targets,
+)
 from ...ui_config import UIConfig
 from ..device.device_panel import _populate_devices
 
@@ -119,6 +132,20 @@ def _build_profiling_tab(state: UIState) -> None:
                         callback=lambda: _handle_stop_profiling(state),
                     )
                     _add_help_button("stop_profiling")
+                    dpg.add_checkbox(
+                        tag="capture_battery_thermal",
+                        label="Capture Battery Thermal",
+                        default_value=state.capture_battery_thermal,
+                        callback=lambda s, a: setattr(state, "capture_battery_thermal", a),
+                    )
+                    _add_help_button("capture_battery_thermal")
+                    dpg.add_checkbox(
+                        tag="capture_screenshots",
+                        label="Capture Screenshots (Low-Res)",
+                        default_value=state.capture_screenshots,
+                        callback=lambda s, a: setattr(state, "capture_screenshots", a),
+                    )
+                    _add_help_button("capture_screenshots")
 
             dpg.add_spacer(width=15)
             # Use theme binding for separator
@@ -319,6 +346,16 @@ def _build_profiling_tab(state: UIState) -> None:
                         _add_help_button("generate_logs")
 
                     with dpg.table_row():
+                        dpg.add_checkbox(
+                            tag="cb_gen_thermal",
+                            label="Generate Battery Thermal Report Only",
+                            default_value=state.generate_thermal_report_enabled,
+                            callback=_handle_bulk_action_toggle,
+                            user_data=(state, "generate_thermal_report_enabled"),
+                        )
+                        _add_help_button("generate_thermal_report")
+
+                    with dpg.table_row():
                         dpg.add_button(
                             label="Generate",
                             width=300,
@@ -516,7 +553,8 @@ def _handle_custom_command(state: UIState) -> None:
 
 
 def _handle_start_profiling(state: UIState) -> None:
-    if not state.selected_device_serial:
+    targets = _resolve_profiling_targets(state)
+    if not targets:
         log_message(state, "ERROR", "No device selected.")
         return
 
@@ -525,32 +563,198 @@ def _handle_start_profiling(state: UIState) -> None:
         return
 
     client = AdbClient()
+    started_count = 0
+    multi_device = len(targets) > 1
 
-    # Check if running - Fail if not
-    if not client.is_package_running(state.selected_device_serial, state.package_name):
+    for device in targets:
+        label = _device_label(device) if multi_device else ""
+
+        if not client.is_package_running(device.serial, state.package_name):
+            log_message(
+                state,
+                "ERROR",
+                f"Package {state.package_name} is not running on {label or 'the device'}. "
+                "Please launch the application before starting profiling.",
+            )
+            continue
+
+        try:
+            client.send_console_command(device.serial, "CsvProfile Start")
+            log_message(
+                state, "SUCCESS", f"Sent start profiling command{f' to {label}' if label else ''}."
+            )
+        except Exception as e:
+            log_message(
+                state,
+                "ERROR",
+                f"Failed to send command{f' to {label}' if label else ''}: {e}",
+            )
+            continue
+
+        started_count += 1
+
+        if state.capture_battery_thermal:
+            _start_thermal_capture_for_device(state, client, device, multi_device)
+
+        if state.capture_screenshots:
+            _start_screenshot_capture_for_device(state, client, device, multi_device)
+
+    if multi_device:
         log_message(
-            state,
-            "ERROR",
-            f"Package {state.package_name} is not running on the device.",
+            state, "INFO", f"Started profiling on {started_count}/{len(targets)} device(s)."
         )
+
+
+def _start_thermal_capture_for_device(
+    state: UIState, client: AdbClient, device: DeviceInfo, multi_device: bool
+) -> None:
+    """Begin polling battery temperature for one device alongside the CSV
+    profiling capture that was just started for it. Each device gets its
+    own sampler/thread so multiple devices can be captured in parallel.
+    """
+    existing = state.thermal_samplers.get(device.serial)
+    if existing is not None and existing.is_running:
         log_message(
-            state,
-            "ERROR",
-            "Please launch the application on the device before starting profiling.",
+            state, "WARNING", f"Battery thermal capture already running for {_device_label(device)}."
         )
         return
 
-    try:
-        log_message(state, "INFO", "Sending 'CsvProfile Start'...")
-        client.send_console_command(state.selected_device_serial, "CsvProfile Start")
-        log_message(state, "SUCCESS", "Sent start profiling command.")
-    except Exception as e:
-        log_message(state, "ERROR", f"Failed to send command: {e}")
+    base_name = state.output_file_name or "cerebrus_capture"
+    base_path = state.base_output_path if state.base_output_path else state.output_path
+    if multi_device:
+        # Isolate each device's outputs so simultaneous captures never
+        # collide on the same filename.
+        base_path = base_path / _device_output_subfolder_name(device)
+
+    thermal_csv_path = _get_unique_output_path(
+        base_path, f"{base_name}_battery_thermal", "csv"
+    )
+
+    sampler = BatteryThermalSampler(
+        adb_client=client,
+        serial=device.serial,
+        output_path=thermal_csv_path,
+    )
+    sampler.start()
+    state.thermal_samplers[device.serial] = sampler
+    label = f" for {_device_label(device)}" if multi_device else ""
+    log_message(
+        state, "INFO", f"Started battery thermal capture{label} -> {thermal_csv_path.name}"
+    )
+
+
+def _stop_thermal_capture_for_serial(state: UIState, serial: str, label: str = "") -> None:
+    sampler = state.thermal_samplers.pop(serial, None)
+    if sampler is None or not sampler.is_running:
+        return
+
+    csv_path = sampler.stop()
+    suffix = f" ({label})" if label else ""
+    if sampler.sample_count > 0:
+        log_message(
+            state,
+            "SUCCESS",
+            f"Battery thermal capture stopped{suffix} ({sampler.sample_count} samples) -> {csv_path.name}",
+        )
+    else:
+        log_message(
+            state,
+            "WARNING",
+            f"Battery thermal capture stopped{suffix} with no samples recorded."
+            f"{' Last error: ' + sampler.last_error if sampler.last_error else ''}",
+        )
+
+
+def _start_screenshot_capture_for_device(
+    state: UIState, client: AdbClient, device: DeviceInfo, multi_device: bool
+) -> None:
+    """Begin periodic low-resolution screenshot capture for one device
+    alongside the CSV profiling capture that was just started for it.
+    Lightweight visual evidence for spotting anomalies or comparing runs
+    - not a video capture, so the interval is intentionally coarse.
+    """
+    existing = state.screenshot_samplers.get(device.serial)
+    if existing is not None and existing.is_running:
+        log_message(
+            state, "WARNING", f"Screenshot capture already running for {_device_label(device)}."
+        )
+        return
+
+    base_path = state.base_output_path if state.base_output_path else state.output_path
+    if multi_device:
+        base_path = base_path / _device_output_subfolder_name(device)
+
+    screenshots_dir = base_path / "Screenshots"
+
+    sampler = ScreenshotSampler(
+        adb_client=client,
+        serial=device.serial,
+        output_dir=screenshots_dir,
+    )
+    sampler.start()
+    state.screenshot_samplers[device.serial] = sampler
+    label = f" for {_device_label(device)}" if multi_device else ""
+    log_message(
+        state, "INFO", f"Started screenshot capture{label} -> {screenshots_dir.name}/"
+    )
+
+
+def _stop_screenshot_capture_for_serial(state: UIState, serial: str, label: str = "") -> None:
+    sampler = state.screenshot_samplers.pop(serial, None)
+    if sampler is None or not sampler.is_running:
+        return
+
+    output_dir = sampler.stop()
+    suffix = f" ({label})" if label else ""
+    if sampler.sample_count > 0:
+        log_message(
+            state,
+            "SUCCESS",
+            f"Screenshot capture stopped{suffix} ({sampler.sample_count} screenshots) -> {output_dir.name}/",
+        )
+    else:
+        log_message(
+            state,
+            "WARNING",
+            f"Screenshot capture stopped{suffix} with no screenshots captured."
+            f"{' Last error: ' + sampler.last_error if sampler.last_error else ''}",
+        )
 
 
 def _handle_stop_profiling(state: UIState) -> None:
-    # Stop doesn't need to check check if running strictly, but good practice
-    _send_console_command_wrapper(state, "CsvProfile Stop")
+    targets = _resolve_profiling_targets(state)
+    multi_device = len(targets) > 1
+
+    if not targets:
+        log_message(state, "ERROR", "No device selected.")
+        return
+
+    client = AdbClient()
+    for device in targets:
+        label = _device_label(device) if multi_device else ""
+        try:
+            client.send_console_command(device.serial, "CsvProfile Stop")
+            log_message(
+                state, "SUCCESS", f"Sent stop profiling command{f' to {label}' if label else ''}."
+            )
+        except Exception as e:
+            log_message(
+                state, "ERROR", f"Failed to send stop command{f' to {label}' if label else ''}: {e}"
+            )
+
+        _stop_thermal_capture_for_serial(state, device.serial, label)
+        _stop_screenshot_capture_for_serial(state, device.serial, label)
+
+    # Safety net: stop any samplers still running for devices that aren't
+    # in the current target set (e.g. checkboxes changed between Start
+    # and Stop), so a capture never keeps running unattended.
+    stale_thermal_serials = list(state.thermal_samplers.keys())
+    for serial in stale_thermal_serials:
+        _stop_thermal_capture_for_serial(state, serial)
+
+    stale_screenshot_serials = list(state.screenshot_samplers.keys())
+    for serial in stale_screenshot_serials:
+        _stop_screenshot_capture_for_serial(state, serial)
 
 
 def _handle_memreport(state: UIState) -> None:
@@ -562,7 +766,8 @@ def _handle_memreport_full(state: UIState) -> None:
 
 
 def _send_console_command_wrapper(state: UIState, command: str) -> None:
-    if not state.selected_device_serial:
+    targets = _resolve_profiling_targets(state)
+    if not targets:
         log_message(state, "ERROR", "No device selected.")
         return
 
@@ -571,18 +776,25 @@ def _send_console_command_wrapper(state: UIState, command: str) -> None:
         return
 
     client = AdbClient()
+    multi_device = len(targets) > 1
 
-    # Check if running
-    if not client.is_package_running(state.selected_device_serial, state.package_name):
-        log_message(
-            state,
-            "WARNING",
-            f"Package {state.package_name} does not seem to be running. Command might fail.",
-        )
+    for device in targets:
+        label = _device_label(device) if multi_device else ""
 
-    try:
-        log_message(state, "INFO", f"Sending '{command}'...")
-        client.send_console_command(state.selected_device_serial, command)
-        log_message(state, "SUCCESS", f"Sent command: {command}")
-    except Exception as e:
-        log_message(state, "ERROR", f"Failed to send command: {e}")
+        if not client.is_package_running(device.serial, state.package_name):
+            log_message(
+                state,
+                "WARNING",
+                f"Package {state.package_name} does not seem to be running{f' on {label}' if label else ''}. Command might fail.",
+            )
+
+        try:
+            client.send_console_command(device.serial, command)
+            log_message(
+                state, "SUCCESS", f"Sent command '{command}'{f' to {label}' if label else ''}."
+            )
+        except Exception as e:
+            log_message(
+                state, "ERROR", f"Failed to send command{f' to {label}' if label else ''}: {e}"
+            )
+

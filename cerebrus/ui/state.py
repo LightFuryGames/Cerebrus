@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List
+from typing import Dict, List, Set
 
 from cerebrus.core.devices import DeviceInfo
 from cerebrus.core.profile import ProfileManager
+from cerebrus.tools.screenshot_capture import ScreenshotSampler
+from cerebrus.tools.thermal_capture import BatteryThermalSampler
 
 
 @dataclass
@@ -17,6 +19,10 @@ class UIState:
     profile_path: Path = Path("/complete/path/to/profile")
     devices: List[DeviceInfo] = field(default_factory=list)
     selected_device_serial: str | None = None
+    # Serials checked for simultaneous profiling via the "Profile" column in
+    # the device table. Independent of `selected_device_serial`, which still
+    # drives the single-device output-path/file-name auto-fill behavior.
+    profiling_device_serials: Set[str] = field(default_factory=set)
     copy_directory: Path = Path("/path/to/copy")
     date_string: str = "2024-01-01"
     device_cell_tags: list[list[str]] = field(default_factory=list)
@@ -41,3 +47,20 @@ class UIState:
     generate_colored_logs_enabled: bool = True
     move_memreport_enabled: bool = True
     generate_memreport_enabled: bool = True
+
+    generate_thermal_report_enabled: bool = True
+    remote_config_custom_name: str = ""
+    remote_manifest_url: str = (
+        "https://titan-cerebrus-configurations.s3.ap-south-1.amazonaws.com/config_manifest.json"
+    )
+
+    # Battery thermal capture - runs alongside CsvProfile Start/Stop.
+    # Keyed by device serial so multiple devices can sample in parallel.
+    thermal_samplers: Dict[str, BatteryThermalSampler] = field(default_factory=dict)
+    capture_battery_thermal: bool = True
+
+    # Low-resolution screenshot capture - runs alongside CsvProfile
+    # Start/Stop, keyed by device serial like the thermal samplers.
+    screenshot_samplers: Dict[str, ScreenshotSampler] = field(default_factory=dict)
+    capture_screenshots: bool = True
+

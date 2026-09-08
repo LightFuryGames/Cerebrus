@@ -325,7 +325,7 @@ def generate_html_report(context: Dict[str, Any], output_path: Path):
 
     # Grouping Helper
     def get_group(t_id, t_name):
-        if t_id in ["device-info", "memory-stats", "level-loading-stats"]:
+        if t_id in ["device-info", "memory-stats", "level-loading-stats", "battery-thermal"]:
             return "Overview"
 
         # RHI Matches

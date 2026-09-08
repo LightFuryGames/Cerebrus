@@ -2,9 +2,19 @@
 
 from __future__ import annotations
 
+import re
 import subprocess
+import time
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional, Tuple
+
+# Default port ADB uses for TCP/IP debugging once enabled on a device.
+DEFAULT_WIRELESS_PORT = 5555
+
+# Matches adb's wireless "serial" format, e.g. "192.168.1.42:5555".
+_WIRELESS_SERIAL_PATTERN = re.compile(
+    r"^\d{1,3}(?:\.\d{1,3}){3}:\d{1,5}$"
+)
 
 
 class AdbError(RuntimeError):
@@ -247,6 +257,203 @@ class AdbClient:
         except Exception:
             # Silently fail if parsing or command fails, as it's a non-critical cleanup step
             pass
+
+    def clear_package_cache_only(self, serial: str, package_name: str) -> None:
+        """Attempt to clear UE Saved and cache folders on SD card."""
+        parts = package_name.split(".")
+        if len(parts) >= 3:
+            project_name = parts[-1]
+            # Try to clear common Unreal cache/saved locations on SD card
+            paths_to_clear = [
+                f"/sdcard/Android/data/{package_name}/cache/",
+                f"/sdcard/Android/data/{package_name}/files/UnrealGame/{project_name}/{project_name}/Saved/Logs/",
+                f"/sdcard/Android/data/{package_name}/files/UnrealGame/{project_name}/{project_name}/Saved/Crashes/",
+            ]
+            for path in paths_to_clear:
+                self._run(["-s", serial, "shell", "rm", "-rf", path])
+
+    # ------------------------------------------------------------------
+    # Wireless (TCP/IP) debugging
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def is_wireless_serial(serial: str) -> bool:
+        """Return True if `serial` looks like an adb wireless target (ip:port)."""
+        return bool(_WIRELESS_SERIAL_PATTERN.match(serial))
+
+    def get_device_ip(self, serial: str) -> Optional[str]:
+        """Best-effort lookup of the device's Wi-Fi IPv4 address.
+
+        Tries `wlan0` first (the common interface name), then falls back to
+        parsing `ip route` for a default-route source address. Returns None
+        if no address could be determined (e.g. Wi-Fi is off).
+        """
+        try:
+            result = self._run(
+                ["-s", serial, "shell", "ip", "-f", "inet", "addr", "show", "wlan0"]
+            )
+            match = re.search(r"inet\s+(\d{1,3}(?:\.\d{1,3}){3})", result.stdout)
+            if match:
+                return match.group(1)
+        except AdbError:
+            pass
+
+        # Fallback: ask the routing table which source address would be used
+        # to reach the network, which works even if the interface isn't
+        # named wlan0 (some OEMs rename it).
+        try:
+            result = self._run(["-s", serial, "shell", "ip", "route"])
+            match = re.search(r"src\s+(\d{1,3}(?:\.\d{1,3}){3})", result.stdout)
+            if match:
+                return match.group(1)
+        except AdbError:
+            pass
+
+        return None
+
+    def enable_tcpip(self, serial: str, port: int = DEFAULT_WIRELESS_PORT) -> bool:
+        """Switch a USB-connected device into TCP/IP debugging mode.
+
+        The device must currently be reachable (typically over USB) to run
+        this command. After this succeeds, the device keeps listening for
+        adb connections on `port` until it reboots or is switched back to
+        USB mode with `adb usb`.
+        """
+        try:
+            result = self._run(["-s", serial, "tcpip", str(port)])
+        except AdbError:
+            return False
+        return "restarting" in result.stdout.lower() or result.returncode == 0
+
+    def connect_wireless(
+        self, ip_address: str, port: int = DEFAULT_WIRELESS_PORT, retries: int = 2
+    ) -> Tuple[bool, str]:
+        """Connect to a device already in TCP/IP mode.
+
+        Returns (success, message). Does not raise AdbError so callers can
+        surface a friendly status without a try/except for the common
+        "device not reachable" case (e.g. wrong network, device asleep).
+        """
+        target = f"{ip_address}:{port}"
+        last_output = ""
+        for attempt in range(retries + 1):
+            try:
+                result = self._run(["connect", target])
+            except AdbError as exc:
+                last_output = str(exc)
+                if attempt < retries:
+                    time.sleep(1.0)
+                    continue
+                return False, last_output
+
+            last_output = result.stdout.strip()
+            lowered = last_output.lower()
+            if "connected to" in lowered or "already connected" in lowered:
+                return True, last_output
+            if attempt < retries:
+                time.sleep(1.0)
+
+        return False, last_output or f"Could not connect to {target}"
+
+    def disconnect_wireless(
+        self, ip_address: str, port: int = DEFAULT_WIRELESS_PORT
+    ) -> None:
+        """Disconnect a previously-connected wireless device."""
+        target = f"{ip_address}:{port}"
+        try:
+            self._run(["disconnect", target])
+        except AdbError:
+            # Already disconnected / never connected - nothing to clean up.
+            pass
+
+    def pair_wireless(self, ip_address: str, port: int, pairing_code: str) -> Tuple[bool, str]:
+        """Pair with a device advertising a Wi-Fi debugging pairing code.
+
+        This is the Android 11+ cable-free path (Settings > Developer
+        options > Wireless debugging > Pair device with pairing code),
+        useful when the device has no USB cable available at all. Pairing
+        happens on a separate, short-lived port to the one used for
+        `connect_wireless`/`enable_tcpip`; the device UI shows both.
+        """
+        target = f"{ip_address}:{port}"
+        try:
+            result = self._run(["pair", target, pairing_code])
+        except AdbError as exc:
+            return False, str(exc)
+
+        output = result.stdout.strip()
+        return "successfully paired" in output.lower(), output
+
+    def enable_wireless_debugging(
+        self, serial: str, port: int = DEFAULT_WIRELESS_PORT
+    ) -> Tuple[bool, str, Optional[str]]:
+        """Convenience flow: switch a USB device to TCP/IP mode, detect its
+        IP, and connect to it wirelessly in one call.
+
+        Returns (success, message, ip_address). On success the returned
+        serial to use for subsequent AdbClient calls is f"{ip_address}:{port}".
+        """
+        ip_address = self.get_device_ip(serial)
+        if not ip_address:
+            return False, "Could not determine device IP. Is Wi-Fi enabled?", None
+
+        if not self.enable_tcpip(serial, port):
+            return False, "Failed to switch device into TCP/IP mode.", None
+
+        # Give the device a moment to restart its adbd in TCP/IP mode
+        # before we try to connect - immediate connects often fail.
+        time.sleep(1.5)
+
+        connected, message = self.connect_wireless(ip_address, port)
+        return connected, message, ip_address if connected else None
+
+    def get_battery_temperature(self, serial: str) -> Optional[float]:
+        """Return the device's battery temperature in degrees Celsius.
+
+        Parses `adb shell dumpsys battery`, which reports temperature as
+        tenths of a degree Celsius (e.g. "temperature: 285" -> 28.5C).
+        This works across virtually all Android devices/OEMs without root,
+        unlike `dumpsys thermalservice` skin/battery zones which vary by
+        vendor and Android version. Returns None if the value couldn't be
+        read (e.g. device disconnected mid-poll).
+        """
+        try:
+            result = self._run(["-s", serial, "shell", "dumpsys", "battery"])
+        except AdbError:
+            return None
+
+        match = re.search(r"temperature:\s*(-?\d+)", result.stdout)
+        if not match:
+            return None
+
+        return int(match.group(1)) / 10.0
+
+    def capture_screenshot(self, serial: str) -> Optional[bytes]:
+        """Capture the device's current screen as raw PNG bytes.
+
+        Uses `adb exec-out screencap -p`, which streams the capture
+        directly over the adb connection without ever writing a file to
+        the device's storage (no on-device cleanup needed). Returns None
+        if the capture failed (e.g. device disconnected mid-poll).
+
+        Unlike other AdbClient methods, this can't go through `_run()`
+        since that decodes output as text - a screenshot is binary.
+        """
+        command = [self.executable, "-s", serial, "exec-out", "screencap", "-p"]
+        try:
+            completed = subprocess.run(
+                command,
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+        except OSError:
+            return None
+
+        if completed.returncode != 0 or not completed.stdout:
+            return None
+
+        return completed.stdout
 
     def _run(self, args: List[str]) -> subprocess.CompletedProcess[str]:
         command = [self.executable, *args]
