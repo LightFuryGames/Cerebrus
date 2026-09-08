@@ -17,6 +17,10 @@ class DeviceInfo:
     sdk_level: str
     package_found: bool
     is_running: bool = False
+    # "USB" or "Wireless" - derived from the shape of `serial`. Wireless
+    # devices are USB-transport-free but noticeably slower for large file
+    # pulls (memreports, CSVs), so the UI surfaces this distinction.
+    connection_type: str = "USB"
 
 
 def collect_device_info(
@@ -49,6 +53,7 @@ def _read_device(serial: str, package_name: str, client: AdbClient) -> DeviceInf
     sdk_level = _safe_property(client, serial, "ro.build.version.sdk")
     package_found = client.is_package_installed(serial, package_name)
     is_running = client.is_package_running(serial, package_name)
+    connection_type = "Wireless" if AdbClient.is_wireless_serial(serial) else "USB"
 
     return DeviceInfo(
         make=make,
@@ -58,6 +63,7 @@ def _read_device(serial: str, package_name: str, client: AdbClient) -> DeviceInf
         sdk_level=sdk_level,
         package_found=package_found,
         is_running=is_running,
+        connection_type=connection_type,
     )
 
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import dearpygui.dearpygui as dpg
 
 from cerebrus.core.devices import DeviceInfo, collect_device_info
-from cerebrus.tools.adb import AdbClient
+from cerebrus.tools.adb import DEFAULT_WIRELESS_PORT, AdbClient
 
 from ....state import UIState
 from ....themes import get_theme_manager
@@ -26,6 +26,18 @@ def build_device_controls(state: UIState) -> None:
             callback=lambda: _populate_devices(state),
         )
         _add_help_button("list_devices")
+        dpg.add_button(
+            label="Connect Wireless...",
+            width=UIConfig.get_instance().get_dimension("button_width_standard"),
+            callback=lambda: _show_connect_wireless_dialog(state),
+        )
+        _add_help_button("connect_wireless")
+        dpg.add_button(
+            label="Enable Wireless on Selected",
+            width=UIConfig.get_instance().get_dimension("button_width_standard"),
+            callback=lambda: _handle_enable_wireless(state),
+        )
+        _add_help_button("enable_wireless")
     # Use autosize_x=False and width=0 to ensure it fills available space but respects window bounds
     settings = UIConfig.get_instance().get_component_settings(
         "device_table_container", {"tag": "device_table_container"}
@@ -87,6 +99,9 @@ def _render_device_table(state: UIState) -> None:
         borders_innerV=True,
     ):
         dpg.add_table_column(
+            label="Profile", width_stretch=True, init_width_or_weight=0.06
+        )
+        dpg.add_table_column(
             label="Make", width_stretch=True, init_width_or_weight=0.12
         )
         dpg.add_table_column(
@@ -102,6 +117,9 @@ def _render_device_table(state: UIState) -> None:
             label="SDK level", width_stretch=True, init_width_or_weight=0.08
         )
         dpg.add_table_column(
+            label="Connection", width_stretch=True, init_width_or_weight=0.10
+        )
+        dpg.add_table_column(
             label="Package Found", width_stretch=True, init_width_or_weight=0.15
         )
         dpg.add_table_column(
@@ -112,22 +130,45 @@ def _render_device_table(state: UIState) -> None:
 
         if not state.devices:
             with dpg.table_row():
-                for message in ["-", "-", "No devices listed", "-", "-", "-"]:
+                for message in [
+                    "-", "-", "-", "No devices listed", "-", "-", "-", "-", "-"
+                ]:
                     dpg.add_text(message)
         else:
             for row_index, device in enumerate(state.devices):
                 _render_device_row(row_index, device, state)
 
+            # Restore the previous selection highlight only after every
+            # row has actually been added to the table - doing this
+            # mid-loop (from inside _render_device_row) would try to
+            # highlight/unhighlight rows that don't exist yet whenever
+            # there's more than one device, since DPG can't reference a
+            # table row before it's been committed.
+            if state.selected_device_serial:
+                for row_index, device in enumerate(state.devices):
+                    if device.serial == state.selected_device_serial:
+                        _select_device_row(row_index, state)
+                        break
+
 
 def _render_device_row(row_index: int, device: DeviceInfo, state: UIState) -> None:
     tm = get_theme_manager()
     with dpg.table_row():
+        dpg.add_checkbox(
+            tag=f"device_profile_cb_{row_index}",
+            default_value=device.serial in state.profiling_device_serials,
+            callback=_handle_profile_checkbox_toggle,
+            user_data=(state, device.serial),
+            enabled=device.package_found,
+        )
+
         values = [
             device.make,
             device.model,
             device.serial,
             device.android_version,
             device.sdk_level,
+            device.connection_type,
             "True" if device.package_found else "False",
             "Running" if device.is_running else "Stopped",
         ]
@@ -136,7 +177,12 @@ def _render_device_row(row_index: int, device: DeviceInfo, state: UIState) -> No
         for column_index, value in enumerate(values):
             cell_tag = f"device_cell_{row_index}_{column_index}"
             # Color code specific columns
-            if column_index == len(values) - 2:  # Package Found column
+            if column_index == len(values) - 3:  # Connection column
+                status = "SUCCESS" if device.connection_type == "Wireless" else "DEFAULT"
+                dpg.bind_item_theme(
+                    dpg.add_text(value, tag=cell_tag), tm.get_log_theme(status)
+                )
+            elif column_index == len(values) - 2:  # Package Found column
                 status = "SUCCESS" if device.package_found else "ERROR"
                 dpg.bind_item_theme(
                     dpg.add_text(value, tag=cell_tag), tm.get_log_theme(status)
@@ -158,9 +204,6 @@ def _render_device_row(row_index: int, device: DeviceInfo, state: UIState) -> No
             row_tags.append(cell_tag)
 
         state.device_cell_tags.append(row_tags)
-
-    if state.selected_device_serial == device.serial:
-        _select_device_row(row_index, state)
 
 
 def _handle_device_select(
@@ -226,25 +269,173 @@ def _handle_device_select(
         # unless moved to shared.
 
 
+def _handle_profile_checkbox_toggle(
+    sender: int, app_data: bool, user_data: tuple[UIState, str]
+) -> None:
+    """Toggle a device's membership in the simultaneous-profiling set.
+
+    Independent of `selected_device_serial` (the single-device highlight
+    used for output-path/file-name auto-fill) - a device can be checked
+    for parallel profiling without being the "selected" row, and vice
+    versa.
+    """
+    state, serial = user_data
+    if app_data:
+        state.profiling_device_serials.add(serial)
+    else:
+        state.profiling_device_serials.discard(serial)
+
+
 def _select_device_row(row_index: int, state: UIState) -> None:
-    for index in range(len(state.devices)):
-        dpg.unhighlight_table_row("device_table", index)
+    # Only unhighlight rows that actually exist in the table right now -
+    # `state.devices`/`state.device_cell_tags` can briefly disagree with
+    # what DPG has actually committed (e.g. mid-render), so cap the loop
+    # to what's been built rather than the eventual final count.
+    built_row_count = len(state.device_cell_tags)
+    for index in range(built_row_count):
+        try:
+            dpg.unhighlight_table_row("device_table", index)
+        except Exception:
+            # Row not yet present in the underlying table - safe to skip.
+            # (Defense in depth: the call site now only invokes this after
+            # the full table is built, but this keeps the function itself
+            # safe to call from anywhere.)
+            continue
 
     dpg.highlight_table_row("device_table", row_index, SELECTED_ROW_COLOR)
 
     for cell_tags in state.device_cell_tags:
         for col_idx, tag in enumerate(cell_tags):
-            # Skip the last two columns (Package Found, App Status) as they're text widgets, not selectable
-            if col_idx < len(cell_tags) - 2 and dpg.does_item_exist(tag):
+            # Skip the last three columns (Connection, Package Found, App
+            # Status) as they're text widgets, not selectable.
+            if col_idx < len(cell_tags) - 3 and dpg.does_item_exist(tag):
                 dpg.set_value(tag, False)
 
     if 0 <= row_index < len(state.device_cell_tags):
         for col_idx, tag in enumerate(state.device_cell_tags[row_index]):
-            # Skip the last two columns (Package Found, App Status) as they're text widgets, not selectable
+            # Skip the last three columns (Connection, Package Found, App
+            # Status) as they're text widgets, not selectable.
             if col_idx < len(
                 state.device_cell_tags[row_index]
-            ) - 2 and dpg.does_item_exist(tag):
+            ) - 3 and dpg.does_item_exist(tag):
                 dpg.set_value(tag, True)
+
+
+def _show_connect_wireless_dialog(state: UIState) -> None:
+    """Show a dialog to connect to a device already in TCP/IP mode."""
+    tm = get_theme_manager()
+    if dpg.does_item_exist("connect_wireless_dialog"):
+        dpg.delete_item("connect_wireless_dialog")
+
+    viewport_width = dpg.get_viewport_width()
+    viewport_height = dpg.get_viewport_height()
+    width = 420
+    height = 220
+    pos_x = (viewport_width - width) // 2
+    pos_y = (viewport_height - height) // 2
+
+    with dpg.window(
+        tag="connect_wireless_dialog",
+        label="Connect Wireless Device",
+        modal=True,
+        width=width,
+        height=height,
+        pos=(pos_x, pos_y),
+        no_resize=True,
+    ):
+        dpg.add_text(
+            "Enter the IP address of a device already in TCP/IP debugging"
+            " mode (Settings > Developer options > Wireless debugging).",
+            wrap=380,
+        )
+        dpg.add_spacer(height=UIConfig.get_instance().get_spacer("standard"))
+
+        with dpg.group(horizontal=True):
+            dpg.add_text("IP Address:")
+            dpg.add_input_text(tag="wireless_ip_input", width=180, hint="192.168.1.42")
+
+        with dpg.group(horizontal=True):
+            dpg.add_text("Port:")
+            dpg.add_input_text(
+                tag="wireless_port_input",
+                width=80,
+                default_value=str(DEFAULT_WIRELESS_PORT),
+            )
+
+        dpg.add_spacer(height=UIConfig.get_instance().get_spacer("standard"))
+        dpg.add_text("", tag="wireless_connect_status")
+
+        dpg.add_spacer(height=UIConfig.get_instance().get_spacer("standard"))
+        with dpg.group(horizontal=True):
+            dpg.add_button(
+                label="Connect",
+                width=UIConfig.get_instance().get_dimension("button_width_small"),
+                callback=lambda: _handle_connect_wireless(state),
+            )
+            dpg.add_button(
+                label="Cancel",
+                width=UIConfig.get_instance().get_dimension("button_width_small"),
+                callback=lambda: dpg.delete_item("connect_wireless_dialog"),
+            )
+
+
+def _handle_connect_wireless(state: UIState) -> None:
+    ip_address = dpg.get_value("wireless_ip_input").strip()
+    port_text = dpg.get_value("wireless_port_input").strip()
+
+    if not ip_address:
+        dpg.set_value("wireless_connect_status", "Please enter an IP address.")
+        return
+
+    try:
+        port = int(port_text) if port_text else DEFAULT_WIRELESS_PORT
+    except ValueError:
+        dpg.set_value("wireless_connect_status", "Port must be a number.")
+        return
+
+    dpg.set_value("wireless_connect_status", f"Connecting to {ip_address}:{port}...")
+
+    client = AdbClient()
+    success, message = client.connect_wireless(ip_address, port)
+
+    if success:
+        log_message(state, "INFO", f"Connected to wireless device {ip_address}:{port}")
+        dpg.delete_item("connect_wireless_dialog")
+        _populate_devices(state)
+    else:
+        log_message(
+            state, "ERROR", f"Failed to connect to {ip_address}:{port}: {message}"
+        )
+        dpg.set_value("wireless_connect_status", f"Failed: {message}")
+
+
+def _handle_enable_wireless(state: UIState) -> None:
+    """One-click flow: switch the currently selected USB device to
+    wireless mode and connect to it, all over the existing USB cable.
+    """
+    serial = state.selected_device_serial
+    if not serial:
+        log_message(state, "WARNING", "Select a device first.")
+        return
+
+    if AdbClient.is_wireless_serial(serial):
+        log_message(state, "WARNING", "Selected device is already wireless.")
+        return
+
+    log_message(state, "INFO", f"Enabling wireless debugging on {serial}...")
+    client = AdbClient()
+    success, message, ip_address = client.enable_wireless_debugging(serial)
+
+    if success:
+        log_message(
+            state,
+            "INFO",
+            f"Wireless debugging enabled - connected at {ip_address}:{DEFAULT_WIRELESS_PORT}."
+            " You can now disconnect the USB cable.",
+        )
+        _populate_devices(state)
+    else:
+        log_message(state, "ERROR", f"Could not enable wireless debugging: {message}")
 
 
 def _show_device_troubleshooting_dialog(state: UIState) -> None:

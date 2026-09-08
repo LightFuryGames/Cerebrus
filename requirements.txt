@@ -10,5 +10,6 @@ black
 isort
 scipy
 numpy
+pillow
 
 boto3
