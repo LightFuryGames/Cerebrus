@@ -414,6 +414,7 @@ Desktop.ini
 *.swo
 ~$*
 .DS_Store
+*.pyc
 
 ###############################################
 # Archives (optional)
