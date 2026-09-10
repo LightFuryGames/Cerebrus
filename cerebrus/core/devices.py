@@ -21,6 +21,10 @@ class DeviceInfo:
     # devices are USB-transport-free but noticeably slower for large file
     # pulls (memreports, CSVs), so the UI surfaces this distinction.
     connection_type: str = "USB"
+    # "Unknown" | "Checking..." | "Reachable" | "Unreachable" - populated
+    # on demand via the "Check Daemons" button, not on every device list
+    # refresh (a socket connect attempt per device isn't free at scale).
+    daemon_status: str = "Unknown"
 
 
 def collect_device_info(

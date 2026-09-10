@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import threading
+
 import dearpygui.dearpygui as dpg
 
 from cerebrus.core.devices import DeviceInfo, collect_device_info
 from cerebrus.tools.adb import DEFAULT_WIRELESS_PORT, AdbClient
+from cerebrus.tools.daemon_check import check_daemon_reachable, resolve_device_ip_for_daemon
 
 from ....state import UIState
 from ....themes import get_theme_manager
@@ -38,6 +41,23 @@ def build_device_controls(state: UIState) -> None:
             callback=lambda: _handle_enable_wireless(state),
         )
         _add_help_button("enable_wireless")
+        dpg.add_button(
+            label="Check Daemons",
+            width=UIConfig.get_instance().get_dimension("button_width_standard"),
+            callback=lambda: _handle_check_daemons(state),
+        )
+        _add_help_button("check_daemons")
+        dpg.add_text("Daemon Port:")
+        dpg.add_input_int(
+            tag="daemon_port_input",
+            width=130,
+            default_value=state.daemon_port,
+            min_value=1,
+            max_value=65535,
+            min_clamped=True,
+            max_clamped=True,
+            callback=lambda s, a: setattr(state, "daemon_port", a),
+        )
     # Use autosize_x=False and width=0 to ensure it fills available space but respects window bounds
     settings = UIConfig.get_instance().get_component_settings(
         "device_table_container", {"tag": "device_table_container"}
@@ -120,6 +140,9 @@ def _render_device_table(state: UIState) -> None:
             label="Connection", width_stretch=True, init_width_or_weight=0.10
         )
         dpg.add_table_column(
+            label="Daemon", width_stretch=True, init_width_or_weight=0.08
+        )
+        dpg.add_table_column(
             label="Package Found", width_stretch=True, init_width_or_weight=0.15
         )
         dpg.add_table_column(
@@ -127,11 +150,12 @@ def _render_device_table(state: UIState) -> None:
         )
 
         state.device_cell_tags = []
+        state.daemon_status_cell_tags = {}
 
         if not state.devices:
             with dpg.table_row():
                 for message in [
-                    "-", "-", "-", "No devices listed", "-", "-", "-", "-", "-"
+                    "-", "-", "-", "-", "No devices listed", "-", "-", "-", "-", "-"
                 ]:
                     dpg.add_text(message)
         else:
@@ -169,6 +193,7 @@ def _render_device_row(row_index: int, device: DeviceInfo, state: UIState) -> No
             device.android_version,
             device.sdk_level,
             device.connection_type,
+            device.daemon_status,
             "True" if device.package_found else "False",
             "Running" if device.is_running else "Stopped",
         ]
@@ -177,11 +202,21 @@ def _render_device_row(row_index: int, device: DeviceInfo, state: UIState) -> No
         for column_index, value in enumerate(values):
             cell_tag = f"device_cell_{row_index}_{column_index}"
             # Color code specific columns
-            if column_index == len(values) - 3:  # Connection column
+            if column_index == len(values) - 4:  # Connection column
                 status = "SUCCESS" if device.connection_type == "Wireless" else "DEFAULT"
                 dpg.bind_item_theme(
                     dpg.add_text(value, tag=cell_tag), tm.get_log_theme(status)
                 )
+            elif column_index == len(values) - 3:  # Daemon column
+                daemon_theme = {
+                    "Reachable": "SUCCESS",
+                    "Unreachable": "ERROR",
+                    "Checking...": "DEFAULT",
+                    "Unknown": "DEFAULT",
+                }.get(device.daemon_status, "DEFAULT")
+                cell = dpg.add_text(value, tag=cell_tag)
+                dpg.bind_item_theme(cell, tm.get_log_theme(daemon_theme))
+                state.daemon_status_cell_tags[device.serial] = cell_tag
             elif column_index == len(values) - 2:  # Package Found column
                 status = "SUCCESS" if device.package_found else "ERROR"
                 dpg.bind_item_theme(
@@ -306,19 +341,70 @@ def _select_device_row(row_index: int, state: UIState) -> None:
 
     for cell_tags in state.device_cell_tags:
         for col_idx, tag in enumerate(cell_tags):
-            # Skip the last three columns (Connection, Package Found, App
-            # Status) as they're text widgets, not selectable.
-            if col_idx < len(cell_tags) - 3 and dpg.does_item_exist(tag):
+            # Skip the last four columns (Connection, Daemon, Package
+            # Found, App Status) as they're text widgets, not selectable.
+            if col_idx < len(cell_tags) - 4 and dpg.does_item_exist(tag):
                 dpg.set_value(tag, False)
 
     if 0 <= row_index < len(state.device_cell_tags):
         for col_idx, tag in enumerate(state.device_cell_tags[row_index]):
-            # Skip the last three columns (Connection, Package Found, App
-            # Status) as they're text widgets, not selectable.
+            # Skip the last four columns (Connection, Daemon, Package
+            # Found, App Status) as they're text widgets, not selectable.
             if col_idx < len(
                 state.device_cell_tags[row_index]
-            ) - 3 and dpg.does_item_exist(tag):
+            ) - 4 and dpg.does_item_exist(tag):
                 dpg.set_value(tag, True)
+
+
+def _handle_check_daemons(state: UIState) -> None:
+    """Check daemon reachability for every listed device, in parallel, on
+    a background thread so the UI doesn't block on N socket timeouts.
+    Updates each device's status cell live as results come in, rather
+    than waiting for all checks to finish before showing anything.
+    """
+    if not state.devices:
+        log_message(state, "WARNING", "No devices listed. Click 'List Devices' first.")
+        return
+
+    tm = get_theme_manager()
+    client = AdbClient()
+    port = state.daemon_port
+
+    def set_status(device: DeviceInfo, status: str) -> None:
+        device.daemon_status = status
+        cell_tag = state.daemon_status_cell_tags.get(device.serial)
+        if cell_tag and dpg.does_item_exist(cell_tag):
+            theme_name = {
+                "Reachable": "SUCCESS",
+                "Unreachable": "ERROR",
+                "Checking...": "DEFAULT",
+                "Unknown": "DEFAULT",
+            }.get(status, "DEFAULT")
+            dpg.set_value(cell_tag, status)
+            dpg.bind_item_theme(cell_tag, tm.get_log_theme(theme_name))
+
+    def check_one(device: DeviceInfo) -> None:
+        set_status(device, "Checking...")
+        ip = resolve_device_ip_for_daemon(device, client)
+        if not ip:
+            set_status(device, "Unreachable")
+            return
+        reachable = check_daemon_reachable(ip, port)
+        set_status(device, "Reachable" if reachable else "Unreachable")
+
+    def check_all() -> None:
+        threads = [
+            threading.Thread(target=check_one, args=(device,), daemon=True)
+            for device in state.devices
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=10.0)
+        log_message(state, "INFO", f"Daemon check complete for {len(state.devices)} device(s).")
+
+    log_message(state, "INFO", f"Checking daemon on port {port} for all listed devices...")
+    threading.Thread(target=check_all, daemon=True).start()
 
 
 def _show_connect_wireless_dialog(state: UIState) -> None:
