@@ -785,7 +785,14 @@ def _read_csv_metadata(csv_path: Path) -> dict:
     try:
         with open(csv_path, "rb") as f:
             try:
-                f.seek(-16384, 2)
+                # UE CSV Profiler metadata trailers can carry many bracket
+                # rows (device profile chain, long reference paths, build
+                # info, etc.) - a 16KB window was cutting off earlier rows
+                # like [BuildVersion] on CSVs with a larger trailer, even
+                # though the metadata was genuinely present in the file.
+                # 256KB is still a trivially cheap read/scan for a text
+                # tail, with much more headroom.
+                f.seek(-262144, 2)
             except OSError:
                 f.seek(0)
             tail_bytes = f.read()
@@ -806,8 +813,50 @@ def _html_escape(value: object) -> str:
     return html.escape(str(value), quote=True)
 
 
-def _inject_cerebrus_metadata_script(content: str, metadata: dict) -> str:
+def _extract_date_time_from_csv_filename(csv_file: Path) -> tuple[str | None, str | None]:
+    """Parse the Profile(YYYYMMDD_HHMMSS) timestamp out of a CSV's own
+    filename, matching the same pattern/format the S3 uploader plugin's
+    `_extract_profile_timestamp` falls back to when reading a report
+    back - keeping both sides of this metadata in agreement.
+    """
+    match = re.search(r"Profile\((\d{8})_(\d{6})\)", csv_file.name)
+    if not match:
+        return None, None
+
+    date_raw, time_raw = match.groups()
+    year, month, day = date_raw[0:4], date_raw[4:6], date_raw[6:8]
+    return f"{day}-{month}-{year}", time_raw
+
+
+def _inject_cerebrus_metadata_script(content: str, metadata: dict, csv_file: Path | None = None) -> str:
     cpu_parts = parse_cpu_device(metadata.get("cpu"))
+
+    # UE's CSV Profiler embeds a [Changelist] metadata trailer row on
+    # most captures - _read_csv_metadata already picks this up generically
+    # via its bracket-field regex, it just wasn't being read into this
+    # payload. Try a couple of plausible key spellings since the exact
+    # bracket name can vary by engine version/branch.
+    changelist = (
+        metadata.get("changelist")
+        or metadata.get("cl")
+        or metadata.get("buildchangelist")
+    )
+
+    # Some build pipelines don't emit a standalone [Changelist] row at
+    # all - the CL is embedded inside the build version string instead,
+    # e.g. "++titan-game+development-CL-49935". Fall back to pulling it
+    # out of there if a direct changelist field wasn't found.
+    if not changelist:
+        build_version = metadata.get("buildversion") or metadata.get("build version")
+        if build_version:
+            cl_match = re.search(r"CL-(\d+)", str(build_version))
+            if cl_match:
+                changelist = cl_match.group(1)
+
+    date_part, time_part = (None, None)
+    if csv_file is not None:
+        date_part, time_part = _extract_date_time_from_csv_filename(csv_file)
+
     payload = {
         "build_config": metadata.get("config"),
         "os": metadata.get("os"),
@@ -826,6 +875,9 @@ def _inject_cerebrus_metadata_script(content: str, metadata: dict) -> str:
         "target_fps": metadata.get("targetframerate"),
         "capture_duration_s": metadata.get("captureduration"),
         "report_value": metadata.get("report_value"),
+        "changelist": changelist,
+        "date": date_part,
+        "time": time_part,
     }
     payload = {key: value for key, value in payload.items() if value not in (None, "")}
     if not payload:
@@ -1073,7 +1125,7 @@ def _inject_metadata_into_report(
             new_content = (
                 content[:insertion_point] + extra_rows + content[insertion_point:]
             )
-            new_content = _inject_cerebrus_metadata_script(new_content, metadata)
+            new_content = _inject_cerebrus_metadata_script(new_content, metadata, csv_file)
             html_file.write_text(new_content, encoding="utf-8")
             log_message(
                 state, "SUCCESS", f"Metadata successfully appended to {html_file.name}"

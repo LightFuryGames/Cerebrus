@@ -84,6 +84,54 @@ def _extract_device_parts(cpu_device: str) -> tuple[Optional[str], Optional[str]
     return make, model
 
 
+def _normalize_json_metadata_keys(data: dict) -> dict:
+    """Map the newer snake_case `cerebrus-metadata` JSON schema onto the
+    Title-Case keys the rest of this plugin expects (Build Configuration,
+    Device Make, Device Model, Changelist, Date, Time).
+
+    Two schemas exist in the wild because the JSON block's writer was
+    updated at some point without this plugin's reader being updated to
+    match - this normalization is what keeps both old and new reports
+    working here, rather than requiring every report ever generated to
+    be re-created.
+    """
+    if not isinstance(data, dict):
+        return data
+
+    # Already the expected shape (older/legacy reports) - nothing to do.
+    if "Build Configuration" in data or "Device Make" in data:
+        return data
+
+    normalized = dict(data)
+
+    key_map = {
+        "build_config": "Build Configuration",
+        "device_manufacturer": "Device Make",
+        "device_model": "Device Model",
+        "changelist": "Changelist",
+        "cl": "Changelist",
+        "build_changelist": "Changelist",
+        "date": "Date",
+        "time": "Time",
+    }
+    for source_key, target_key in key_map.items():
+        if source_key in normalized and target_key not in normalized:
+            normalized[target_key] = normalized[source_key]
+
+    # Fall back to parsing "make|model|gpu" out of cpu_device only if we
+    # didn't already get make/model directly - the newer schema usually
+    # has device_manufacturer/device_model already, which is more
+    # reliable than splitting the combined string.
+    if "Device Make" not in normalized or "Device Model" not in normalized:
+        cpu_device = normalized.get("cpu_device")
+        if cpu_device:
+            make, model = _extract_device_parts(str(cpu_device))
+            normalized.setdefault("Device Make", make)
+            normalized.setdefault("Device Model", model)
+
+    return normalized
+
+
 def _extract_report_metadata(content: str) -> dict:
     """Extract report metadata from embedded JSON, legacy cards, or PerfReportTool HTML."""
     meta_match = re.search(
@@ -93,7 +141,22 @@ def _extract_report_metadata(content: str) -> dict:
     )
     if meta_match:
         try:
-            return json.loads(meta_match.group(1).strip())
+            metadata = _normalize_json_metadata_keys(json.loads(meta_match.group(1).strip()))
+
+            # This schema doesn't always carry Date/Time (as of the
+            # snake_case version) - fall back to the same
+            # Profile(YYYYMMDD_HHMMSS) filename pattern used for the
+            # legacy PerfReportTool path below, if present anywhere in
+            # the document, rather than leaving it Unknown when we don't
+            # have to.
+            if "Date" not in metadata or "Time" not in metadata:
+                date_part, time_part = _extract_profile_timestamp(content)
+                if date_part:
+                    metadata.setdefault("Date", date_part)
+                if time_part:
+                    metadata.setdefault("Time", time_part)
+
+            return metadata
         except json.JSONDecodeError:
             pass
 
@@ -399,9 +462,17 @@ class S3UploaderPlugin(TabPlugin):
                     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                         content = f.read()
 
-                    # Check generator signature (flexible with quotes)
+                    # Check generator signature (flexible with quotes), or
+                    # the presence of the cerebrus-metadata JSON block
+                    # itself - a genuine Cerebrus report may carry one
+                    # without the other, depending on which version wrote
+                    # it, and the JSON block is the stronger signal since
+                    # it's what extraction actually depends on.
                     is_cerebrus = re.search(
                         r'meta\s+name=["\']generator["\']\s+content=["\']Cerebrus Profiling Tool["\']',
+                        content,
+                    ) or re.search(
+                        r'<script type="application/json" id="cerebrus-metadata">',
                         content,
                     )
                     if not is_cerebrus:

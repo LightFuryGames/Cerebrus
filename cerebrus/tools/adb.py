@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+import sys
 import time
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
@@ -15,6 +16,20 @@ DEFAULT_WIRELESS_PORT = 5555
 _WIRELESS_SERIAL_PATTERN = re.compile(
     r"^\d{1,3}(?:\.\d{1,3}){3}:\d{1,5}$"
 )
+
+
+def _no_window_creationflags() -> int:
+    """Windows-only flag that stops a subprocess from flashing a console
+    window. Every adb invocation goes through here (via _run or
+    capture_screenshot), which is what otherwise causes a visible popup
+    on every single action - List Devices, Check Daemons, Start/Stop
+    Profiling, etc. - since Cerebrus itself is a windowless GUI app but
+    each spawned adb.exe process would otherwise get its own console.
+    A no-op (0) on any non-Windows platform.
+    """
+    if sys.platform == "win32":
+        return subprocess.CREATE_NO_WINDOW
+    return 0
 
 
 class AdbError(RuntimeError):
@@ -446,6 +461,7 @@ class AdbClient:
                 check=False,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                creationflags=_no_window_creationflags(),
             )
         except OSError:
             return None
@@ -463,6 +479,7 @@ class AdbClient:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            creationflags=_no_window_creationflags(),
         )
         if completed.returncode != 0:
             error_message = completed.stderr.strip() or "adb command failed"
