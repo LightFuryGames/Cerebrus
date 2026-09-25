@@ -89,6 +89,29 @@ def test_csv_text_overrides_disk(tmp_path: Path) -> None:
     assert "FrameTime" in parser.data or "frametime" in parser.data or parser.data
 
 
+def test_csv_telemetry_summaries_and_loading_screen_duration(tmp_path: Path) -> None:
+    csv = tmp_path / "telemetry.csv"
+    csv.write_text(
+        "\n".join(
+            [
+                "EVENTS,FrameTime,AndroidCPU/CPUTemp,AndroidCPU/ThermalStatus,AndroidCPU/ThermalStress,AndroidCPU/CPUFreqMHzGroup0,AndroidCPU/CPUFreqPercentageGroup0,AndroidMemory/Mem_RSS,AndroidMemory/Mem_TotalUsed,AndroidMemory/Mem_Swap",
+                "LoadingScreen/Show,1000,40,1,0.1,1200,50,500,1000,10",
+                ",2000,45,2,0.3,1600,70,600,1100,20",
+                "LoadingScreen/Hide,3000,50,3,0.5,2000,90,550,1050,15",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    result = PerformanceCSVReportParser(csv).parse()
+    assert result["CPU Temp Avg (C)"] == 45.0
+    assert result["CPU Temp Max (C)"] == 50.0
+    assert result["Thermal Status Max"] == 3.0
+    assert result["Memory RSS Peak MB"] == 600.0
+    assert result["Memory Total Used Peak MB"] == 1100.0
+    assert result["Memory Swap Peak MB"] == 20.0
+    assert result["Loading Screen Duration (s)"] == 5.0
+
+
 # ---------------------------------------------------------------------------
 # HTML parser
 
