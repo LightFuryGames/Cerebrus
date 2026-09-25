@@ -44,6 +44,7 @@ class PerformanceCSVReportParser:
             csv_text = self.csv_path.read_text(encoding="utf-8-sig", errors="ignore")
         self.lines = csv_text.splitlines()
         self.metadata = self._extract_metadata()
+        self.events: list[tuple[float, str]] = []
         self.data = self._load_csv_data()
 
     def _extract_metadata(self) -> dict[str, str]:
@@ -77,7 +78,18 @@ class PerformanceCSVReportParser:
             csv_lines = csv_lines[:-1]
 
         data: dict[str, list[float]] = {}
+        elapsed_ms = 0.0
         for row in csv.DictReader(csv_lines):
+            frame_time = 0.0
+            try:
+                frame_time = float(row.get("FrameTime") or 0.0)
+            except (TypeError, ValueError):
+                pass
+            elapsed_ms += max(frame_time, 0.0)
+
+            event = str(row.get("EVENTS") or "").strip()
+            if event:
+                self.events.append((elapsed_ms, event))
             for key, value in row.items():
                 if not key or value in (None, ""):
                     continue
@@ -86,6 +98,17 @@ class PerformanceCSVReportParser:
                 except ValueError:
                     continue
         return data
+
+    def _first_loading_screen_duration_s(self) -> float | None:
+        """Return the first LoadingScreen Show-to-Hide interval, if present."""
+        started_at_ms: float | None = None
+        for elapsed_ms, event in self.events:
+            name = event.lower()
+            if "loadingscreen/show" in name:
+                started_at_ms = elapsed_ms
+            elif "loadingscreen/hide" in name and started_at_ms is not None:
+                return round(max(0.0, elapsed_ms - started_at_ms) / 1000.0, 2)
+        return None
 
     def parse(self) -> dict[str, Any]:
         values: dict[str, Any] = {"device_id": self.csv_path.parent.name}
@@ -180,4 +203,33 @@ class PerformanceCSVReportParser:
         for source_key, (target_key, func) in extra_metrics.items():
             if source_key in self.data:
                 values[target_key] = round(float(func(self.data[source_key])), 2)  # type: ignore[operator]
+
+        telemetry_metrics: dict[str, tuple[tuple[str, object], ...]] = {
+            "AndroidCPU/CPUTemp": (
+                ("CPU Temp Avg (C)", _mean),
+                ("CPU Temp Max (C)", max),
+            ),
+            "AndroidCPU/ThermalStatus": (("Thermal Status Max", max),),
+            "AndroidCPU/ThermalStress": (
+                ("Thermal Stress Avg", _mean),
+                ("Thermal Stress Max", max),
+            ),
+            "AndroidCPU/CPUFreqMHzGroup0": (("CPU Freq Group 0 Avg MHz", _mean),),
+            "AndroidCPU/CPUFreqMHzGroup1": (("CPU Freq Group 1 Avg MHz", _mean),),
+            "AndroidCPU/CPUFreqPercentageGroup0": (("CPU Freq Group 0 Avg %", _mean),),
+            "AndroidCPU/CPUFreqPercentageGroup1": (("CPU Freq Group 1 Avg %", _mean),),
+            "AndroidMemory/Mem_RSS": (("Memory RSS Peak MB", max),),
+            "AndroidMemory/Mem_TotalUsed": (("Memory Total Used Peak MB", max),),
+            "AndroidMemory/Mem_Swap": (("Memory Swap Peak MB", max),),
+        }
+        for source_key, summaries in telemetry_metrics.items():
+            source_values = self.data.get(source_key)
+            if not source_values:
+                continue
+            for target_key, func in summaries:
+                values[target_key] = round(float(func(source_values)), 2)  # type: ignore[operator, call-arg]
+
+        loading_screen_duration_s = self._first_loading_screen_duration_s()
+        if loading_screen_duration_s is not None:
+            values["Loading Screen Duration (s)"] = loading_screen_duration_s
         return values
