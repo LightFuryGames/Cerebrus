@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from cerebrus.tools.adb import AdbClient, AdbError
+from cerebrus.tools.adb import AdbClient, AdbError, _no_window_creationflags
 
 
 def _completed(
@@ -32,6 +32,7 @@ def test_list_devices_parses_device_lines(run_mock: MagicMock) -> None:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        creationflags=_no_window_creationflags(),
     )
 
 
@@ -67,6 +68,7 @@ def test_force_stop_package(run_mock: MagicMock) -> None:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        creationflags=_no_window_creationflags(),
     )
 
 
@@ -81,6 +83,7 @@ def test_clear_package_data(run_mock: MagicMock) -> None:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        creationflags=_no_window_creationflags(),
     )
 
 
@@ -111,6 +114,7 @@ def test_launch_package(run_mock: MagicMock) -> None:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        creationflags=_no_window_creationflags(),
     )
 
 
@@ -137,4 +141,5 @@ def test_send_console_command(run_mock: MagicMock) -> None:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        creationflags=_no_window_creationflags(),
     )
