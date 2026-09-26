@@ -1,4 +1,5 @@
 import re
+from html import escape
 from typing import Any, Dict, List
 
 from ..utils import parse_memory_size_to_mb, try_format_cell_value
@@ -299,10 +300,11 @@ class RhiResourceMemoryTab(ReportTab):
 
         raw_trace_html = ""
         if has_large_content:
+            raw_trace = escape("\n".join(raw_lines))
             raw_trace_html = f"""
             <hr class="section-divider">
             <h4>Raw Trace Data</h4>
-            <pre style="background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 8px; overflow-x: auto; font-size: 11px;">{"\n".join(raw_lines)}</pre>
+            <pre style="background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 8px; overflow-x: auto; font-size: 11px;">{raw_trace}</pre>
             """
 
         return f"""
