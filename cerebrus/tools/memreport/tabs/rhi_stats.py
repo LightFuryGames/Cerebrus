@@ -86,7 +86,17 @@ class RhiMemoryTab(ReportTab):
             </div>
             """
 
-        dashboard_html = ""
+        reported_total_mb = parse_memory_size_to_mb(total_val)
+        reported_size = (
+            f"{reported_total_mb / 1024.0:.2f} GB"
+            if reported_total_mb >= 1024
+            else total_val
+        )
+        calculated_size = (
+            f"{calc_total_mb / 1024.0:.2f} GB"
+            if calc_total_mb >= 1024
+            else f"{calc_total_mb:.2f} MB"
+        )
         dashboard_html = f"""
         <div class="analytics-wrapper" style="background: var(--row-even); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color);">
             <div class="analytics-row" style="display: flex; gap: 20px; flex-wrap: wrap;">
@@ -98,7 +108,7 @@ class RhiMemoryTab(ReportTab):
                     </h4>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.85em; text-align: left; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
                         <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Reported Size:</span></div>
-                        <div style="color: #ce9178; text-align: right;"><b>{f"{parse_memory_size_to_mb(total_val)/1024.0:.2f} GB" if parse_memory_size_to_mb(total_val) >= 1024 else total_val}</b></div>
+                        <div style="color: #ce9178; text-align: right;"><b>{reported_size}</b></div>
                     </div>
                 </div>
 
@@ -107,7 +117,7 @@ class RhiMemoryTab(ReportTab):
                     <h4 style="margin: 0 0 10px 0; color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated Total</h4>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.85em; text-align: left; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
                         <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated Count:</span></div><div style="color: #4ec9b0; text-align: right;"><b id="rhi-calc-count">0</b></div>
-                        <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated Size:</span></div><div style="color: #4ec9b0; text-align: right;"><b id="rhi-calc-size">{f"{calc_total_mb/1024.0:.2f} GB" if calc_total_mb >= 1024 else f"{calc_total_mb:.2f} MB"}</b></div>
+                        <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Calculated Size:</span></div><div style="color: #4ec9b0; text-align: right;"><b id="rhi-calc-size">{calculated_size}</b></div>
                     </div>
                 </div>
 
@@ -116,7 +126,7 @@ class RhiMemoryTab(ReportTab):
                     <h4 style="margin: 0 0 10px 0; color: var(--accent-color); font-size: 0.8em; text-transform: uppercase;">Filtered Statistics</h4>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.85em; text-align: left; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
                         <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Filtered Count:</span></div><div style="color: var(--accent-color); text-align: right;"><b id="rhi-filt-count">0</b></div>
-                        <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Filtered Size:</span></div><div style="color: var(--accent-color); text-align: right;"><b id="rhi-filt-sum">{f"{calc_total_mb/1024.0:.2f} GB" if calc_total_mb >= 1024 else f"{calc_total_mb:.2f} MB"}</b></div>
+                        <div><span style="color: var(--text-muted); font-size: 0.8em; text-transform: uppercase;">Filtered Size:</span></div><div style="color: var(--accent-color); text-align: right;"><b id="rhi-filt-sum">{calculated_size}</b></div>
                     </div>
                 </div>
             </div>
