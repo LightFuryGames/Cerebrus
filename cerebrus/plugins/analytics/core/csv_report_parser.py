@@ -94,9 +94,14 @@ class PerformanceCSVReportParser:
                 if not key or value in (None, ""):
                     continue
                 try:
-                    data.setdefault(key, []).append(float(value))
+                    numeric_value = float(value)
                 except ValueError:
                     continue
+                # Python accepts NaN and Infinity as floats, but neither is a
+                # valid JSON number and both would make the ES upload fail.
+                if not math.isfinite(numeric_value):
+                    continue
+                data.setdefault(key, []).append(numeric_value)
         return data
 
     def _first_loading_screen_duration_s(self) -> float | None:
@@ -126,6 +131,8 @@ class PerformanceCSVReportParser:
             target_fps = float(self.metadata.get("Target Framerate", target_fps))
         except ValueError:
             pass
+        if not math.isfinite(target_fps) or target_fps <= 0:
+            target_fps = 60.0
         target_ms = 1000.0 / target_fps
 
         total_frames = len(frame_times)

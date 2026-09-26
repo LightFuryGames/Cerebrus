@@ -311,27 +311,19 @@ class ClassStatsTab(ReportTab):
                 view_id = f"{tab_id}-{view_suffix}"
                 display_style = "block" if is_visible else "none"
 
-                th_html = (
-                    "<thead><tr>"
-                    + "".join(
-                        [
-                            f'<th {"class=\\'numeric\\'" if i>1 else ""}>{h}</th>'
-                            for i, h in enumerate(v_headers)
-                        ]
-                    )
-                    + "</tr></thead>"
-                )
+                header_cells = []
+                for i, header in enumerate(v_headers):
+                    class_attr = "class='numeric'" if i > 1 else ""
+                    header_cells.append(f"<th {class_attr}>{header}</th>")
+                th_html = "<thead><tr>" + "".join(header_cells) + "</tr></thead>"
                 tr_html = "<tbody>"
                 for r_idx, r in enumerate(v_rows):
+                    row_cells = []
+                    for i, cell in enumerate(r):
+                        class_attr = "class='numeric'" if i > 1 else ""
+                        row_cells.append(f"<td {class_attr}>{cell}</td>")
                     tr_html += (
-                        f'<tr data-index="{r_idx}">'
-                        + "".join(
-                            [
-                                f'<td {"class=\\'numeric\\'" if i>1 else ""}>{c}</td>'
-                                for i, c in enumerate(r)
-                            ]
-                        )
-                        + "</tr>"
+                        f'<tr data-index="{r_idx}">' + "".join(row_cells) + "</tr>"
                     )
                 tr_html += "</tbody>"
 

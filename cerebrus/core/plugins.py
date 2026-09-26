@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from cerebrus.core.paths import get_app_data_dir
-from cerebrus.ui.state import UIState
+
+if TYPE_CHECKING:
+    from cerebrus.ui.state import UIState
 
 
 class TabPlugin(Protocol):

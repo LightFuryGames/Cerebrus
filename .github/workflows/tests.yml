@@ -100,13 +100,13 @@ jobs:
                   doc = build_analytics_document(source_path=html_path, source_type='profiling_html_raw_csv',
                       raw_values=raw, device_profile_config_path=ini)
               if doc['schema_version'] != 2:
-                  failures.append(f'{stem}: schema_version={doc[\"schema_version\"]}')
+                  failures.append('{}: schema_version={}'.format(stem, doc['schema_version']))
               if not (1 <= doc['report_value'] <= 100):
-                  failures.append(f'{stem}: report_value out of range = {doc[\"report_value\"]}')
+                  failures.append('{}: report_value out of range = {}'.format(stem, doc['report_value']))
               if not doc['report_fingerprint']:
                   failures.append(f'{stem}: empty fingerprint')
               if doc['data_quality_has_corruption'] not in (0, 1):
-                  failures.append(f'{stem}: bad corruption flag = {doc[\"data_quality_has_corruption\"]}')
+                  failures.append('{}: bad corruption flag = {}'.format(stem, doc['data_quality_has_corruption']))
           if failures:
               for f in failures: print('FAIL:', f)
               raise SystemExit(1)

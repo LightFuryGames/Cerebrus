@@ -78,29 +78,19 @@ class ObjectSummaryTab(ReportTab):
             return f'<div id="{self.id}" class="tab-content{active_cls}"><div class="loading">No Object Summary Data</div></div>'
 
         # Headers - index 0 is Class, 1 is Count, 2 is NumKB...
-        head_html = (
-            "<tr>"
-            + "".join(
-                [
-                    f'<th {"class=\'numeric\'" if i>0 else ""}>{h}</th>'
-                    for i, h in enumerate(headers)
-                ]
-            )
-            + "</tr>"
-        )
+        header_cells = []
+        for i, header in enumerate(headers):
+            class_attr = "class='numeric'" if i > 0 else ""
+            header_cells.append(f"<th {class_attr}>{header}</th>")
+        head_html = "<tr>" + "".join(header_cells) + "</tr>"
 
         rows_html = ""
         for row in rows:
-            rows_html += (
-                "<tr>"
-                + "".join(
-                    [
-                        f'<td {"class=\'numeric\'" if i>0 else ""}>{c}</td>'
-                        for i, c in enumerate(row)
-                    ]
-                )
-                + "</tr>"
-            )
+            row_cells = []
+            for i, cell in enumerate(row):
+                class_attr = "class='numeric'" if i > 0 else ""
+                row_cells.append(f"<td {class_attr}>{cell}</td>")
+            rows_html += "<tr>" + "".join(row_cells) + "</tr>"
 
         overall_stats = ""
         if total_data:
