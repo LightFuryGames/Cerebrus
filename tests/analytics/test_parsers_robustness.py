@@ -10,6 +10,7 @@ Targets:
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 import pytest
@@ -79,6 +80,27 @@ def test_csv_with_malformed_numeric_rows_skips_bad_values(tmp_path: Path) -> Non
     # Should not raise. Result is a dict; we don't pin specific values
     # because the parser may include or skip bad rows depending on impl.
     assert isinstance(result, dict)
+
+
+def test_csv_skips_non_finite_numeric_values(tmp_path: Path) -> None:
+    csv = tmp_path / "non_finite.csv"
+    csv.write_text(
+        "\n".join(
+            [
+                "FrameTime,GameThreadTime",
+                "16.0,12.0",
+                "NaN,Infinity",
+                "20.0,-Infinity",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    parser = PerformanceCSVReportParser(csv)
+
+    assert parser.data["FrameTime"] == [16.0, 20.0]
+    assert parser.data["GameThreadTime"] == [12.0]
+    assert all(math.isfinite(value) for samples in parser.data.values() for value in samples)
 
 
 def test_csv_text_overrides_disk(tmp_path: Path) -> None:

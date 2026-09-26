@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -238,7 +239,9 @@ def parse_scalar(value: Any) -> Any:
     """Coerce string values to int/float/bool/None where that is unambiguous."""
     if value is None:
         return None
-    if isinstance(value, (int, float, bool, list, dict)):
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if isinstance(value, (int, bool, list, dict)):
         return value
 
     text = str(value).strip()
@@ -252,7 +255,8 @@ def parse_scalar(value: Any) -> Any:
         if re.fullmatch(r"[-+]?\d+", numeric_text):
             return int(numeric_text)
         if re.fullmatch(r"[-+]?(\d+\.\d*|\d*\.\d+)(e[-+]?\d+)?", numeric_text, re.I):
-            return float(numeric_text)
+            parsed = float(numeric_text)
+            return parsed if math.isfinite(parsed) else None
     except ValueError:
         pass
     return text
@@ -581,6 +585,8 @@ GROUP_KEYS = (
 def _is_missing(value: Any) -> bool:
     if value is None:
         return True
+    if isinstance(value, float) and not math.isfinite(value):
+        return True
     if isinstance(value, str) and value.strip() == "":
         return True
     if isinstance(value, str) and value.strip().lower() in {
@@ -644,7 +650,7 @@ def compute_report_value(
     def _num(value: Any, default: float = 0.0) -> float:
         try:
             f = float(value)
-            return f if f >= 0 else default
+            return f if math.isfinite(f) and f >= 0 else default
         except (TypeError, ValueError):
             return default
 
