@@ -134,7 +134,9 @@ def build_session_samples(
             assert isinstance(events, set)
             events.add(event)
 
-        for source_column in set(_AVERAGE_COLUMNS) | set(_MAX_COLUMNS):
+        for source_column in (set(_AVERAGE_COLUMNS) | set(_MAX_COLUMNS)) - {
+            "FrameTime"
+        }:
             value = _finite_float(row.get(source_column))
             if value is None:
                 continue
