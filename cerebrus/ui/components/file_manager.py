@@ -454,14 +454,16 @@ def _process_csv_directory(
                 generated_html_path = output_dir / f"{csv_file.stem}.html"
 
                 if not generated_html_path.exists():
-                    # Fallback check if it used some other naming convention?
-                    # Try finding any HTML created recently?
-                    # For now assume standard behavior.
+                    # Do not continue with post-processing or deletion when the
+                    # expected report is absent.  Otherwise the source CSV can
+                    # be discarded without ever being embedded in an HTML report.
                     log_message(
                         state,
                         "WARNING",
-                        f"Expected output file not found: {generated_html_path}",
+                        f"Expected output file not found: {generated_html_path}. "
+                        f"Preserved source CSV: {csv_file.name}",
                     )
+                    continue
                 else:
                     # Rename if requested via UI state (Prefix/Output Name)
                     final_name = csv_file.stem
@@ -514,10 +516,16 @@ def _process_csv_directory(
                         state, "WARNING", f"Percentile gauges injection failed: {e}"
                     )
 
-                try:
-                    _inject_raw_csv_into_report(state, csv_file, generated_html_path)
-                except Exception as e:
-                    log_message(state, "WARNING", f"Raw CSV injection failed: {e}")
+                raw_csv_injected = _inject_raw_csv_into_report(
+                    state, csv_file, generated_html_path
+                )
+                if not raw_csv_injected:
+                    log_message(
+                        state,
+                        "WARNING",
+                        f"Raw CSV was not embedded; preserved source CSV: {csv_file.name}",
+                    )
+                    continue
 
                 if thermal_samples:
                     try:
@@ -828,6 +836,32 @@ def _extract_date_time_from_csv_filename(csv_file: Path) -> tuple[str | None, st
     return f"{day}-{month}-{year}", time_raw
 
 
+def _inject_cerebrus_generator_meta(content: str) -> str:
+    """Mark generated reports so downstream uploaders can recognize them.
+
+    The marker is intentionally independent of optional CSV metadata.  A
+    report with a valid raw CSV but no metadata trailer is still a Cerebrus
+    report and must not be classified as a foreign HTML upload.
+    """
+    if re.search(
+        r'<meta\s+name=["\']generator["\']\s+content=["\']Cerebrus Profiling Tool["\']',
+        content,
+        re.IGNORECASE,
+    ):
+        return content
+
+    marker = '<meta name="generator" content="Cerebrus Profiling Tool"/>'
+    head_match = re.search(r"<head\b[^>]*>", content, re.IGNORECASE)
+    if head_match:
+        return (
+            content[: head_match.end()]
+            + "\n    "
+            + marker
+            + content[head_match.end() :]
+        )
+    return marker + content
+
+
 def _inject_cerebrus_metadata_script(content: str, metadata: dict, csv_file: Path | None = None) -> str:
     cpu_parts = parse_cpu_device(metadata.get("cpu"))
 
@@ -879,6 +913,7 @@ def _inject_cerebrus_metadata_script(content: str, metadata: dict, csv_file: Pat
         "date": date_part,
         "time": time_part,
     }
+    content = _inject_cerebrus_generator_meta(content)
     payload = {key: value for key, value in payload.items() if value not in (None, "")}
     if not payload:
         return content
@@ -1497,9 +1532,27 @@ def _inject_battery_thermal_into_report(
 
 def _inject_raw_csv_into_report(
     state: UIState, csv_file: Path, html_file: Path
-) -> None:
-    if not html_file.exists() or not csv_file.exists():
-        return
+) -> bool:
+    """Embed a source CSV in its generated report and report whether it succeeded.
+
+    The caller uses this result to decide whether the source CSV is safe to
+    delete.  Keeping the source when embedding fails prevents an unrecoverable
+    loss of frame-level telemetry needed by Grafana session timelines.
+    """
+    if not html_file.exists():
+        log_message(
+            state,
+            "WARNING",
+            f"Cannot embed RAW CSV; report is missing: {html_file}",
+        )
+        return False
+    if not csv_file.exists():
+        log_message(
+            state,
+            "WARNING",
+            f"Cannot embed RAW CSV; source is missing: {csv_file}",
+        )
+        return False
 
     try:
         content = html_file.read_text(encoding="utf-8")
@@ -1605,8 +1658,11 @@ function downloadRawCSV() {
             )
             html_file.write_text(new_content, encoding="utf-8")
             log_message(state, "SUCCESS", "Injected RAW CSV Tab.")
+            return True
         else:
             log_message(state, "WARNING", "Could not find </body> to inject RAW CSV.")
+            return False
 
     except Exception as e:
         log_message(state, "ERROR", f"Failed to inject RAW CSV: {e}")
+        return False
