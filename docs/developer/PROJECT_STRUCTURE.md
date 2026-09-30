@@ -45,6 +45,9 @@ cerebrus/                   # Main package directory
     profiling_plugin.py     # Main profiling workflow plugin
     s3_uploader.py          # S3 report upload logic
     resources/              # Plugin tooltip resources
+    analytics/              # Report normalization and Elasticsearch ingestion
+      core/
+        session_samples.py  # One-second raw-CSV timeline rollups
 
   resources/                # Static assets
     Titan.json              # Theme variant

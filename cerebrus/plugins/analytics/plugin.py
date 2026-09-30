@@ -14,7 +14,9 @@ from cerebrus.plugins.analytics.core import (
 )
 from cerebrus.plugins.analytics.core.converter import (
     convert_file_to_document,
+    convert_file_to_session_samples,
     push_document_to_elasticsearch,
+    push_session_samples_to_elasticsearch,
 )
 from cerebrus.plugins.analytics.core.settings import (
     AnalyticsSettings,
@@ -201,6 +203,30 @@ class AnalyticsPlugin(TabPlugin):
                         f"Status: {status_code}\n"
                         f"Timestamp: {document.get('@timestamp', 'not found')}"
                     )
+                    if source.suffix.lower() in {".html", ".htm", ".csv"}:
+                        try:
+                            samples = convert_file_to_session_samples(source)
+                        except ValueError as exc:
+                            log_message(state, "WARNING", str(exc))
+                        else:
+                            _, sample_response, sample_count = (
+                                push_session_samples_to_elasticsearch(
+                                    samples, upload_url
+                                )
+                            )
+                            log_message(
+                                state,
+                                "SUCCESS",
+                                f"Uploaded {sample_count} one-second session samples: "
+                                f"{source.name}",
+                            )
+                            _set_preview(
+                                f"Uploaded {source.name}\n"
+                                f"Summary endpoint: {upload_url}\n"
+                                "Session index: "
+                                "telemetry-cerebrus-session-samples\n"
+                                f"{sample_response}"
+                            )
                 else:
                     log_message(
                         state,
