@@ -5,6 +5,8 @@ import pytest
 
 from cerebrus.tools.adb import AdbError
 from cerebrus.ui.components.file_manager import (
+    _inject_cerebrus_metadata_script,
+    _inject_raw_csv_into_report,
     _handle_generate_colored_logs,
     _handle_generate_mem_report,
     _handle_generate_perf_report,
@@ -61,7 +63,13 @@ def test_handle_generate_perf_report_directory(mock_state, temp_output_dir):
     mock_state.output_path = temp_output_dir
     csv_dir = temp_output_dir / "CSV"
     csv_dir.mkdir()
-    (csv_dir / "test.csv").touch()
+    csv_file = csv_dir / "test.csv"
+    csv_file.write_text("FrameTime\n16.0\n", encoding="utf-8")
+    profiling_dir = temp_output_dir / "Profiling"
+    profiling_dir.mkdir()
+    generated_report = profiling_dir / "test.html"
+    final_report = profiling_dir / "test_output.html"
+    generated_report.write_text("<html><body>Report</body></html>", encoding="utf-8")
 
     with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0, stdout="")
@@ -80,6 +88,45 @@ def test_handle_generate_perf_report_directory(mock_state, temp_output_dir):
             assert expected_output_dir.exists()
             mock_metadata.assert_called()
             mock_post.assert_called()
+            assert not csv_file.exists()
+            assert not generated_report.exists()
+            assert "rawCsvDataHidden" in final_report.read_text(encoding="utf-8")
+
+
+def test_generate_perf_report_preserves_csv_when_report_is_missing(
+    mock_state, temp_output_dir
+):
+    """A missing PerfReport output must not delete the only raw telemetry."""
+    csv_dir = temp_output_dir / "CSV"
+    csv_dir.mkdir()
+    csv_file = csv_dir / "test.csv"
+    csv_file.write_text("FrameTime\n16.0\n", encoding="utf-8")
+
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=0, stdout="")
+        _handle_generate_perf_report(mock_state)
+
+    assert csv_file.exists()
+
+
+def test_inject_raw_csv_returns_false_without_html_body(mock_state, tmp_path):
+    """A report without a body is not a valid destination for raw telemetry."""
+    csv_file = tmp_path / "Profile(20260929_200355).csv"
+    csv_file.write_text("FrameTime\n16.0\n", encoding="utf-8")
+    html_file = tmp_path / "report.html"
+    html_file.write_text("<html><head></head></html>", encoding="utf-8")
+
+    assert _inject_raw_csv_into_report(mock_state, csv_file, html_file) is False
+    assert "rawCsvDataHidden" not in html_file.read_text(encoding="utf-8")
+
+
+def test_metadata_script_marks_report_as_cerebrus_without_metadata():
+    """The uploader must recognize reports even when the CSV has no metadata."""
+    content = "<html><head></head><body>Report</body></html>"
+
+    rendered = _inject_cerebrus_metadata_script(content, {})
+
+    assert 'meta name="generator" content="Cerebrus Profiling Tool"' in rendered
 
 
 @pytest.mark.parametrize(
