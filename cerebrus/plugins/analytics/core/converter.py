@@ -20,6 +20,22 @@ SUPPORTED_EXTENSIONS = {".html", ".htm", ".csv", ".json"}
 SESSION_SAMPLES_INDEX = "telemetry-cerebrus-session-samples"
 
 
+def _merge_html_metadata_with_raw_values(
+    html_values: dict[str, Any], raw_values: dict[str, Any]
+) -> dict[str, Any]:
+    """Retain HTML-only dimensions while making raw CSV metrics authoritative.
+
+    PerfReport HTML carries presentation metadata such as Scalability Tier that
+    does not always appear in the embedded CSV. Conversely, the CSV is the
+    source of truth for frame-derived metrics. Merging in this order prevents
+    an HTML summary from replacing raw measurements while preserving dimensions
+    needed by Grafana filters.
+    """
+    merged = dict(html_values)
+    merged.update(raw_values)
+    return merged
+
+
 def convert_file_to_document(path: str | Path) -> dict[str, Any]:
     source = Path(path)
     suffix = source.suffix.lower()
@@ -29,14 +45,18 @@ def convert_file_to_document(path: str | Path) -> dict[str, Any]:
         html_parser = PerformanceHTMLReportParser(source)
         raw_csv = html_parser.extract_embedded_raw_csv()
         if raw_csv:
+            html_values = html_parser.parse()
             embedded_name = html_parser.embedded_profile_name()
             logical_source = (
                 source.with_name(f"{embedded_name}.csv") if embedded_name else source
             )
-            raw_values = PerformanceCSVReportParser(
+            csv_values = PerformanceCSVReportParser(
                 logical_source,
                 csv_text=raw_csv,
             ).parse()
+            raw_values = _merge_html_metadata_with_raw_values(
+                html_values, csv_values
+            )
             source_type = "profiling_html_raw_csv"
         else:
             raw_values = html_parser.parse()

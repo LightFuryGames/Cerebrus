@@ -114,12 +114,28 @@ def _unknown_payload() -> dict[str, Any]:
 def enrich_with_device_profile_tier(
     values: dict[str, Any], config_path: str | Path | None
 ) -> dict[str, Any]:
-    """Resolve scalability tier with a three-tier fallback.
+    """Resolve scalability tier with an explicit value plus three fallbacks.
 
-    1. ini_chain     - walk BaseProfileName in BaseDeviceProfiles.ini.
-    2. gpu_heuristic - regex GPU family when ini lookup fails.
-    3. unknown       - emit Unknown tier so the ES field is never null.
+    1. report_tier   - preserve an explicit tier rendered by PerfReport.
+    2. ini_chain     - walk BaseProfileName in BaseDeviceProfiles.ini.
+    3. gpu_heuristic - regex GPU family when ini lookup fails.
+    4. unknown       - emit Unknown tier so the ES field is never null.
     """
+    explicit_tier = _first_present_value(
+        values,
+        ("Scalability Tier", "scalability_tier", "Device Tier", "device_tier"),
+    )
+    if explicit_tier and str(explicit_tier).strip().lower() not in {
+        "unknown",
+        "n/a",
+        "na",
+    }:
+        tier = str(explicit_tier).strip()
+        return {
+            "Scalability Tier": tier,
+            "scalability_tier": tier,
+        }
+
     profile_raw = _first_present_value(
         values,
         (
