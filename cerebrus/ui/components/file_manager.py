@@ -836,6 +836,26 @@ def _extract_date_time_from_csv_filename(csv_file: Path) -> tuple[str | None, st
     return f"{day}-{month}-{year}", time_raw
 
 
+def _inject_cerebrus_generator_meta(content: str) -> str:
+    """Mark generated reports so cloud upload can identify Cerebrus output.
+
+    Metadata can legitimately be absent from a CSV capture.  The generator
+    marker must therefore be injected independently and remain idempotent when
+    a report is processed more than once.
+    """
+    marker = '<meta name="generator" content="Cerebrus Profiling Tool">'
+    if re.search(
+        r'<meta\s+name=["\']generator["\']\s+content=["\']Cerebrus Profiling Tool["\']\s*/?>',
+        content,
+        re.IGNORECASE,
+    ):
+        return content
+    head_match = re.search(r"</head\s*>", content, re.IGNORECASE)
+    if head_match:
+        return content[: head_match.start()] + marker + content[head_match.start() :]
+    return marker + content
+
+
 def _inject_cerebrus_metadata_script(content: str, metadata: dict, csv_file: Path | None = None) -> str:
     cpu_parts = parse_cpu_device(metadata.get("cpu"))
 

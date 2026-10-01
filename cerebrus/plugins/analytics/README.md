@@ -10,6 +10,8 @@ The plugin adds the `Analytics & Trends` tab. This tab can:
 
 - Convert one HTML, CSV, or legacy flat JSON report into `.analytics.json`.
 - Upload one normalized analytics document to a configured Elasticsearch/OpenSearch `_doc` endpoint.
+- Upload one-second session records from an original local HTML/CSV report to
+  `telemetry-cerebrus-session-samples` for session timelines in Grafana.
 - Scan a report folder and write `analytics_summary.csv`.
 
 Bulk export support exists in the analytics core, but the visible tab workflow is
@@ -100,6 +102,10 @@ they are plugin-owned support code, not part of the global Cerebrus runtime.
 - The upload endpoint is stored in the local Cerebrus app data folder as
   `analytics_settings.json`.
 - Upload currently posts one normalized document at a time to the configured
-  endpoint.
+  endpoint, then bulk-indexes timeline records when the selected source is an
+  original HTML/CSV report with raw sample data. Session records use deterministic
+  IDs, so a repeated upload updates the same second instead of duplicating it.
+- The S3/CloudFront HTML copy intentionally removes embedded raw CSV; it cannot
+  create session records. Upload from the local source HTML/CSV instead.
 - HTML parsing supports current Unreal/Cerebrus performance report tables and
   may need small adapters if report markup changes.
