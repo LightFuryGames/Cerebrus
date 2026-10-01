@@ -248,6 +248,16 @@ def test_device_profile_reference_resolves_scalability_tier(tmp_path: Path) -> N
     assert enriched["device_profile_root"] == "Android_Epic"
 
 
+def test_explicit_report_scalability_tier_beats_unknown_fallback() -> None:
+    enriched = enrich_with_device_profile_tier(
+        {"Scalability Tier": "Low", "DeviceProfile": "Android_Mali_G5xx_Vulkan"},
+        None,
+    )
+
+    assert enriched["Scalability Tier"] == "Low"
+    assert enriched["scalability_tier"] == "Low"
+
+
 def test_push_document_to_elasticsearch_posts_canonical_payload(monkeypatch) -> None:
     calls = {}
 
