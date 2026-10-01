@@ -102,6 +102,32 @@ def test_html_device_id_can_be_desktop_for_desktop_report(tmp_path: Path) -> Non
     assert document["device_model"] == "Desktop"
 
 
+def test_embedded_raw_csv_preserves_html_only_scalability_tier(tmp_path: Path) -> None:
+    """Raw frame metrics must not discard dimensions rendered only in HTML."""
+    report = tmp_path / "Profile(20260929_181910).html"
+    report.write_text(
+        "<html><head></head><body>"
+        "<table>"
+        "<tr><td>Scalability Tier</td><td><b>Low</b></td></tr>"
+        "<tr><td>Configuration</td><td><b>Test</b></td></tr>"
+        "</table>"
+        "Profile(20260929_181910)"
+        '<pre id="rawCsvDataHidden">'
+        "FrameTime,GameThreadTime\n"
+        "20,10\n"
+        "40,20\n"
+        "[HasHeaderRowAtEnd],1,[targetframerate],60,[cpu],vivo|V2351|MT6835"
+        "</pre></body></html>",
+        encoding="utf-8",
+    )
+
+    document = convert_file_to_document(report)
+
+    assert document["source_type"] == "profiling_html_raw_csv"
+    assert document["device_tier"] == "Low"
+    assert document["metrics_frametime_avg_ms"] == 30.0
+
+
 def test_convert_flat_json_to_analytics_json(tmp_path: Path) -> None:
     source = tmp_path / "Profile(20260427_152033).json"
     source.write_text(

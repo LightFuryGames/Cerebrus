@@ -76,6 +76,10 @@ objects (`build`, `device`, `capture`, `metrics`, `threshold_counts`, and
 Elasticsearch mapping does not grow a new top-level field for every new report
 column.
 
+For a report with embedded raw CSV, frame-derived metrics come from the CSV.
+HTML-only metadata, including the rendered scalability tier, is retained so
+both aggregate documents and session samples use the same Grafana dimensions.
+
 The `report_fingerprint` is computed from stable build, device, and capture
 identity fields. Bulk exports use it as the Elasticsearch `_id` with a `create`
 action, and single uploads use `PUT /_doc/{report_fingerprint}` when the
