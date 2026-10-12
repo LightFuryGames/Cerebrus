@@ -64,6 +64,26 @@ def test_session_samples_ignore_non_finite_rows() -> None:
     assert json.dumps(documents, allow_nan=False)
 
 
+def test_same_build_cl_different_devices_keep_independent_session_samples() -> None:
+    raw_csv = "FrameTime,GPUTime\n500,10\n500,20\n"
+    first_summary = _summary() | {
+        "report_fingerprint": "session-a",
+    }
+    second_summary = _summary() | {
+        "report_fingerprint": "session-b",
+    }
+    first_summary.pop("device_id")
+    second_summary.pop("device_id")
+
+    first = build_session_samples(raw_csv, first_summary)
+    second = build_session_samples(raw_csv, second_summary)
+
+    assert first[0]["build_cl"] == second[0]["build_cl"] == 52119
+    assert "device_id" not in first[0]
+    assert "device_id" not in second[0]
+    assert first[0]["session_sample_id"] != second[0]["session_sample_id"]
+
+
 def test_convert_html_session_samples_requires_embedded_raw_csv(tmp_path: Path) -> None:
     report = tmp_path / "Profile(20260930_100000).html"
     report.write_text("<html><body>No raw payload</body></html>", encoding="utf-8")

@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from cerebrus.plugins.analytics.core.normalizer import (
+    _make_report_fingerprint,
     build_analytics_document,
     timestamp_from_unix_epoch,
 )
@@ -110,6 +111,22 @@ def test_fingerprint_changes_when_csv_id_changes() -> None:
         raw_values=dict(_BASE_RAW),
     )
     assert a["report_fingerprint"] != b["report_fingerprint"]
+
+
+def test_fingerprint_changes_when_device_dimensions_change_for_same_cl() -> None:
+    """Same-CL captures remain separate without requiring device_id."""
+    first = {
+        "@timestamp": "2026-04-27T09:08:58Z",
+        "build": {"cl": 32261},
+        "device": {"manufacturer": "vivo", "model": "V2351"},
+        "capture": {"frame_count": 100},
+    }
+    second = {
+        **first,
+        "device": {"manufacturer": "xiaomi", "model": "2409"},
+    }
+
+    assert _make_report_fingerprint(first) != _make_report_fingerprint(second)
 
 
 def test_fingerprint_stable_across_source_path() -> None:

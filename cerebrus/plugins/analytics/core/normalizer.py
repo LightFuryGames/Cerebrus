@@ -415,9 +415,16 @@ def _make_report_fingerprint(document: dict[str, Any]) -> str:
             key: document.get("build", {}).get(key)
             for key in ("project", "branch", "cl", "config")
         },
+        # Keep the optional canonical device identity in the fingerprint as well
+        # as the parsed manufacturer/model fields. Reports without device_id
+        # still remain valid because the other device and capture fields are
+        # included below.
         "device": {
-            key: document.get("device", {}).get(key)
-            for key in ("manufacturer", "model", "gpu", "profile")
+            "device_id": document.get("device_id"),
+            **{
+                key: document.get("device", {}).get(key)
+                for key in ("manufacturer", "model", "gpu", "profile")
+            },
         },
         "capture": {
             key: document.get("capture", {}).get(key)
