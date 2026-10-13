@@ -89,6 +89,8 @@ def build_message(result: dict, hours: int, grafana_url: str | None) -> str:
     buckets = aggregations.get("reports_by_build_device", {}).get("buckets", [])
     total = aggregations.get("fps", {}).get("count", 0)
     dashboard = (grafana_url or "http://13.202.235.56:3000/d/ecricket-performance-health-poc/performance-insights").rstrip("/")
+    if "/d/" not in dashboard:
+        dashboard = f"{dashboard}/d/ecricket-performance-health-poc/performance-insights"
     query = urllib.parse.urlencode({"orgId": "1", "from": f"now-{hours}h", "to": "now", "timezone": "Asia/Kolkata"})
     dashboard_link = f"<{dashboard}?{query}|Open Performance Insights dashboard>"
     if not total:
