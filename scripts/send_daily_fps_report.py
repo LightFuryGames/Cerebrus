@@ -16,6 +16,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
+from statistics import mean
 
 
 def _request_json(url: str, payload: dict) -> dict:
@@ -46,8 +47,13 @@ def _es_endpoint(base_url: str, index: str) -> str:
 
 
 def query_elasticsearch(es_url: str, index: str, hours: int) -> dict:
+    # Match Grafana's report/session view by collapsing re-uploaded reports.
     query = {
-        "size": 0,
+        "size": 10000,
+        "track_total_hits": True,
+        "sort": [{"@timestamp": {"order": "desc"}}],
+        "collapse": {"field": "report_fingerprint"},
+        "_source": ["@timestamp", "report_fingerprint", "build_cl", "device_id", "metrics_fps_avg", "metrics_hitches_per_min"],
         "query": {
             "bool": {
                 "filter": [
@@ -56,38 +62,41 @@ def query_elasticsearch(es_url: str, index: str, hours: int) -> dict:
                 ]
             }
         },
-        "aggs": {
-            "fps": {
-                "stats": {"field": "metrics_fps_avg"}
-            },
-            "fps_percentiles": {
-                "percentiles": {
-                    "field": "metrics_fps_avg",
-                    "percents": [5, 50, 95],
-                }
-            },
-            "hitches": {"avg": {"field": "metrics_hitches_per_min"}},
-            "reports_by_build_device": {
-                "terms": {"script": {"lang": "painless", "source": """
-                    def b = doc.containsKey('build_cl.keyword') && !doc['build_cl.keyword'].empty ? doc['build_cl.keyword'].value : (doc.containsKey('build_cl') && !doc['build_cl'].empty ? doc['build_cl'].value.toString() : 'Unknown');
-                    def d = doc.containsKey('device_id.keyword') && !doc['device_id.keyword'].empty ? doc['device_id.keyword'].value : (doc.containsKey('device_id') && !doc['device_id'].empty ? doc['device_id'].value.toString() : 'Unknown');
-                    return b + ' | ' + d;
-                """}, "size": 50},
-                "aggs": {"fps": {"avg": {"field": "metrics_fps_avg"}}, "count": {"value_count": {"field": "metrics_fps_avg"}}},
-            },
-        },
     }
-    return _request_json(_es_endpoint(es_url, index), query)
+    response = _request_json(_es_endpoint(es_url, index), query)
+    unique: dict[str, dict] = {}
+    for hit in response.get("hits", {}).get("hits", []):
+        source = hit.get("_source", {})
+        key = source.get("report_fingerprint") or hit.get("_id")
+        if not key:
+            key = "|".join(str(source.get(name, "")) for name in ("@timestamp", "build_cl", "device_id"))
+        unique.setdefault(str(key), source)
+    values = [float(doc["metrics_fps_avg"]) for doc in unique.values() if doc.get("metrics_fps_avg") is not None]
+    hitches = [float(doc["metrics_hitches_per_min"]) for doc in unique.values() if doc.get("metrics_hitches_per_min") is not None]
+    groups: dict[str, list[float]] = {}
+    for doc in unique.values():
+        if doc.get("metrics_fps_avg") is None:
+            continue
+        key = f"{doc.get('build_cl', 'Unknown')} | {doc.get('device_id', 'Unknown')}"
+        groups.setdefault(key, []).append(float(doc["metrics_fps_avg"]))
+    return {"fps_values": values, "hitches_values": hitches, "reports_by_build_device": [{"key": key, "fps": {"value": mean(fps)}, "count": {"value": len(fps)}} for key, fps in sorted(groups.items())]}
+
+
+def _percentile(values: list[float], percent: float) -> float:
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    position = (len(ordered) - 1) * percent / 100
+    lower = int(position)
+    upper = min(lower + 1, len(ordered) - 1)
+    return ordered[lower] + (ordered[upper] - ordered[lower]) * (position - lower)
 
 
 def build_message(result: dict, hours: int, grafana_url: str | None) -> str:
-    aggregations = result.get("aggregations", {})
-    stats = aggregations.get("fps", {}).get("value", None)
-    if stats is None:
-        stats = aggregations.get("fps", {})
-    percentiles = aggregations.get("fps_percentiles", {}).get("values", {})
-    buckets = aggregations.get("reports_by_build_device", {}).get("buckets", [])
-    total = aggregations.get("fps", {}).get("count", 0)
+    values = result.get("fps_values", [])
+    buckets = result.get("reports_by_build_device", [])
+    total = len(values)
+    percentiles = {"5.0": _percentile(values, 5), "50.0": _percentile(values, 50), "95.0": _percentile(values, 95)}
     dashboard = (grafana_url or "http://13.202.235.56:3000/d/ecricket-performance-health-poc/performance-insights").rstrip("/")
     if "/d/" not in dashboard:
         dashboard = f"{dashboard}/d/ecricket-performance-health-poc/performance-insights"
@@ -101,10 +110,10 @@ def build_message(result: dict, hours: int, grafana_url: str | None) -> str:
         ])
     lines = [
         f":bar_chart: *E-Cricket daily FPS report* (last {hours} hours, IST)",
-        f"*Samples:* {int(total)}  |  *Average:* {stats.get('avg', 0):.1f} fps",
+        f"*Reports:* {int(total)}  |  *Average:* {mean(values):.1f} fps",
         f"*FPS distribution:* P05 {percentiles.get('5.0', 0):.1f}  •  Median {percentiles.get('50.0', 0):.1f}  •  P95 {percentiles.get('95.0', 0):.1f}",
     ]
-    hitches = aggregations.get("hitches", {}).get("value")
+    hitches = mean(result.get("hitches_values", [])) if result.get("hitches_values") else None
     if hitches is not None:
         lines.append(f"*Visible hitches:* {hitches:.2f}/min average")
     lines.append("*By build CL and device:*")
