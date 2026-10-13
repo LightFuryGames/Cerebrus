@@ -52,7 +52,6 @@ def query_elasticsearch(es_url: str, index: str, hours: int) -> dict:
         "size": 10000,
         "track_total_hits": True,
         "sort": [{"@timestamp": {"order": "desc"}}],
-        "collapse": {"field": "report_fingerprint"},
         "_source": ["@timestamp", "report_fingerprint", "build_cl", "device_id", "metrics_fps_avg", "metrics_hitches_per_min"],
         "query": {
             "bool": {
