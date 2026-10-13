@@ -88,21 +88,28 @@ def build_message(result: dict, hours: int, grafana_url: str | None) -> str:
     percentiles = aggregations.get("fps_percentiles", {}).get("values", {})
     buckets = aggregations.get("reports_by_build_device", {}).get("buckets", [])
     total = aggregations.get("fps", {}).get("count", 0)
+    dashboard = (grafana_url or "http://13.202.235.56:3000/d/ecricket-performance-health-poc/performance-insights").rstrip("/")
+    query = urllib.parse.urlencode({"orgId": "1", "from": f"now-{hours}h", "to": "now", "timezone": "Asia/Kolkata"})
+    dashboard_link = f"<{dashboard}?{query}|Open Performance Insights dashboard>"
     if not total:
-        return f":information_source: *E-Cricket daily FPS report* — no FPS data in the last {hours} hours."
+        return "\n".join([
+            f":information_source: *E-Cricket daily FPS report* (last {hours} hours, IST)",
+            "No FPS samples were indexed in this window.",
+            dashboard_link,
+        ])
     lines = [
-        f":bar_chart: *E-Cricket daily FPS report* (last {hours}h, IST)",
-        f"Reports: {int(total)} | Avg: {stats.get('avg', 0):.1f} fps | P05/P50/P95: "
-        f"{percentiles.get('5.0', 0):.1f}/{percentiles.get('50.0', 0):.1f}/{percentiles.get('95.0', 0):.1f} fps",
+        f":bar_chart: *E-Cricket daily FPS report* (last {hours} hours, IST)",
+        f"*Samples:* {int(total)}  |  *Average:* {stats.get('avg', 0):.1f} fps",
+        f"*FPS distribution:* P05 {percentiles.get('5.0', 0):.1f}  •  Median {percentiles.get('50.0', 0):.1f}  •  P95 {percentiles.get('95.0', 0):.1f}",
     ]
     hitches = aggregations.get("hitches", {}).get("value")
     if hitches is not None:
-        lines.append(f"Average visible hitches: {hitches:.2f}/min")
+        lines.append(f"*Visible hitches:* {hitches:.2f}/min average")
+    lines.append("*By build CL and device:*")
     for bucket in buckets[:10]:
-        lines.append(f"• {bucket['key']}: {bucket['fps'].get('value', 0):.1f} fps ({int(bucket['count'].get('value', 0))} samples)")
-    if grafana_url:
-        query = urllib.parse.urlencode({"from": "now-24h", "to": "now", "timezone": "Asia/Kolkata"})
-        lines.append(f"<{grafana_url.rstrip('/')}/d/e-cricket-performance?{query}|Open Grafana>")
+        build_device = bucket['key'].replace(' | ', ' — ')
+        lines.append(f"• {build_device}: {bucket['fps'].get('value', 0):.1f} fps ({int(bucket['count'].get('value', 0))} samples)")
+    lines.append(dashboard_link)
     return "\n".join(lines)
 
 
