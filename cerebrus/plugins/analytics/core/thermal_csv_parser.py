@@ -126,7 +126,7 @@ def build_battery_thermal_samples(raw_csv: str, summary_document: dict[str, Any]
             "session_sample_id": f"{session_id}:thermal:{second:06d}",
             "elapsed_seconds": second,
             "@timestamp": _sample_timestamp(capture_start, second),
-            "capture_started_at": capture_start,
+            "capture_started_at": _sample_timestamp(capture_start, 0),
             "sample_thermal_count": len(values),
             "metrics_battery_temp_avg_c": round(sum(values) / len(values), 3),
             "metrics_battery_temp_min_c": round(min(values), 3),
