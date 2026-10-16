@@ -680,7 +680,7 @@ class S3UploaderPlugin(TabPlugin):
                             source_path,
                             bucket_name,
                             s3_key,
-                            content_type=content_type,
+                            content_type="text/csv" if source_path.lower().endswith(".csv") else content_type,
                         )
                     if stripped_raw_csv:
                         log_message(
@@ -703,7 +703,7 @@ class S3UploaderPlugin(TabPlugin):
                     log_message(state, "ERROR", f"Upload Failed: {e}")
 
             dpg.add_button(
-                label="Upload Performance Report to S3",
+                label="Upload Performance Report or Thermal CSV to S3",
                 callback=_handle_upload,
                 width=300,
                 height=30,
@@ -713,9 +713,9 @@ class S3UploaderPlugin(TabPlugin):
         _build_upload_form(
             form_id="profiling_report",
             label_prefix="HTML",
-            allowed_extensions=[("HTML files", "*.html"), ("All files", "*.*")],
-            hint_file="Select an HTML file...",
+            allowed_extensions=[("HTML or thermal CSV files", "*.html *.csv"), ("All files", "*.*")],
+            hint_file="Select an HTML or thermal CSV file...",
             hint_dest="e.g. Profiling/Reports/",
-            expected_exts=(".html",),
+            expected_exts=(".html", ".csv"),
             content_type="text/html",
         )
