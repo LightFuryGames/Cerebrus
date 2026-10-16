@@ -59,6 +59,7 @@ RAW_TO_CANONICAL_KEYS = {
     "asan": "asan_enabled",
     "[asan]": "asan_enabled",
     "build configuration": "config",
+    "build_cl": "cl",
     "build version": "build_version",
     "[buildversion]": "build_version",
     "capture duration": "duration_s",
