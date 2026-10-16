@@ -203,6 +203,44 @@ def _extract_report_metadata(content: str) -> dict:
     return metadata
 
 
+def _find_sibling_report_html(csv_path: str) -> Optional[Path]:
+    """Find the Cerebrus perf report that belongs to a sidecar CSV.
+
+    Sidecar CSVs (e.g. `samsung_SM-F956B_battery_thermal.csv`) are written
+    next to their report (`samsung_SM-F956B.html` / `samsung_SM-F956B_1.html`).
+    Prefer a name match; fall back to the folder's only HTML, so a CSV is
+    never attached to the wrong device's report when several are present.
+    """
+    path = Path(csv_path)
+    folder = path.parent
+    base = re.sub(r"_battery_thermal$", "", path.stem, flags=re.IGNORECASE)
+
+    htmls = sorted(folder.glob("*.html"))
+    named = [h for h in htmls if h.stem == base or h.stem.startswith(f"{base}_")]
+    if named:
+        # Prefer the one actually carrying cerebrus-metadata.
+        for candidate in named:
+            try:
+                text = candidate.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            if 'id="cerebrus-metadata"' in text:
+                return candidate
+        return named[0]
+    if len(htmls) == 1:
+        return htmls[0]
+    return None
+
+
+def _extract_metadata_for_csv(csv_path: str) -> dict:
+    """Derive S3 metadata for a CSV from its sibling perf report."""
+    report = _find_sibling_report_html(csv_path)
+    if report is None:
+        return {}
+    content = report.read_text(encoding="utf-8", errors="ignore")
+    return _extract_report_metadata(content)
+
+
 def _sanitize_s3_path_part(value: object) -> str:
     """Sanitize one metadata value for an S3 path segment."""
     return str(value).replace(" ", "_").replace("/", "_").replace("\\", "_")
@@ -455,6 +493,31 @@ class S3UploaderPlugin(TabPlugin):
                         log_message(state, "ERROR", "No existing folder to open.")
 
             def _derive_path_from_file(file_path: str):
+                if file_path.lower().endswith(".csv"):
+                    try:
+                        metadata = _extract_metadata_for_csv(file_path)
+                        if metadata:
+                            derived_dir = _derive_s3_dir_from_metadata(metadata)
+                            dpg.set_value(dest_dir_tag, derived_dir)
+                            log_message(
+                                state,
+                                "INFO",
+                                f"Derived S3 path from sibling report: {derived_dir}",
+                            )
+                        else:
+                            _show_popup(
+                                "Metadata Missing",
+                                "No matching Cerebrus HTML report was found next to this CSV, so the Destination Path can't be derived. Enter it manually (use the same path as the report's upload).",
+                                color=[200, 200, 200],
+                            )
+                    except Exception as e:
+                        _show_popup(
+                            "Error",
+                            f"Failed to derive path for CSV: {e}",
+                            color=[255, 100, 100],
+                        )
+                    return
+
                 if not file_path.lower().endswith(".html"):
                     return
 
@@ -558,7 +621,7 @@ class S3UploaderPlugin(TabPlugin):
                         dpg.add_input_text(
                             tag=file_path_tag,
                             width=760,
-                            hint=f"{hint_file} or drag an HTML file here",
+                            hint=f"{hint_file} or drag a file here",
                             drop_callback=_handle_file_drop,
                         )
                         dpg.add_button(label="Browse", callback=_browse_file)
@@ -639,6 +702,9 @@ class S3UploaderPlugin(TabPlugin):
                         )
 
                 # Upload Logic
+                effective_content_type = content_type or (
+                    "text/csv" if source_path.lower().endswith(".csv") else "text/html"
+                )
                 file_name = os.path.basename(source_path)
                 dest_dir = dest_dir.strip("/")
                 s3_key = f"{dest_dir}/{file_name}" if dest_dir else file_name
@@ -672,7 +738,7 @@ class S3UploaderPlugin(TabPlugin):
                             source_path,
                             bucket_name,
                             s3_key,
-                            content_type=content_type,
+                            content_type=effective_content_type,
                         )
                     else:
                         _upload_file_to_s3(
@@ -680,7 +746,7 @@ class S3UploaderPlugin(TabPlugin):
                             source_path,
                             bucket_name,
                             s3_key,
-                            content_type=content_type,
+                            content_type=effective_content_type,
                         )
                     if stripped_raw_csv:
                         log_message(
@@ -703,7 +769,7 @@ class S3UploaderPlugin(TabPlugin):
                     log_message(state, "ERROR", f"Upload Failed: {e}")
 
             dpg.add_button(
-                label="Upload Performance Report to S3",
+                label="Upload to S3",
                 callback=_handle_upload,
                 width=300,
                 height=30,
@@ -712,10 +778,15 @@ class S3UploaderPlugin(TabPlugin):
         dpg.add_spacer(height=10)
         _build_upload_form(
             form_id="profiling_report",
-            label_prefix="HTML",
-            allowed_extensions=[("HTML files", "*.html"), ("All files", "*.*")],
-            hint_file="Select an HTML file...",
-            hint_dest="e.g. Profiling/Reports/",
-            expected_exts=(".html",),
-            content_type="text/html",
+            label_prefix="Report",
+            allowed_extensions=[
+                ("Reports (HTML, CSV)", "*.html *.csv"),
+                ("HTML files", "*.html"),
+                ("CSV files", "*.csv"),
+                ("All files", "*.*"),
+            ],
+            hint_file="Select an HTML report or CSV...",
+            hint_dest="e.g. Profiling/Reports/ (auto-derived for reports)",
+            expected_exts=(".html", ".csv"),
+            content_type=None,  # chosen per file extension at upload time
         )
