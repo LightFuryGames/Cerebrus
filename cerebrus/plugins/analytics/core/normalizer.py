@@ -549,6 +549,9 @@ def build_analytics_document(
             continue
 
         canonical = canonical_key(key)
+        if canonical == "session_id":
+            _copy_present(document["capture"], canonical, str(value).strip())
+            continue
         scalar = parse_scalar(value)
 
         if canonical == "cpu_device":
