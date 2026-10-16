@@ -25,6 +25,13 @@ SUPPORTED_EXTENSIONS = {".html", ".htm", ".csv", ".json"}
 SESSION_SAMPLES_INDEX = "telemetry-cerebrus-session-samples"
 
 
+def _normalize_analytics_document_types(document: dict[str, Any]) -> dict[str, Any]:
+    """Keep opaque identifiers typed consistently for downstream consumers."""
+    if document.get("capture_session_id") is not None:
+        document["capture_session_id"] = str(document["capture_session_id"])
+    return document
+
+
 def _merge_html_metadata_with_raw_values(
     html_values: dict[str, Any], raw_values: dict[str, Any]
 ) -> dict[str, Any]:
@@ -66,39 +73,43 @@ def convert_file_to_document(path: str | Path) -> dict[str, Any]:
         else:
             raw_values = html_parser.parse()
             source_type = "profiling_html"
-        return build_analytics_document(
+        document = build_analytics_document(
             source_path=source,
             source_type=source_type,
             raw_values=raw_values,
             device_profile_config_path=device_profile_config_path,
         )
+        return _normalize_analytics_document_types(document)
     if suffix == ".csv":
         csv_text = source.read_text(encoding="utf-8-sig", errors="ignore")
         if is_battery_thermal_csv(csv_text):
             raw_values = parse_battery_thermal_csv(source, csv_text)
-            return build_analytics_document(
+            document = build_analytics_document(
                 source_path=source,
                 source_type="battery_thermal_csv",
                 raw_values=raw_values,
                 device_profile_config_path=device_profile_config_path,
             )
+            return _normalize_analytics_document_types(document)
         raw_values = PerformanceCSVReportParser(source).parse()
-        return build_analytics_document(
+        document = build_analytics_document(
             source_path=source,
             source_type="profiling_csv",
             raw_values=raw_values,
             device_profile_config_path=device_profile_config_path,
         )
+        return _normalize_analytics_document_types(document)
     if suffix == ".json":
         raw_values = json.loads(source.read_text(encoding="utf-8"))
         if "schema_version" in raw_values and "report_fingerprint" in raw_values:
             return raw_values
-        return build_analytics_document(
+        document = build_analytics_document(
             source_path=source,
             source_type="profiling_json",
             raw_values=raw_values,
             device_profile_config_path=device_profile_config_path,
         )
+        return _normalize_analytics_document_types(document)
     raise ValueError(f"Unsupported analytics source: {source}")
 
 
