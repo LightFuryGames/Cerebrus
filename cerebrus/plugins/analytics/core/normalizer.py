@@ -17,6 +17,7 @@ TIMESTAMP_INPUT_FORMATS = (
     "%Y%m%d_%H%M%S",
     "%Y-%m-%dT%H:%M:%SZ",
     "%Y-%m-%dT%H:%M:%S",
+    "%Y-%m-%d %H:%M:%S",
 )
 
 SCHEMA_VERSION = 2
@@ -121,6 +122,12 @@ RAW_TO_CANONICAL_KEYS = {
     "standard deviation (sd)": "fps_stddev",
     "cpu temp avg (c)": "cpu_temp_avg_c",
     "cpu temp max (c)": "cpu_temp_max_c",
+    "battery temp avg (c)": "battery_temp_avg_c",
+    "battery temp min (c)": "battery_temp_min_c",
+    "battery temp max (c)": "battery_temp_max_c",
+    "thermal sample count": "thermal_sample_count",
+    "thermal duration (s)": "thermal_duration_s",
+    "thermal source": "thermal_source",
     "thermal status max": "thermal_status_max",
     "thermal stress avg": "thermal_stress_avg",
     "thermal stress max": "thermal_stress_max",
@@ -174,6 +181,8 @@ GROUPS = {
         "target_fps",
         "total_time_s",
         "loading_screen_duration_s",
+        "thermal_duration_s",
+        "session_id",
     },
     "metrics": {
         "drawcalls_avg",
@@ -197,9 +206,13 @@ GROUPS = {
         "memory_total_used_peak_mb",
         "cpu_temp_avg_c",
         "cpu_temp_max_c",
+        "battery_temp_avg_c",
+        "battery_temp_min_c",
+        "battery_temp_max_c",
         "thermal_status_max",
         "thermal_stress_avg",
         "thermal_stress_max",
+        "thermal_sample_count",
         "cpu_freq_group0_avg_mhz",
         "cpu_freq_group1_avg_mhz",
         "cpu_freq_group0_avg_pct",
@@ -428,7 +441,7 @@ def _make_report_fingerprint(document: dict[str, Any]) -> str:
         },
         "capture": {
             key: document.get("capture", {}).get(key)
-            for key in ("csv_id", "start_timestamp", "end_timestamp", "frame_count")
+            for key in ("csv_id", "start_timestamp", "end_timestamp", "frame_count", "session_id")
         },
     }
     encoded = json.dumps(fingerprint_basis, sort_keys=True, separators=(",", ":"))

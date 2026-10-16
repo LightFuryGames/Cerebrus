@@ -15,6 +15,11 @@ from cerebrus.plugins.analytics.core.normalizer import (
 )
 from cerebrus.plugins.analytics.core.session_samples import build_session_samples
 from cerebrus.plugins.analytics.core.settings import load_analytics_settings
+from cerebrus.plugins.analytics.core.thermal_csv_parser import (
+    build_battery_thermal_samples,
+    is_battery_thermal_csv,
+    parse_battery_thermal_csv,
+)
 
 SUPPORTED_EXTENSIONS = {".html", ".htm", ".csv", ".json"}
 SESSION_SAMPLES_INDEX = "telemetry-cerebrus-session-samples"
@@ -68,6 +73,15 @@ def convert_file_to_document(path: str | Path) -> dict[str, Any]:
             device_profile_config_path=device_profile_config_path,
         )
     if suffix == ".csv":
+        csv_text = source.read_text(encoding="utf-8-sig", errors="ignore")
+        if is_battery_thermal_csv(csv_text):
+            raw_values = parse_battery_thermal_csv(source, csv_text)
+            return build_analytics_document(
+                source_path=source,
+                source_type="battery_thermal_csv",
+                raw_values=raw_values,
+                device_profile_config_path=device_profile_config_path,
+            )
         raw_values = PerformanceCSVReportParser(source).parse()
         return build_analytics_document(
             source_path=source,
@@ -108,6 +122,8 @@ def convert_file_to_session_samples(path: str | Path) -> list[dict[str, Any]]:
     suffix = source.suffix.lower()
     if suffix == ".csv":
         raw_csv = source.read_text(encoding="utf-8-sig", errors="ignore")
+        if is_battery_thermal_csv(raw_csv):
+            return build_battery_thermal_samples(raw_csv, convert_file_to_document(source))
     elif suffix in {".html", ".htm"}:
         raw_csv = PerformanceHTMLReportParser(source).extract_embedded_raw_csv()
         if not raw_csv:
