@@ -41,6 +41,28 @@ def test_thermal_csv_recovers_s3_path_dimensions(tmp_path: Path) -> None:
     assert document["capture_session_id"] == "152904"
 
 
+def test_thermal_csv_recovers_dimensions_from_sibling_report(tmp_path: Path) -> None:
+    source = tmp_path / "vivo_V2351_battery_thermal_7.csv"
+    source.write_text(THERMAL_CSV, encoding="utf-8")
+    (tmp_path / "vivo_V2351_7.html").write_text(
+        """
+        <script type="application/json" id="cerebrus-metadata">
+        {"build_config":"Test","device_manufacturer":"vivo",
+         "device_model":"V2351","changelist":"CL-54738"}
+        </script>
+        <div>Profile(20261015_152904)</div>
+        """,
+        encoding="utf-8",
+    )
+
+    document = convert_file_to_document(source)
+
+    assert document["build_cl"] == 54738
+    assert document["build_config"] == "Test"
+    assert document["device_id"] == "vivo_V2351"
+    assert document["capture_session_id"] == "152904"
+
+
 def test_thermal_csv_produces_elapsed_session_samples(tmp_path: Path) -> None:
     source = tmp_path / "samsung_SM-F956B_battery_thermal.csv"
     source.write_text(THERMAL_CSV, encoding="utf-8")
