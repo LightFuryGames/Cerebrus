@@ -104,7 +104,9 @@ def _sibling_report_metadata(path: Path) -> dict[str, Any]:
             "build_config", "Build Configuration", "configuration", "Configuration", "config"
         )
         if config is not None:
-            dimensions["build_config"] = config
+            # Use the normalizer's canonical raw key; ``build_config`` is an
+            # output field, not an input alias.
+            dimensions["Configuration"] = config
         build_cl = first(
             "build_cl", "Changelist", "changelist", "cl", "build_changelist"
         )
@@ -117,9 +119,9 @@ def _sibling_report_metadata(path: Path) -> dict[str, Any]:
         )
         model = first("device_model", "Device Model", "device_model", "model")
         if manufacturer is not None:
-            dimensions["device_manufacturer"] = manufacturer
+            dimensions["Device Manufacturer"] = manufacturer
         if model is not None:
-            dimensions["device_model"] = model
+            dimensions["Device Model"] = model
         if manufacturer is not None and model is not None:
             dimensions["device_id"] = f"{manufacturer}_{model}"
 
