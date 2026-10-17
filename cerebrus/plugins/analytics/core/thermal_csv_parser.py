@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import math
 import re
 from collections import defaultdict
@@ -55,6 +56,85 @@ def _path_metadata(path: Path) -> dict[str, Any]:
     return {}
 
 
+def _sibling_report_metadata(path: Path) -> dict[str, Any]:
+    """Recover dimensions from the Cerebrus HTML beside a sidecar CSV.
+
+    The S3 uploader derives its destination from this same report metadata, but
+    analytics conversion normally receives the local CSV path.  Reading the
+    metadata block here keeps both flows data-driven and prevents a valid S3
+    Build CL from becoming ``-1`` in Elasticsearch.
+    """
+    device_prefix = _device_from_name(path).lower()
+    candidates = sorted(
+        [*path.parent.glob("*.html"), *path.parent.glob("*.htm")],
+        key=lambda candidate: (
+            not candidate.stem.lower().startswith(device_prefix),
+            candidate.name.lower(),
+        ),
+    )
+    for report in candidates:
+        try:
+            content = report.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+
+        match = re.search(
+            r'<script type=["\']application/json["\'] id=["\']cerebrus-metadata["\']>(.*?)</script>',
+            content,
+            re.DOTALL | re.IGNORECASE,
+        )
+        if not match:
+            continue
+        try:
+            metadata = json.loads(match.group(1).strip())
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(metadata, dict):
+            continue
+
+        def first(*keys: str) -> object:
+            for key in keys:
+                value = metadata.get(key)
+                if value not in (None, ""):
+                    return value
+            return None
+
+        dimensions: dict[str, Any] = {}
+        config = first(
+            "build_config", "Build Configuration", "configuration", "Configuration", "config"
+        )
+        if config is not None:
+            dimensions["build_config"] = config
+        build_cl = first(
+            "build_cl", "Changelist", "changelist", "cl", "build_changelist"
+        )
+        if build_cl is not None:
+            match_cl = re.search(r"\d+", str(build_cl))
+            if match_cl:
+                dimensions["build_cl"] = int(match_cl.group(0))
+        manufacturer = first(
+            "device_manufacturer", "Device Make", "device_make", "manufacturer"
+        )
+        model = first("device_model", "Device Model", "device_model", "model")
+        if manufacturer is not None:
+            dimensions["device_manufacturer"] = manufacturer
+        if model is not None:
+            dimensions["device_model"] = model
+        if manufacturer is not None and model is not None:
+            dimensions["device_id"] = f"{manufacturer}_{model}"
+
+        # Profile(YYYYMMDD_HHMMSS) is the source used by the S3 uploader for
+        # capture time; retain the opaque HHMMSS portion as the session ID.
+        profile = re.search(r"Profile\(\d{8}_(\d{6})\)", content)
+        session_id = first("capture_session_id", "session_id")
+        if session_id is None and profile:
+            session_id = profile.group(1)
+        if session_id is not None:
+            dimensions["session_id"] = str(session_id)
+        return dimensions
+    return {}
+
+
 def parse_battery_thermal_csv(path: str | Path, csv_text: str | None = None) -> dict[str, Any]:
     source = Path(path)
     text = csv_text if csv_text is not None else source.read_text(encoding="utf-8-sig", errors="ignore")
@@ -76,6 +156,9 @@ def parse_battery_thermal_csv(path: str | Path, csv_text: str | None = None) -> 
         "Thermal Duration (s)": round(max(elapsed), 3) if elapsed else 0,
         "Thermal Source": "battery",
     }
+    values.update(_sibling_report_metadata(source))
+    # A preserved S3-style path is the strongest source of truth and wins over
+    # any incomplete metadata block in the sibling report.
     values.update(_path_metadata(source))
     return values
 
