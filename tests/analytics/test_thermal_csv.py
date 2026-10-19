@@ -51,5 +51,6 @@ def test_thermal_csv_produces_elapsed_session_samples(tmp_path: Path) -> None:
     assert samples[0]["source_type"] == "battery_thermal_session_sample"
     assert samples[0]["session_sample_id"].endswith(":thermal:000000")
     assert samples[0]["metrics_battery_temp_avg_c"] == 32.0
+    assert samples[0]["capture_started_at"] == "2026-10-15T11:02:55Z"
     assert samples[1]["elapsed_seconds"] == 1
     assert samples[1]["metrics_battery_temp_max_c"] == 33.0

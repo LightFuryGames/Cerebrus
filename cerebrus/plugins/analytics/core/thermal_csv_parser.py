@@ -90,19 +90,34 @@ def _sample_timestamp(value: str, elapsed_seconds: int) -> str:
     return (parsed + timedelta(seconds=elapsed_seconds)).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _canonical_timestamp(value: str) -> str | None:
+    """Return a date-mapping-safe UTC timestamp, or null for invalid input."""
+    text = value.strip()
+    if not text:
+        return None
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def build_battery_thermal_samples(raw_csv: str, summary_document: dict[str, Any]) -> list[dict[str, Any]]:
     session_id = str(summary_document.get("report_fingerprint") or "").strip()
     if not session_id:
         raise ValueError("A report_fingerprint is required to create thermal samples.")
 
     buckets: dict[int, list[float]] = defaultdict(list)
-    capture_start = ""
+    capture_start: str | None = None
     for row in csv.DictReader(StringIO(raw_csv)):
         elapsed = _number(row.get("ElapsedSeconds"))
         temperature = _number(row.get("BatteryTempC"))
         if elapsed is None or temperature is None:
             continue
-        capture_start = capture_start or str(row.get("Timestamp") or "").strip()
+        if capture_start is None:
+            capture_start = _canonical_timestamp(str(row.get("Timestamp") or ""))
         buckets[int(elapsed)].append(temperature)
 
     dimensions = {

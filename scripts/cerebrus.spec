@@ -2,8 +2,10 @@
 """PyInstaller specification file for building Cerebrus executable."""
 
 from pathlib import Path
+import os
 import sys
 
+from PyInstaller.utils.hooks import collect_data_files
 # Get the root directory
 spec_path = Path(SPECPATH).resolve()
 root_dir = spec_path.parent

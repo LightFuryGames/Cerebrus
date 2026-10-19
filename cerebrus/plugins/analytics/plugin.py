@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from tkinter import Tk, filedialog
 
@@ -81,9 +82,13 @@ class AnalyticsPlugin(TabPlugin):
         dpg.add_spacer(height=6)
 
         source_file_tag = "analytics_source_file"
+        thermal_source_file_tag = "analytics_thermal_source_file"
         source_folder_tag = "analytics_source_folder"
         upload_url_tag = "analytics_upload_url"
         preview_tag = "analytics_preview"
+        convert_action_tag = "analytics_action_convert"
+        summary_action_tag = "analytics_action_summary"
+        upload_action_tag = "analytics_action_upload"
         settings = load_analytics_settings()
 
         def _set_preview(message: str) -> None:
@@ -92,17 +97,22 @@ class AnalyticsPlugin(TabPlugin):
 
         def _browse_source_file() -> None:
             selected = _choose_file(
-                "Select Analytics Source",
+                "Select HTML Source",
                 [
-                    ("Report files", "*.html *.htm *.csv *.json"),
                     ("HTML reports", "*.html *.htm"),
-                    ("CSV captures", "*.csv"),
-                    ("JSON files", "*.json"),
                     ("All files", "*.*"),
                 ],
             )
             if selected:
                 dpg.set_value(source_file_tag, selected)
+
+        def _browse_thermal_source_file() -> None:
+            selected = _choose_file(
+                "Select Thermal CSV Source",
+                [("Thermal CSV files", "*.csv"), ("All files", "*.*")],
+            )
+            if selected:
+                dpg.set_value(thermal_source_file_tag, selected)
 
         def _browse_source_folder() -> None:
             selected = _choose_folder("Select Folder of Reports")
@@ -121,12 +131,32 @@ class AnalyticsPlugin(TabPlugin):
             else:
                 log_message(state, "ERROR", "No existing analytics folder to open.")
 
-        def _convert_source_to_json() -> None:
+        def _selected_source_files() -> list[Path]:
+            values = (
+                dpg.get_value(source_file_tag),
+                dpg.get_value(thermal_source_file_tag),
+            )
+            sources: list[Path] = []
+            for value in values:
+                source = Path(value or "")
+                if source.is_file() and source not in sources:
+                    sources.append(source)
+            return sources
+
+        def _common_source_folder(sources: list[Path]) -> Path | None:
+            if not sources:
+                return None
+            try:
+                return Path(os.path.commonpath([str(source.parent) for source in sources]))
+            except ValueError:
+                return None
+
+        def _convert_source_to_json(source: Path | None = None) -> None:
             _save_upload_settings()
-            source = Path(dpg.get_value(source_file_tag) or "")
+            source = source or Path(dpg.get_value(source_file_tag) or "")
             if not source.is_file():
                 log_message(
-                    state, "ERROR", "Select an HTML, CSV, or JSON source file first."
+                    state, "ERROR", "Select an HTML source file first."
                 )
                 return
             try:
@@ -141,9 +171,9 @@ class AnalyticsPlugin(TabPlugin):
             except Exception as exc:
                 log_message(state, "ERROR", f"Analytics conversion failed: {exc}")
 
-        def _summarize_folder() -> None:
+        def _summarize_folder(folder: Path | None = None) -> None:
             _save_upload_settings()
-            folder = Path(dpg.get_value(source_folder_tag) or "")
+            folder = folder or Path(dpg.get_value(source_folder_tag) or "")
             if not folder.is_dir():
                 log_message(
                     state, "ERROR", "Select a folder containing report files first."
@@ -168,12 +198,14 @@ class AnalyticsPlugin(TabPlugin):
             log_message(state, "SUCCESS", "Analytics upload endpoint saved.")
             return upload_url
 
-        def _upload_source_to_elasticsearch() -> None:
+        def _upload_source_to_elasticsearch(source: Path | None = None) -> None:
             upload_url = _save_upload_settings()
-            source = Path(dpg.get_value(source_file_tag) or "")
+            source = source or Path(dpg.get_value(source_file_tag) or "")
             if not source.is_file():
                 log_message(
-                    state, "ERROR", "Select an HTML, CSV, or JSON source file first."
+                    state,
+                    "ERROR",
+                    "Select an HTML or Thermal CSV source file first.",
                 )
                 return
 
@@ -250,6 +282,52 @@ class AnalyticsPlugin(TabPlugin):
                 else "Cleared Elasticsearch upload endpoint."
             )
 
+        def _upload_selected_telemetry() -> None:
+            selected_actions = (
+                dpg.get_value(convert_action_tag),
+                dpg.get_value(summary_action_tag),
+                dpg.get_value(upload_action_tag),
+            )
+            if not any(selected_actions):
+                log_message(
+                    state,
+                    "WARNING",
+                    "Select at least one telemetry action before uploading.",
+                )
+                return
+
+            sources = _selected_source_files()
+            if selected_actions[0]:
+                if not sources:
+                    log_message(
+                        state,
+                        "ERROR",
+                        "Select an HTML or Thermal CSV source file first.",
+                    )
+                for source in sources:
+                    _convert_source_to_json(source)
+            if selected_actions[1]:
+                folder = Path(dpg.get_value(source_folder_tag) or "")
+                if not folder.is_dir():
+                    folder = _common_source_folder(sources)
+                if folder is None:
+                    log_message(
+                        state,
+                        "ERROR",
+                        "Select source files or a report folder before building the summary.",
+                    )
+                else:
+                    _summarize_folder(folder)
+            if selected_actions[2]:
+                if not sources:
+                    log_message(
+                        state,
+                        "ERROR",
+                        "Select an HTML or Thermal CSV source file first.",
+                    )
+                for source in sources:
+                    _upload_source_to_elasticsearch(source)
+
         with dpg.table(
             header_row=False,
             borders_innerH=False,
@@ -262,17 +340,30 @@ class AnalyticsPlugin(TabPlugin):
             dpg.add_table_column(width_stretch=True, init_width_or_weight=1.0)
 
             with dpg.table_row():
-                dpg.add_text("Source File:")
+                dpg.add_text("HTML Source:")
                 add_plugin_help_button(ANALYTICS_TOOLTIPS, "analytics_source_file")
                 with dpg.group(horizontal=True):
                     dpg.add_input_text(
                         tag=source_file_tag,
-                        hint="HTML, CSV, or JSON report",
+                        hint="HTML report",
                         width=720,
                     )
                     dpg.add_button(label="Browse", callback=_browse_source_file)
                     dpg.add_button(
                         label="Open Folder", callback=_open_selected_source_folder
+                    )
+
+            with dpg.table_row():
+                dpg.add_text("Thermal Source:")
+                add_plugin_help_button(ANALYTICS_TOOLTIPS, "analytics_source_file")
+                with dpg.group(horizontal=True):
+                    dpg.add_input_text(
+                        tag=thermal_source_file_tag,
+                        hint="Optional Thermal CSV",
+                        width=720,
+                    )
+                    dpg.add_button(
+                        label="Browse", callback=_browse_thermal_source_file
                     )
 
             with dpg.table_row():
@@ -300,22 +391,25 @@ class AnalyticsPlugin(TabPlugin):
 
         dpg.add_spacer(height=10)
         with dpg.group(horizontal=True):
-            dpg.add_button(
+            dpg.add_checkbox(
                 label="Convert File to Analytics JSON",
-                callback=_convert_source_to_json,
-                width=240,
-                height=30,
+                tag=convert_action_tag,
+                default_value=True,
             )
-            dpg.add_button(
+            dpg.add_checkbox(
                 label="Build Trend Summary CSV",
-                callback=_summarize_folder,
-                width=210,
-                height=30,
+                tag=summary_action_tag,
+                default_value=True,
+            )
+            dpg.add_checkbox(
+                label="Upload Analytics Document",
+                tag=upload_action_tag,
+                default_value=True,
             )
             dpg.add_button(
-                label="Upload Analytics Document",
-                callback=_upload_source_to_elasticsearch,
-                width=220,
+                label="Upload telemetry",
+                callback=_upload_selected_telemetry,
+                width=180,
                 height=30,
             )
 
