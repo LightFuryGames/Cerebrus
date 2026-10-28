@@ -19,16 +19,25 @@ TIER_PROFILE_NAMES = {
 # report footer). Order matters - more specific patterns first.
 GPU_TIER_HEURISTIC: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"Adreno.*?[\s(]8[0-9][0-9]", re.IGNORECASE), "Epic"),
+    # Notion exception: Adreno 710 is Low even though the rest of the 7xx
+    # family is High.
+    (re.compile(r"Adreno.*?[\s(]710\b", re.IGNORECASE), "Low"),
     (re.compile(r"Adreno.*?[\s(]7[0-9][0-9]", re.IGNORECASE), "High"),
     (re.compile(r"Adreno.*?[\s(]6[0-9][0-9]", re.IGNORECASE), "Medium"),
     (re.compile(r"Adreno.*?[\s(][45][0-9][0-9]", re.IGNORECASE), "Low"),
-    (re.compile(r"Mali[- ]?G(710|7[1-9][0-9]|9[0-9][0-9])", re.IGNORECASE), "Epic"),
-    (re.compile(r"Mali[- ]?G(77|78)", re.IGNORECASE), "High"),
+    (re.compile(r"Immortalis[- ]?G(?:9[0-9][0-9]|925)", re.IGNORECASE), "Epic"),
+    (re.compile(r"Immortalis[- ]?G(?:715|720)", re.IGNORECASE), "High"),
+    (re.compile(r"Mali[- ]?G9[0-9][0-9]", re.IGNORECASE), "Epic"),
+    (re.compile(r"Mali[- ]?G[0-9]+[- ]?Ultra", re.IGNORECASE), "Epic"),
+    # Notion classifies G710 as Mid; the application stores that as Medium.
+    (re.compile(r"Mali[- ]?G710\b", re.IGNORECASE), "Medium"),
+    (re.compile(r"Mali[- ]?G(?:715|720|77|78|7[1-9][0-9])", re.IGNORECASE), "High"),
     (re.compile(r"Mali[- ]?G(71|72|76)", re.IGNORECASE), "Medium"),
     (re.compile(r"Mali[- ]?G[3-6][0-9]", re.IGNORECASE), "Low"),
     (re.compile(r"Mali[- ]?T[6-8][0-9][0-9]", re.IGNORECASE), "Low"),
-    (re.compile(r"Samsung Xclipse 9[0-9][0-9]", re.IGNORECASE), "High"),
-    (re.compile(r"Samsung Xclipse 5[0-9][0-9]", re.IGNORECASE), "Low"),
+    (re.compile(r"(?:Samsung )?Xclipse 950\b", re.IGNORECASE), "Epic"),
+    (re.compile(r"(?:Samsung )?Xclipse 9[0-9][0-9]", re.IGNORECASE), "High"),
+    (re.compile(r"(?:Samsung )?Xclipse 5[0-9][0-9]", re.IGNORECASE), "Low"),
     (re.compile(r"PowerVR.*?GM9", re.IGNORECASE), "High"),
     (re.compile(r"PowerVR.*?GT7", re.IGNORECASE), "Medium"),
     (re.compile(r"PowerVR.*?GE8", re.IGNORECASE), "Medium"),
@@ -111,6 +120,17 @@ def _unknown_payload() -> dict[str, Any]:
     }
 
 
+def _normalize_tier_label(value: str) -> str:
+    """Convert Notion qualifiers to Cerebrus' four canonical tier names."""
+    label = value.strip()
+    if "/" in label:
+        label = label.split("/", 1)[0].strip()
+    label = re.sub(r"\s*\([^)]*\)", "", label).strip()
+    if label.casefold() == "mid":
+        return "Medium"
+    return label
+
+
 def enrich_with_device_profile_tier(
     values: dict[str, Any], config_path: str | Path | None
 ) -> dict[str, Any]:
@@ -130,7 +150,7 @@ def enrich_with_device_profile_tier(
         "n/a",
         "na",
     }:
-        tier = str(explicit_tier).strip()
+        tier = _normalize_tier_label(str(explicit_tier))
         return {
             "Scalability Tier": tier,
             "scalability_tier": tier,

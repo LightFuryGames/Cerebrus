@@ -68,6 +68,13 @@ def ini(tmp_path: Path) -> Path:
 # Happy path: ini chain resolves
 
 
+def test_explicit_qualified_tier_is_normalized() -> None:
+    result = enrich_with_device_profile_tier(
+        {"Scalability Tier": "High (Mid)"}, None
+    )
+    assert result["scalability_tier"] == "High"
+
+
 def test_ini_chain_low_tier(ini: Path) -> None:
     result = enrich_with_device_profile_tier(
         {"DeviceProfile": "Android_Adreno5xx"}, ini
@@ -112,7 +119,7 @@ def test_bad_ini_path_falls_back_to_gpu_heuristic() -> None:
     result = enrich_with_device_profile_tier(
         {"cpu": "foo|bar|Mali-G710"}, "/does/not/exist.ini"
     )
-    assert result["scalability_tier"] == "Epic"  # Mali-G710 -> Epic
+    assert result["scalability_tier"] == "Medium"  # Notion Mid -> Medium
 
 
 def test_ini_unknown_profile_with_known_gpu(ini: Path) -> None:
@@ -130,15 +137,20 @@ def test_ini_unknown_profile_with_known_gpu(ini: Path) -> None:
     "gpu,expected",
     [
         ("Adreno (TM) 660", "Medium"),
+        ("Adreno (TM) 710", "Low"),
         ("Adreno (TM) 506", "Low"),
         ("Adreno (TM) 740", "High"),
         ("Adreno (TM) 850", "Epic"),
-        ("Mali-G710", "Epic"),
+        ("Mali-G710", "Medium"),
+        ("Mali-G720", "High"),
+        ("Immortalis-G925", "Epic"),
+        ("Immortalis-G720", "High"),
         ("Mali-G77", "High"),
         ("Mali-G72", "Medium"),
         ("Mali-G31", "Low"),
         ("Mali-T880", "Low"),
         ("Samsung Xclipse 920", "High"),
+        ("Samsung Xclipse 950", "Epic"),
         ("Samsung Xclipse 540", "Low"),
         ("PowerVR Rogue GM9446", "High"),
         ("PowerVR Rogue GT7400", "Medium"),

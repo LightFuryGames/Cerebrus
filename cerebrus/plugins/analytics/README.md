@@ -80,6 +80,15 @@ For a report with embedded raw CSV, frame-derived metrics come from the CSV.
 HTML-only metadata, including the rendered scalability tier, is retained so
 both aggregate documents and session samples use the same Grafana dimensions.
 
+### Device tier mapping
+
+Tier resolution prefers an explicit report tier, then the Unreal device-profile
+chain, and finally the ordered GPU fallback rules in
+`core/device_profiles.py`. The GPU fallback follows the current mobile-tier
+sheet, including exceptions such as Adreno 710 (`Low`), Mali-G710 (`Medium`),
+Mali-G715/G720 (`High`), Immortalis-G9xx (`Epic`), and Xclipse 950 (`Epic`).
+Qualifiers such as `Mid` are normalized to the existing analytics tier names.
+
 The `report_fingerprint` is computed from stable build, device, and capture
 identity fields. Bulk exports use it as the Elasticsearch `_id` with a `create`
 action, and single uploads use `PUT /_doc/{report_fingerprint}` when the
